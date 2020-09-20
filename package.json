@@ -1,0 +1,43 @@
+{
+  "name": "certacrypt",
+  "version": "0.0.1",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "standard --fix && tape ./modules/*/tests/*.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/fsteff/certacrypt.git"
+  },
+  "keywords": [
+    "P2P",
+    "Dat",
+    "Hyperdrive"
+  ],
+  "author": "Stefan Fixl (Fsteff)",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/fsteff/certacrypt/issues"
+  },
+  "homepage": "https://github.com/fsteff/certacrypt#readme",
+  "dependencies": {
+    "bulk-write-stream": "^2.0.1",
+    "codecs": "^2.1.0",
+    "hypertrie": "^5.1.1",
+    "sodium-native": "^3.2.0"
+  },
+  "devDependencies": {
+    "@hyperspace/client": "^1.12.0",
+    "hyperdrive": "^10.17.2",
+    "hyperspace": "^3.9.1",
+    "random-access-memory": "^3.1.1",
+    "standard": "^14.3.4",
+    "tape": "^5.0.1"
+  },
+  "standard": {
+    "ignore": [
+      "/node_modules/"
+    ]
+  }
+}
