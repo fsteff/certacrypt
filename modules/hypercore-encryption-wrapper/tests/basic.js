@@ -2,7 +2,6 @@ const hypercore = require('hypercore')
 const wrap = require('../index')
 const tape = require('tape')
 const ram = require('random-access-memory')
-const { createWriteStream } = require('fs')
 
 function replicate (a, b, opts) {
   var stream = a.replicate(true, opts)
