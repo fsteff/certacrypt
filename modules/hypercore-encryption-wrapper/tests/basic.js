@@ -2,7 +2,7 @@ const hypercore = require('hypercore')
 const wrap = require('../index')
 const tape = require('tape')
 const ram = require('random-access-memory')
-const crypto = require('../../crypto/lib/primitives')
+const primitives = require('../../crypto/lib/primitives')
 
 function replicate (a, b, opts) {
   var stream = a.replicate(true, opts)
@@ -131,10 +131,10 @@ tape('replicate', t => {
 
 tape('crypto', t => {
   t.plan(7)
-  const key = crypto.generateEncryptionKey()
+  const key = primitives.generateEncryptionKey()
   const core = wrap(hypercore(ram, null, { valueEncoding: 'utf-8' }),
-    (data, idx) => crypto.encryptBlockStream(data, idx, key),
-    (data, idx) => crypto.decryptBlockStream(data, idx, key))
+    (data, idx) => primitives.encryptBlockStream(data, idx, key),
+    (data, idx) => primitives.decryptBlockStream(data, idx, key))
   core.on('ready', append)
 
   function append () {
