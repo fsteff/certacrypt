@@ -25,6 +25,7 @@
     "bulk-write-stream": "^2.0.1",
     "codecs": "^2.1.0",
     "hypertrie": "^5.1.1",
+    "protobufjs": "^6.10.1",
     "sodium-native": "^3.2.0"
   },
   "devDependencies": {
@@ -37,7 +38,8 @@
   },
   "standard": {
     "ignore": [
-      "/node_modules/"
+      "/node_modules/",
+      "/modules/*/schema.js"
     ]
   }
 }

@@ -1,0 +1,39 @@
+syntax = "proto3";
+
+// Link to another graph node
+message Link {
+    required string id = 1;     // KV storage key/id
+    required bytes key = 2;     // encryption key
+    optional string name = 3;   // human-readable name
+    optional string url = 4;    // typically hypercore-url, but not necessarily - no url implies a relative link
+    repeated string owners = 5; // defines which users are allowed to link to other user's filesystems and define additional owners
+}
+
+message Directory {
+    repeated Link children = 1 [packed=true];
+}
+
+message File {
+    required string fileId = 1;                 // the random filename used for storing it in the hyperdrive
+}
+
+message Stream {
+    required string url = 1;                    // url to the hypercore used soely for that stream
+    optional uint64 offset = 2;                 // if a stream is deleted, the offset is the new start
+}
+
+// For now a share has the same structure as a directory, but that might change in the future
+message Share {
+    repeated Link children = 1 [packed=true];
+}
+
+message Node {
+    required string id = 1; // KV storage key/id
+    map<string, bytes> metadata = 2;
+    oneof filetype {
+        Directory dir = 3;
+        File file = 4;
+        Stream stream = 5;
+        Share share = 6;
+    }
+}
