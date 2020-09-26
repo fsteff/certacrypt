@@ -5,7 +5,9 @@ module.exports = wrapHypercore
 
 /**
  * Wraps an existing hypercore feed (or RemoteHypercore pendant)
- * @param feed {Hypercore}
+ * @param {Hypercore} feed
+ * @param {(data: Buffer, index: number) => Buffer} encrypt encryption function
+ * @param {(data: Buffer, index: number) => Buffer} decrypt decryption function
  */
 function wrapHypercore (feed, encrypt, decrypt) {
   const oldAppend = feed.append
