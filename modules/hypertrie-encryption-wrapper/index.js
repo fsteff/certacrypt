@@ -1,28 +1,19 @@
 /**
- *
+ * Uses a simple value encoder to encrypt the data (and preserves the original one)
  * @param {import('hypertrie')} trie
  * @param {(data: Buffer) => Buffer} encrypt
  * @param {(data: Buffer) => Buffer} decrypt
  */
 function wrapHypertrie (trie, encrypt, decrypt) {
-  const oldGet = trie.get
-  const oldPut = trie.put
-
-  trie.get = get
-  trie.put = put
-
-  function get (key, opts, cb) {
-    oldGet.call(trie, key, opts, onData)
-
-    function onData (err, data) {
-      if (err) return cb(err)
-      return decrypt(data)
-    }
+  const codec = trie.valueEncoding || {}
+  if (!codec.encode || !codec.decode) {
+    codec.encode = data => data
+    codec.decode = data => data
   }
 
-  function put (key, value, opts, cb) {
-    const ciphertext = encrypt(value)
-    oldPut.call(trie, key, ciphertext, opts, cb)
+  trie.valueEncoding = {
+    encode: data => encrypt(codec.encode(data)),
+    decode: data => codec.decode(decrypt(data))
   }
 
   return trie

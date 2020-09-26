@@ -13,25 +13,97 @@ tape('basic', t => {
   const key = primitives.generateEncryptionKey()
 
   function encrypt (data) {
-    return primitives.decryptBlob(data, key)
+    return primitives.encryptBlob(data, key)
   }
 
   function decrypt (data) {
     return primitives.decryptBlob(data, key)
   }
 
-  t.plan(1)
-  const trie = wrap(hypertrie(ram, null, { valueEncoding: 'binary' }), encrypt, decrypt)
-  trie.on('ready', put)
-
-  function put () {
-    trie.put('hello', Buffer.from('world', 'utf-8'), null, read)
-  }
+  t.plan(2)
+  const trie = wrap(hypertrie(ram, null, { valueEncoding: 'utf-8' }), encrypt, decrypt)
+  trie.put('hello', 'world', null, read)
 
   function read () {
     trie.get('hello', (err, data) => {
       t.error(err)
-      t.same(data.toString('utf-8'), 'hello')
+      t.same('world', data.value)
+    })
+  }
+})
+
+tape('replace', t => {
+  const key = primitives.generateEncryptionKey()
+
+  function encrypt (data) {
+    return primitives.encryptBlob(data, key)
+  }
+
+  function decrypt (data) {
+    return primitives.decryptBlob(data, key)
+  }
+
+  t.plan(4)
+  const trie = wrap(hypertrie(ram, null, { valueEncoding: 'utf-8' }), encrypt, decrypt)
+  trie.put('hello', 'world', null, replace)
+
+  function replace () {
+    trie.put('hello', 'hypertrie', {
+      condition: (o, n, cb) => {
+        cb(null, o.value === 'world')
+      }
+    }, test('hypertrie', noReplace))
+  }
+
+  function noReplace () {
+    trie.put('hello', 'not', {
+      condition: (o, n, cb) => {
+        cb(null, o.value !== 'hypertrie')
+      }
+    }, test('hypertrie'))
+  }
+
+  function test (target, next) {
+    return function () {
+      trie.get('hello', (err, data) => {
+        t.error(err)
+        t.same(target, data.value)
+        if (next) next()
+      })
+    }
+  }
+})
+
+tape('replicate', t => {
+  const key = primitives.generateEncryptionKey()
+
+  function encrypt (data) {
+    return primitives.encryptBlob(data, key)
+  }
+
+  function decrypt (data) {
+    return primitives.decryptBlob(data, key)
+  }
+
+  t.plan(2)
+  const trie = wrap(hypertrie(ram, null, { valueEncoding: 'utf-8' }), encrypt, decrypt)
+  trie.put('hello', 'world', null, read)
+
+  function read () {
+    trie.get('hello', (err, data) => {
+      t.error(err)
+      t.same('world', data.value)
+      repl()
+    })
+  }
+
+  function repl () {
+    const clone = wrap(hypertrie(ram, trie.key, { valueEncoding: 'utf-8', alwaysUpdate: true }), encrypt, decrypt)
+    replicate(trie, clone, { live: true, download: true })
+
+    clone.get('hello', (err, data) => {
+      t.error(err)
+      t.same('world', data.value)
     })
   }
 })

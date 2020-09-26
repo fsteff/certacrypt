@@ -29,9 +29,9 @@
     "sodium-native": "^3.2.0"
   },
   "devDependencies": {
-    "@hyperspace/client": "^1.12.0",
-    "hyperdrive": "^10.17.2",
-    "hyperspace": "^3.9.1",
+    "@hyperspace/client": "^1.13.0",
+    "hyperdrive": "^10.18.0",
+    "hyperspace": "^3.10.0",
     "random-access-memory": "^3.1.1",
     "standard": "^14.3.4",
     "tape": "^5.0.1"
