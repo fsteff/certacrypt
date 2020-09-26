@@ -85,7 +85,7 @@ tape('replicate', t => {
     return primitives.decryptBlob(data, key)
   }
 
-  t.plan(2)
+  t.plan(4)
   const trie = wrap(hypertrie(ram, null, { valueEncoding: 'utf-8' }), encrypt, decrypt)
   trie.put('hello', 'world', null, read)
 
