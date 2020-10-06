@@ -55,12 +55,16 @@ function wrapHypercore (feed, encrypt, decrypt) {
     }
 
     function appendWhenReady () {
-      const index = feed.length
-      for (let i = 0; i < batch.length; i++) {
-        const buf = encode(batch[i])
-        batch[i] = encrypt(buf, index + i)
+      try {
+        const index = feed.length
+        for (let i = 0; i < batch.length; i++) {
+          const buf = encode(batch[i])
+          batch[i] = encrypt(buf, index + i)
+        }
+        return oldAppend.call(feed, batch, done)
+      } catch (err) {
+        done(err)
       }
-      return oldAppend.call(feed, batch, done)
 
       function done (err) {
         pendigAppends.splice(0, 1)
@@ -85,8 +89,12 @@ function wrapHypercore (feed, encrypt, decrypt) {
       // little hacky bugfix: oldGet.call may call get() with onData as callback
       if (isCascaded) return cb(err, data, isCascaded)
 
-      const plaintext = decrypt(data, index)
-      return cb(null, decode(plaintext), true)
+      try {
+        const plaintext = decrypt(data, index)
+        return cb(null, decode(plaintext), true)
+      } catch (err) {
+        return cb(err)
+      }
     }
   }
 

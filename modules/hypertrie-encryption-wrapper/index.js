@@ -14,11 +14,11 @@ function wrapHypertrie (trie, encrypt, decrypt) {
   return trie
 
   function get (key, opts, cb) {
-    return oldGet.call(trie, key, injectCodec(opts), cb)
+    return tryOrError(() => oldGet.call(trie, key, injectCodec(opts), cb), cb)
   }
 
   function put (key, value, opts, cb) {
-    return oldPut.call(trie, key, value, injectCodec(opts), cb)
+    return tryOrError(() => oldPut.call(trie, key, value, injectCodec(opts), cb), cb)
   }
 
   function injectCodec (opts) {
@@ -36,6 +36,14 @@ function wrapHypertrie (trie, encrypt, decrypt) {
       decode: data => codec.decode(decrypt(data))
     }
     return opts
+  }
+}
+
+function tryOrError (foo, cb) {
+  try {
+    return foo()
+  } catch (err) {
+    cb(err)
   }
 }
 
