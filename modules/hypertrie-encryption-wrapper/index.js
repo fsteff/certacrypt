@@ -14,29 +14,31 @@ function wrapHypertrie (trie, encrypt, decrypt) {
   return trie
 
   function get (key, opts, cb) {
-    return tryOrError(() => oldGet.call(trie, key, injectCodec(opts), cb), cb)
+    opts = mapOpts(opts)
+    return tryOrError(() => oldGet.call(trie, key, opts, opts.encrypted ? onData(key, cb) : cb), cb)
+
+    function onData (key, cb) {
+      return function (err, node, ...args) {
+        if (err) return cb(err)
+        if (!node || !node.value) return cb(err, node, ...args)
+        const plain = decrypt(node.value, key)
+        node = Object.assign({}, node, { value: plain })
+        node.hidden = false // overwrite getter so the node is passed up to the hyperdrive by mountable-hypertrie
+        return cb(null, node, ...args)
+      }
+    }
   }
 
   function put (key, value, opts, cb) {
-    return tryOrError(() => oldPut.call(trie, key, value, injectCodec(opts), cb), cb)
+    opts = mapOpts(opts)
+    return tryOrError(() => oldPut.call(trie, key, opts.encrypted ? encrypt(value, key) : value, opts, cb), cb)
   }
+}
 
-  function injectCodec (opts) {
-    if (!opts || !opts.hidden) return opts
-
-    opts = opts || {}
-    const codec = opts.valueEncoding || {}
-    if (!codec.encode || !codec.decode) {
-      codec.encode = data => data
-      codec.decode = data => data
-    }
-
-    opts.valueEncoding = {
-      encode: data => encrypt(codec.encode(data)),
-      decode: data => codec.decode(decrypt(data))
-    }
-    return opts
-  }
+function mapOpts (opts) {
+  if (!opts) return {}
+  if (!opts.encrypted) return opts
+  return Object.assign({}, opts, { hidden: true })
 }
 
 function tryOrError (foo, cb) {

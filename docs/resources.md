@@ -52,6 +52,7 @@ List of links to relevant external resources.
   - [CFSNET (old)](https://github.com/AraBlocks/cfsnet)
 - [Tradle](https://github.com/tradle) (does research on hyper* stuff)
   - [hypercore FAQ](https://github.com/tradle/why-hypercore/blob/master/FAQ.md)
+- [HLC CRDT](https://jaredforsyth.com/posts/hybrid-logical-clocks/)
 
 ## Papers
 
