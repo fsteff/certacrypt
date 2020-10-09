@@ -50,3 +50,10 @@ List of links to relevant external resources.
   - [DatDot Research](https://github.com/playproject-io/datdot-research/tree/master/spec)
 - [Ara](https://github.com/AraBlocks) (blockchain-file-sharing-system)
   - [CFSNET (old)](https://github.com/AraBlocks/cfsnet)
+- [Tradle](https://github.com/tradle) (does research on hyper* stuff)
+  - [hypercore FAQ](https://github.com/tradle/why-hypercore/blob/master/FAQ.md)
+
+## Papers
+
+- [Tahoe LaFS](https://agoric.com/assets/pdf/papers/tahoe-the-least-authority-filesystem.pdf)
+- [Tresorit](https://tresorit.com/tresoritwhitepaper.pdf)
