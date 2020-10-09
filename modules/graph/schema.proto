@@ -10,7 +10,7 @@ message Link {
 }
 
 message Directory {
-    repeated Link children = 1 [packed=true];
+    repeated Link children = 1;
 }
 
 message File {
@@ -24,7 +24,7 @@ message Stream {
 
 // For now a share has the same structure as a directory, but that might change in the future
 message Share {
-    repeated Link children = 1 [packed=true];
+    repeated Link children = 1;
 }
 
 message Node {

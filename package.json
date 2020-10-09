@@ -4,7 +4,8 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "test": "standard --fix && tape ./modules/*/tests/*.js"
+    "test": "standard --fix && tape ./modules/*/tests/*.js",
+    "generate_protobuf": "protocol-buffers -o ./modules/graph/schema.js ./modules/graph/schema.proto"
   },
   "repository": {
     "type": "git",
@@ -25,7 +26,6 @@
     "bulk-write-stream": "^2.0.1",
     "codecs": "^2.1.0",
     "hypertrie": "^5.1.1",
-    "protobufjs": "^6.10.1",
     "sodium-native": "^3.2.0"
   },
   "devDependencies": {
@@ -34,7 +34,8 @@
     "hyperspace": "^3.10.0",
     "random-access-memory": "^3.1.1",
     "standard": "^14.3.4",
-    "tape": "^5.0.1"
+    "tape": "^5.0.1",
+    "protocol-buffers": "^4.2.0"
   },
   "standard": {
     "ignore": [
