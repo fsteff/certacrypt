@@ -6,6 +6,7 @@ module.exports = async function wrapHyperdrive (drive, context) {
 
   const drivekey = drive.key.toString('hex')
   const oldCreateWriteStream = drive.createWriteStream
+  // const oldMkdir = drive.mkdir // TODO: mkdir
 
   drive.db.trie = wrapHypertrie(
     drive.db.trie,
@@ -21,6 +22,7 @@ module.exports = async function wrapHyperdrive (drive, context) {
     if (!encrypted && opts.db.encrypted) encrypted = true
 
     const stream = oldCreateWriteStream.call(drive, name, Object.assign(opts, { db: { encrypted: encrypted } }))
+    // writing to the stream needs to be deferred until the context is prepared
     const input = new Minipass()
     stream.on('error', (err) => input.destroy(err))
     input.on('error', (err) => stream.destroy(err))

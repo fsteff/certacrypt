@@ -57,7 +57,7 @@ class CryptoContext {
   /**
    * @param {Buffer} ciphertext
    * @param {import('sodium-native').SecureBuffer} secret encrytion key
-   * @param {string} feed hypertrie discovery key
+   * @param {string} feed key as hex
    */
   decryptNode (ciphertext, secret, feed) {
     const block = crypto.decryptBlob(ciphertext, secret)
@@ -82,7 +82,7 @@ class CryptoContext {
 
   /**
    * @param {Node} node to extract from
-   * @param {string} feed hypertrie discovery key
+   * @param {string} feed key as hex
    * @param {import('../../graph/schema').Node} node
    */
   extractKeys (node, feed) {
@@ -103,7 +103,7 @@ class CryptoContext {
   }
 
   /**
-   * @param {string} feed hypertrie discovery key
+   * @param {string} feed key as hex
    * @returns {(stat: Buffer, id: string) => Buffer}
    */
   getStatEncryptor (feed) {
@@ -119,7 +119,7 @@ class CryptoContext {
 
   /**
    * Generates a new encryption key for metadata stat block
-   * @param {string} feed hypertrie discovery key
+   * @param {string} feed key as hex
    * @param {string} id hypertrie key
    */
   prepareStat (feed, id) {
@@ -128,7 +128,7 @@ class CryptoContext {
   }
 
   /**
-   * @param {string} feed hypertrie discovery key
+   * @param {string} feed key as hex
    * @returns {(ciphertext: Buffer, id: string) => Buffer}
    */
   getStatDecryptor (feed) {
@@ -142,15 +142,27 @@ class CryptoContext {
     }
   }
 
+  /**
+   * @param {string} feed key as hex
+   * @param {number} index hypercore enctry index
+   */
   prepareStream (feed, index) {
     const secret = crypto.generateEncryptionKey()
     this.keystore.set(feed, index, secret)
   }
 
+  /**
+   * @param {string} feed key as hex
+   * @param {number} index hypercore enctry index
+   */
   preparePublicStream (feed, index) {
     this.keystore.set(feed, index, null)
   }
 
+  /**
+   * @param {string} feed key as hex
+   * @returns {(block: Buffer, index: number) => Buffer} encrypted block
+   */
   getStreamEncryptor (feed) {
     const self = this
     return function encrypt (block, index) {
@@ -163,6 +175,10 @@ class CryptoContext {
     }
   }
 
+  /**
+   * @param {string} feed key as hex
+   * @returns {(ciphertext: Buffer, index: number) => Buffer} decrypted ciphertext
+   */
   getStreamDecryptor (feed) {
     const self = this
     return function decrypt (ciphertext, index) {

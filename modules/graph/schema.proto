@@ -6,25 +6,26 @@ message Link {
     required bytes key = 2;     // encryption key
     optional string name = 3;   // human-readable name
     optional string url = 4;    // typically hypercore-url, but not necessarily - no url implies a relative link
-    repeated string owners = 5; // defines which users are allowed to link to other user's filesystems and define additional owners
 }
 
 message Directory {
     repeated Link children = 1;
+    optional File statId = 2;     // for backards-compatibility, storing a Stat entry
 }
 
 message File {
-    required string fileId = 1;                 // the random filename used for storing it in the hyperdrive
+    required string fileId = 1;  // the random filename used for storing it in the hyperdrive
+    required bytes key = 2;      // encryption key            
 }
 
 message Stream {
-    required string url = 1;                    // url to the hypercore used soely for that stream
-    optional uint64 offset = 2;                 // if a stream is deleted, the offset is the new start
+    required string url = 1;     // url to the hypercore used soely for that stream
+    optional uint64 offset = 2;  // if a stream is deleted, the offset is the new start
 }
 
-// For now a share has the same structure as a directory, but that might change in the future
 message Share {
     repeated Link children = 1;
+    optional string name = 2;
 }
 
 message Node {

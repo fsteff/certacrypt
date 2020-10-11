@@ -88,13 +88,6 @@ function defineLink () {
       var len = encodings.string.encodingLength(obj.url)
       length += 1 + len
     }
-    if (defined(obj.owners)) {
-      for (var i = 0; i < obj.owners.length; i++) {
-        if (!defined(obj.owners[i])) continue
-        var len = encodings.string.encodingLength(obj.owners[i])
-        length += 1 + len
-      }
-    }
     return length
   }
 
@@ -120,14 +113,6 @@ function defineLink () {
       encodings.string.encode(obj.url, buf, offset)
       offset += encodings.string.encode.bytes
     }
-    if (defined(obj.owners)) {
-      for (var i = 0; i < obj.owners.length; i++) {
-        if (!defined(obj.owners[i])) continue
-        buf[offset++] = 42
-        encodings.string.encode(obj.owners[i], buf, offset)
-        offset += encodings.string.encode.bytes
-      }
-    }
     encode.bytes = offset - oldOffset
     return buf
   }
@@ -141,8 +126,7 @@ function defineLink () {
       id: "",
       key: null,
       name: "",
-      url: "",
-      owners: []
+      url: ""
     }
     var found0 = false
     var found1 = false
@@ -174,10 +158,6 @@ function defineLink () {
         obj.url = encodings.string.decode(buf, offset)
         offset += encodings.string.decode.bytes
         break
-        case 5:
-        obj.owners.push(encodings.string.decode(buf, offset))
-        offset += encodings.string.decode.bytes
-        break
         default:
         offset = skip(prefix & 7, buf, offset)
       }
@@ -200,6 +180,11 @@ function defineDirectory () {
         length += 1 + len
       }
     }
+    if (defined(obj.statId)) {
+      var len = File.encodingLength(obj.statId)
+      length += varint.encodingLength(len)
+      length += 1 + len
+    }
     return length
   }
 
@@ -217,6 +202,13 @@ function defineDirectory () {
         offset += Link.encode.bytes
       }
     }
+    if (defined(obj.statId)) {
+      buf[offset++] = 18
+      varint.encode(File.encodingLength(obj.statId), buf, offset)
+      offset += varint.encode.bytes
+      File.encode(obj.statId, buf, offset)
+      offset += File.encode.bytes
+    }
     encode.bytes = offset - oldOffset
     return buf
   }
@@ -227,7 +219,8 @@ function defineDirectory () {
     if (!(end <= buf.length && offset <= buf.length)) throw new Error("Decoded message is not valid")
     var oldOffset = offset
     var obj = {
-      children: []
+      children: [],
+      statId: null
     }
     while (true) {
       if (end <= offset) {
@@ -243,6 +236,12 @@ function defineDirectory () {
         offset += varint.decode.bytes
         obj.children.push(Link.decode(buf, offset, offset + len))
         offset += Link.decode.bytes
+        break
+        case 2:
+        var len = varint.decode(buf, offset)
+        offset += varint.decode.bytes
+        obj.statId = File.decode(buf, offset, offset + len)
+        offset += File.decode.bytes
         break
         default:
         offset = skip(prefix & 7, buf, offset)
@@ -261,6 +260,9 @@ function defineFile () {
     if (!defined(obj.fileId)) throw new Error("fileId is required")
     var len = encodings.string.encodingLength(obj.fileId)
     length += 1 + len
+    if (!defined(obj.key)) throw new Error("key is required")
+    var len = encodings.bytes.encodingLength(obj.key)
+    length += 1 + len
     return length
   }
 
@@ -272,6 +274,10 @@ function defineFile () {
     buf[offset++] = 10
     encodings.string.encode(obj.fileId, buf, offset)
     offset += encodings.string.encode.bytes
+    if (!defined(obj.key)) throw new Error("key is required")
+    buf[offset++] = 18
+    encodings.bytes.encode(obj.key, buf, offset)
+    offset += encodings.bytes.encode.bytes
     encode.bytes = offset - oldOffset
     return buf
   }
@@ -282,12 +288,14 @@ function defineFile () {
     if (!(end <= buf.length && offset <= buf.length)) throw new Error("Decoded message is not valid")
     var oldOffset = offset
     var obj = {
-      fileId: ""
+      fileId: "",
+      key: null
     }
     var found0 = false
+    var found1 = false
     while (true) {
       if (end <= offset) {
-        if (!found0) throw new Error("Decoded message is not valid")
+        if (!found0 || !found1) throw new Error("Decoded message is not valid")
         decode.bytes = offset - oldOffset
         return obj
       }
@@ -299,6 +307,11 @@ function defineFile () {
         obj.fileId = encodings.string.decode(buf, offset)
         offset += encodings.string.decode.bytes
         found0 = true
+        break
+        case 2:
+        obj.key = encodings.bytes.decode(buf, offset)
+        offset += encodings.bytes.decode.bytes
+        found1 = true
         break
         default:
         offset = skip(prefix & 7, buf, offset)
@@ -392,6 +405,10 @@ function defineShare () {
         length += 1 + len
       }
     }
+    if (defined(obj.name)) {
+      var len = encodings.string.encodingLength(obj.name)
+      length += 1 + len
+    }
     return length
   }
 
@@ -409,6 +426,11 @@ function defineShare () {
         offset += Link.encode.bytes
       }
     }
+    if (defined(obj.name)) {
+      buf[offset++] = 18
+      encodings.string.encode(obj.name, buf, offset)
+      offset += encodings.string.encode.bytes
+    }
     encode.bytes = offset - oldOffset
     return buf
   }
@@ -419,7 +441,8 @@ function defineShare () {
     if (!(end <= buf.length && offset <= buf.length)) throw new Error("Decoded message is not valid")
     var oldOffset = offset
     var obj = {
-      children: []
+      children: [],
+      name: ""
     }
     while (true) {
       if (end <= offset) {
@@ -435,6 +458,10 @@ function defineShare () {
         offset += varint.decode.bytes
         obj.children.push(Link.decode(buf, offset, offset + len))
         offset += Link.decode.bytes
+        break
+        case 2:
+        obj.name = encodings.string.decode(buf, offset)
+        offset += encodings.string.decode.bytes
         break
         default:
         offset = skip(prefix & 7, buf, offset)

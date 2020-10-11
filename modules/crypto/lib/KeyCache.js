@@ -28,6 +28,7 @@ class RangeEntries {
   }
 
   set (index, value) {
+    if (typeof index !== 'number') throw new Error('RangeEntries requires a number as index')
     if (this.entries.length === 0) return this.entries.push({ index, value })
 
     let i = this.entries.length - 1
@@ -38,6 +39,7 @@ class RangeEntries {
   }
 
   get (searched) {
+    if (typeof searched !== 'number') throw new Error('RangeEntries requires a number as search param')
     if (this.entries.length === 0) return null
 
     let zerodiff = this.entries[0].index - searched
