@@ -25,7 +25,7 @@ class CryptoContext {
       if (!secret) {
         throw new Error('no encryption key present for feed node ' + feed + ' ' + id)
       }
-      return self.encryptNode(node, secret)
+      return self.encryptNode(node, feed, secret)
     }
   }
 
@@ -72,10 +72,22 @@ class CryptoContext {
    * @param {import('sodium-native').SecureBuffer} secret
    * @returns {Buffer}
    */
-  encryptNode (node, secret) {
+  encryptNode (node, feed, secret) {
+    const self = this
     if (GraphShema.Node.verify(node)) {
       throw new Error('Invalid Node, cannot encode and encrypt')
     }
+    const children = (node.share || node.dir).children
+    if (Array.isArray(children)) {
+      const copy = children.map(child => {
+        child = Object.assign({}, child)
+        child.key = self.keystore.get(feed, child.id)
+        return child
+      })
+      if (node.share) node.share.children = copy
+      else node.dir = copy
+    }
+
     const block = GraphShema.Node.encode(node)
     return crypto.encryptBlob(block, secret)
   }

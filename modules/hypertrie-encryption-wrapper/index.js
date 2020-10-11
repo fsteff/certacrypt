@@ -4,7 +4,7 @@
  * @param {(data: Buffer) => Buffer} encrypt
  * @param {(data: Buffer) => Buffer} decrypt
  */
-function wrapHypertrie (trie, encrypt, decrypt) {
+function wrapHypertrie (trie, encryptStat, decryptStat, encryptNode, decryptNode) {
   const oldGet = trie.get
   const oldPut = trie.put
 
@@ -15,6 +15,7 @@ function wrapHypertrie (trie, encrypt, decrypt) {
 
   function get (key, opts, cb) {
     opts = mapOpts(opts)
+    const decrypt = opts.graphNode ? decryptNode : decryptStat
     return tryOrError(() => oldGet.call(trie, key, opts, opts.encrypted ? onData(key, cb) : cb), cb)
 
     function onData (key, cb) {
@@ -31,6 +32,7 @@ function wrapHypertrie (trie, encrypt, decrypt) {
 
   function put (key, value, opts, cb) {
     opts = mapOpts(opts)
+    const encrypt = opts.graphNode ? encryptNode : encryptStat
     return tryOrError(() => oldPut.call(trie, key, opts.encrypted ? encrypt(value, key) : value, opts, cb), cb)
   }
 }
