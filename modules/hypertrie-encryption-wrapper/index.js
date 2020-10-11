@@ -32,7 +32,7 @@ function wrapHypertrie (trie, encryptStat, decryptStat, encryptNode, decryptNode
 
   function put (key, value, opts, cb) {
     opts = mapOpts(opts)
-    const encrypt = opts.graphNode ? encryptNode : encryptStat
+    const encrypt = opts.graphNode ? passThrough : encryptStat
     return tryOrError(() => oldPut.call(trie, key, opts.encrypted ? encrypt(value, key) : value, opts, cb), cb)
   }
 }
@@ -41,6 +41,10 @@ function mapOpts (opts) {
   if (!opts) return {}
   if (!opts.encrypted) return opts
   return Object.assign({}, opts, { hidden: true })
+}
+
+function passThrough (data) {
+  return data
 }
 
 function tryOrError (foo, cb) {

@@ -1,6 +1,7 @@
+const primitives = require('../crypto/lib/primitives')
 const { Node, Link, File, Share, Directory, Stream } = require('./schema')
 
-const defaultOpts = { db: { encrypted: true, graphNode: true } }
+const defaultOpts = { encrypted: true, graphNode: true }
 
 class Graph {
   /**
@@ -9,32 +10,49 @@ class Graph {
    */
   constructor (db, context) {
     this.rootNode = null
-    this.idCtr = 1
+    this.idCtr = 1 // TODO: load latest value from db - history or db entry?
     this.cryptoContext = context
     this.db = db
+    this.encryptNode = context.getNodeEncryptor(this.db.feed.key.toString('hex'))
   }
 
   createNode () {
-    const node = new Node()
-    node.id = this.idCtr++
+    const node = { id: (this.idCtr++).toString(16) }
+    return node
   }
 
-  createDir () {
+  createDir (createStat = true) {
     const node = this.createNode()
-    node.dir = new Directory()
+    node.dir = {}
+    if (createStat) {
+      node.dir.file = { id: (this.idCtr++).toString(16) }
+    }
+    return node
   }
 
-  createRootNode () {
-    this.rootNode = this.createDir()
+  createFile () {
+    const node = this.createNode()
+    node.file = { id: (this.idCtr++).toString(16) }
+    return node
+  }
+
+  async createRootNode (save = true) {
+    this.rootNode = this.createDir(false)
+    if (save) {
+      // TODO: persist somehow
+      const key = primitives.generateEncryptionKey()
+      const driveKey = this.db.feed.key.toString('hex')
+      this.cryptoContext.keystore.set(driveKey, this.rootNode.id, key)
+      await this.saveNode(this.rootNode)
+    }
     return this.rootNode
   }
 
-  async saveNode (node, isNew = false) {
+  async saveNode (node) {
     const self = this
-    const feedkey = this.db.feed.key.toString('hex')
-    if (isNew) this.cryptoContext.prepareNode(feedkey, node.id)
     return new Promise((resolve, reject) => {
-      self.db.put(node, node.id, defaultOpts, (err) => {
+      const ciphertext = self.encryptNode(node, node.id)
+      self.db.put(node.id, ciphertext, defaultOpts, (err) => {
         if (err) reject(err)
         else resolve()
       })
@@ -74,18 +92,28 @@ class Graph {
   async find (path, node = this.rootNode) {
     if (!node) throw new Error('no root node specified')
 
-    const parts = path.split('/').filter(elem => elem.length > 0)
-    if (parts.length === 1) return node
+    let parts
+    if (Array.isArray(path)) parts = path
+    else parts = path.split('/').filter(elem => elem.length > 0)
+    if (parts.length === 0) return { node }
 
     if (!node.dir && !node.share) throw new Error('root has to be dir or share')
     const dir = node.dir || node.share
-    if (!Array.isArray(dir.children)) return null
+    if (!Array.isArray(dir.children)) {
+      if (parts.length === 1) return { parent: node }
+      else return {}
+    }
     for (const child of dir.children) {
       if (parts[0] === child.name) {
         const decoded = await this.getNode(child.id)
-        return this.find(path.slice(parts[0].length), decoded)
+        if (parts.length === 1) return { node: decoded }
+
+        const result = this.find(parts.slice(1), decoded)
+        if (parts.length === 2) result.parent = node
+        return result
       }
     }
+    return {}
   }
 }
 

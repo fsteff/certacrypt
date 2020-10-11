@@ -74,9 +74,6 @@ class CryptoContext {
    */
   encryptNode (node, feed, secret) {
     const self = this
-    if (GraphShema.Node.verify(node)) {
-      throw new Error('Invalid Node, cannot encode and encrypt')
-    }
     const children = (node.share || node.dir).children
     if (Array.isArray(children)) {
       const copy = children.map(child => {
@@ -86,6 +83,11 @@ class CryptoContext {
       })
       if (node.share) node.share.children = copy
       else node.dir = copy
+    }
+
+    const file = (node.file || (node.dir && node.dir.file ? node.dir.file : null))
+    if (file && !file.key) {
+      file.key = this.keystore.set(feed, file.id)
     }
 
     const block = GraphShema.Node.encode(node)
@@ -111,6 +113,11 @@ class CryptoContext {
           this.keystore.set(feed, child.id, secret)
         }
       }
+    }
+    const file = (node.file || (node.dir && node.dir.file ? node.dir.file : null))
+    if (file) {
+      this.keystore.set(feed, file.id, file.key)
+      file.key = null
     }
   }
 

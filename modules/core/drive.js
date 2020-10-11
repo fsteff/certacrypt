@@ -1,8 +1,14 @@
 const wrapHypertrie = require('../hypertrie-encryption-wrapper')
 const Minipass = require('minipass')
+const unixify = require('unixify')
+const Graph = require('../graph')
 
 module.exports = async function wrapHyperdrive (drive, context) {
   await drive.promises.ready()
+
+  const graph = new Graph(drive.db, context)
+  // TODO: persist & load
+  await graph.createRootNode(true)
 
   const drivekey = drive.key.toString('hex')
   const oldCreateWriteStream = drive.createWriteStream
@@ -17,9 +23,27 @@ module.exports = async function wrapHyperdrive (drive, context) {
   drive.createWriteStream = createWriteStream
 
   function createWriteStream (name, opts, encrypted) {
+    name = unixify(name)
     opts = Object.assign({}, opts)
     opts.db = opts.db || (encrypted ? { encrypted: true } : {})
     if (!encrypted && opts.db.encrypted) encrypted = true
+
+    if (encrypted) {
+      const filename = name.substr(name.lastIndexOf('/'))
+      let { node, parent } = graph.find(name)
+      // TODO: why is parent null?
+      if (!parent) throw new Error('no parent node found')
+      if (!node) {
+        node = graph.createFile()
+        context.prepareNode(drivekey, node.id)
+        context.prepareStat(drivekey, node.file.id)
+        graph.saveNode(node)
+      }
+      graph.linkNode(node, parent, filename)
+      graph.saveNode(parent, false)
+
+      name = node.file.id
+    }
 
     const stream = oldCreateWriteStream.call(drive, name, Object.assign(opts, { db: { encrypted: encrypted } }))
     // writing to the stream needs to be deferred until the context is prepared

@@ -10,11 +10,11 @@ message Link {
 
 message Directory {
     repeated Link children = 1;
-    optional File statId = 2;     // for backards-compatibility, storing a Stat entry
+    optional File file = 2;     // for backards-compatibility, storing a Stat entry
 }
 
 message File {
-    required string fileId = 1;  // the random filename used for storing it in the hyperdrive
+    required string id = 1;  // the random filename used for storing it in the hyperdrive
     required bytes key = 2;      // encryption key            
 }
 

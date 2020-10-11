@@ -180,8 +180,8 @@ function defineDirectory () {
         length += 1 + len
       }
     }
-    if (defined(obj.statId)) {
-      var len = File.encodingLength(obj.statId)
+    if (defined(obj.file)) {
+      var len = File.encodingLength(obj.file)
       length += varint.encodingLength(len)
       length += 1 + len
     }
@@ -202,11 +202,11 @@ function defineDirectory () {
         offset += Link.encode.bytes
       }
     }
-    if (defined(obj.statId)) {
+    if (defined(obj.file)) {
       buf[offset++] = 18
-      varint.encode(File.encodingLength(obj.statId), buf, offset)
+      varint.encode(File.encodingLength(obj.file), buf, offset)
       offset += varint.encode.bytes
-      File.encode(obj.statId, buf, offset)
+      File.encode(obj.file, buf, offset)
       offset += File.encode.bytes
     }
     encode.bytes = offset - oldOffset
@@ -220,7 +220,7 @@ function defineDirectory () {
     var oldOffset = offset
     var obj = {
       children: [],
-      statId: null
+      file: null
     }
     while (true) {
       if (end <= offset) {
@@ -240,7 +240,7 @@ function defineDirectory () {
         case 2:
         var len = varint.decode(buf, offset)
         offset += varint.decode.bytes
-        obj.statId = File.decode(buf, offset, offset + len)
+        obj.file = File.decode(buf, offset, offset + len)
         offset += File.decode.bytes
         break
         default:
@@ -257,8 +257,8 @@ function defineFile () {
 
   function encodingLength (obj) {
     var length = 0
-    if (!defined(obj.fileId)) throw new Error("fileId is required")
-    var len = encodings.string.encodingLength(obj.fileId)
+    if (!defined(obj.id)) throw new Error("id is required")
+    var len = encodings.string.encodingLength(obj.id)
     length += 1 + len
     if (!defined(obj.key)) throw new Error("key is required")
     var len = encodings.bytes.encodingLength(obj.key)
@@ -270,9 +270,9 @@ function defineFile () {
     if (!offset) offset = 0
     if (!buf) buf = Buffer.allocUnsafe(encodingLength(obj))
     var oldOffset = offset
-    if (!defined(obj.fileId)) throw new Error("fileId is required")
+    if (!defined(obj.id)) throw new Error("id is required")
     buf[offset++] = 10
-    encodings.string.encode(obj.fileId, buf, offset)
+    encodings.string.encode(obj.id, buf, offset)
     offset += encodings.string.encode.bytes
     if (!defined(obj.key)) throw new Error("key is required")
     buf[offset++] = 18
@@ -288,7 +288,7 @@ function defineFile () {
     if (!(end <= buf.length && offset <= buf.length)) throw new Error("Decoded message is not valid")
     var oldOffset = offset
     var obj = {
-      fileId: "",
+      id: "",
       key: null
     }
     var found0 = false
@@ -304,7 +304,7 @@ function defineFile () {
       var tag = prefix >> 3
       switch (tag) {
         case 1:
-        obj.fileId = encodings.string.decode(buf, offset)
+        obj.id = encodings.string.decode(buf, offset)
         offset += encodings.string.decode.bytes
         found0 = true
         break
