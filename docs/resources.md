@@ -52,7 +52,6 @@ List of links to relevant external resources.
   - [CFSNET (old)](https://github.com/AraBlocks/cfsnet)
 - [Tradle](https://github.com/tradle) (does research on hyper* stuff)
   - [hypercore FAQ](https://github.com/tradle/why-hypercore/blob/master/FAQ.md)
-- [HLC CRDT](https://jaredforsyth.com/posts/hybrid-logical-clocks/)
 
 ## Papers
 
@@ -64,10 +63,18 @@ List of links to relevant external resources.
 - [Password-Capabilites: their evolution from the pwassword-capability system into Walnut and beyond(2001)](https://doi.org/10.1109/ACAC.2001.903370)
 - [A capability-based transparent cryptographic file system(2005)](https://ieeexplore.ieee.org/abstract/document/1587522)
 - [A cryptographic file system for UNIX (1993)](https://dl.acm.org/doi/abs/10.1145/168588.168590)
+- [CryFS Master Thesis](https://www.cryfs.org/cryfs_mathesis.pdf)
 
 ## Broader Spectrum
 
 - [Ceph](https://developer.ibm.com/tutorials/l-ceph/)
 - [Paxos Consensus](https://en.wikipedia.org/wiki/Paxos_(computer_science))
+- [HLC CRDT](https://jaredforsyth.com/posts/hybrid-logical-clocks/)
 - [Blogpost: What if we had local-first Software](https://adlrocha.substack.com/p/adlrocha-what-if-we-had-local-first)
 - [Wiki: List of cryptographic file systems](https://en.wikipedia.org/wiki/List_of_cryptographic_file_systems)
+- [gocryptfs](https://nuetzlich.net/gocryptfs/)
+- [eCryptFS](https://www.ecryptfs.org)
+- [CryFS](https://www.cryfs.org)
+  - [Comparison of cryptographic file systems to CryFS](https://www.cryfs.org/comparison/)
+- [PGP / gnupg](https://wiki.gnupg.org/)
+- [Attribute-based encryption](https://en.wikipedia.org/wiki/Attribute-based_encryption)
