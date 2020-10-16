@@ -58,3 +58,16 @@ List of links to relevant external resources.
 
 - [Tahoe LaFS](https://agoric.com/assets/pdf/papers/tahoe-the-least-authority-filesystem.pdf)
 - [Tresorit](https://tresorit.com/tresoritwhitepaper.pdf)
+- [Local-First Software](https://storage.googleapis.com/jellyposter-store/16620200e730651d20d1a25d315508c7.pdf)
+- [Capability Myths Demolished](http://www-users.cselabs.umn.edu/classes/Fall-2019/csci5271/papers/SRL2003-02.pdf)
+- [Password Capability System (1986)](https://doi.org/10.1093/comjnl/29.1.1)
+- [Password-Capabilites: their evolution from the pwassword-capability system into Walnut and beyond(2001)](https://doi.org/10.1109/ACAC.2001.903370)
+- [A capability-based transparent cryptographic file system(2005)](https://ieeexplore.ieee.org/abstract/document/1587522)
+- [A cryptographic file system for UNIX (1993)](https://dl.acm.org/doi/abs/10.1145/168588.168590)
+
+## Broader Spectrum
+
+- [Ceph](https://developer.ibm.com/tutorials/l-ceph/)
+- [Paxos Consensus](https://en.wikipedia.org/wiki/Paxos_(computer_science))
+- [Blogpost: What if we had local-first Software](https://adlrocha.substack.com/p/adlrocha-what-if-we-had-local-first)
+- [Wiki: List of cryptographic file systems](https://en.wikipedia.org/wiki/List_of_cryptographic_file_systems)
