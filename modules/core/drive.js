@@ -47,14 +47,9 @@ module.exports = async function wrapHyperdrive (drive, context) {
     if (node) throw new PathAlreadyExists(name)
 
     const filename = name.substr(name.lastIndexOf('/') + 1)
-    node = graph.createDir(true)
-    const stat = node.dir.file
-    context.prepareNode(drivekey, node.id)
-    context.prepareStat(drivekey, stat.id)
-    graph.linkNode(node, parent, filename)
-    await graph.saveNode(parent)
-    await graph.saveNode(node)
-    return oldMkdir.call(drive, stat.id, opts, cb)
+    node = await graph.createDir(true, true)
+    await graph.linkNode(node, parent, filename, null, true)
+    return oldMkdir.call(drive, node.dir.file.id, opts, cb)
   }
 
   function createReadStream (name, opts, encrypted) {
@@ -133,13 +128,9 @@ module.exports = async function wrapHyperdrive (drive, context) {
       let { node, parent } = await graph.find(name)
       if (!parent) throw new Error('no parent node found')
       if (!node) {
-        node = graph.createFile()
-        context.prepareNode(drivekey, node.id)
-        context.prepareStat(drivekey, node.file.id)
-        graph.saveNode(node)
+        node = await graph.createFile(true, true)
       }
-      graph.linkNode(node, parent, filename)
-      graph.saveNode(parent, false)
+      await graph.linkNode(node, parent, filename, null, true)
 
       return '/' + node.file.id
     }

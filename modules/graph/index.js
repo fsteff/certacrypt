@@ -21,23 +21,37 @@ class Graph {
     return node
   }
 
-  createDir (createStat = true) {
+  async createDir (createStat = true, save = true) {
     const node = this.createNode()
     node.dir = {}
     if (createStat) {
       node.dir.file = { id: this._nextId() }
     }
+    if (save) {
+      const driveKey = this.db.feed.key.toString('hex')
+      this.cryptoContext.prepareNode(driveKey, node.id)
+      if (createStat) {
+        this.cryptoContext.prepareStat(driveKey, node.dir.file.id)
+      }
+      await this.saveNode(node)
+    }
     return node
   }
 
-  createFile () {
+  async createFile (save = true) {
     const node = this.createNode()
     node.file = { id: this._nextId() }
+    if (save) {
+      const driveKey = this.db.feed.key.toString('hex')
+      this.cryptoContext.prepareNode(driveKey, node.id)
+      this.cryptoContext.prepareStat(driveKey, node.file.id)
+      await this.saveNode(node)
+    }
     return node
   }
 
   async createRootNode (save = true) {
-    this.rootNode = this.createDir(false)
+    this.rootNode = await this.createDir(false, false)
     if (save) {
       // TODO: persist somehow
       const key = primitives.generateEncryptionKey()
@@ -59,7 +73,7 @@ class Graph {
     })
   }
 
-  linkNode (node, target, name, url = null) {
+  async linkNode (node, target, name, url = null, save = true) {
     if (!target.dir && !target.share) throw new Error('target must be a dir or share')
 
     const link = {
@@ -71,6 +85,9 @@ class Graph {
     const dir = target.dir || target.share
     if (!dir.children) dir.children = []
     dir.children.push(link)
+    if (save) {
+      await this.saveNode(target)
+    }
   }
 
   unlinkNode (node, target) {
