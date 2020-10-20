@@ -14,8 +14,16 @@ wrapHyperdrive(hyperdrive(corestore), context)
     await drive.promises.mkdir('test', { db: { encrypted: true } })
     await drive.promises.writeFile('test/b.txt', 'test2', { db: { encrypted: true } })
 
-    console.log('/:' + await drive.promises.readdir(''))
+    console.log('/:' + JSON.stringify(await drive.promises.readdir('')))
     console.log('/ (hidden):' + await drive.promises.readdir('', { db: { encrypted: true } }))
+    console.log('/ (hidden+recursive):' +
+    JSON.stringify(
+      await drive.promises.readdir('', {
+        recursive: true,
+        includeStats: true,
+        db: { encrypted: true }
+      }
+      )))
     console.log('a.txt: ' + await drive.promises.readFile('a.txt'))
     console.log('b.txt: ' + await drive.promises.readFile('test/b.txt').catch(() => null))
     const dirstat = await drive.promises.stat('test', { db: { encrypted: true } })
