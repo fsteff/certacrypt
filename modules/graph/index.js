@@ -1,5 +1,4 @@
 const primitives = require('../crypto/lib/primitives')
-const { Node, Link, File, Share, Directory, Stream } = require('./schema')
 
 const defaultOpts = { encrypted: true, graphNode: true, hidden: true }
 
@@ -13,11 +12,12 @@ class Graph {
     this.idCtr = 1 // TODO: load latest value from db - history or db entry?
     this.cryptoContext = context
     this.db = db
+    this.prefix = '.enc/'
     this.encryptNode = context.getNodeEncryptor(this.db.feed.key.toString('hex'))
   }
 
   createNode () {
-    const node = { id: '.enc/' + (this.idCtr++).toString(16) }
+    const node = { id: this._nextId() }
     return node
   }
 
@@ -25,14 +25,14 @@ class Graph {
     const node = this.createNode()
     node.dir = {}
     if (createStat) {
-      node.dir.file = { id: '.enc/' + (this.idCtr++).toString(16) }
+      node.dir.file = { id: this._nextId() }
     }
     return node
   }
 
   createFile () {
     const node = this.createNode()
-    node.file = { id: '.enc/' + (this.idCtr++).toString(16) }
+    node.file = { id: this._nextId() }
     return node
   }
 
@@ -114,6 +114,10 @@ class Graph {
       }
     }
     return {}
+  }
+
+  _nextId () {
+    return this.prefix + (this.idCtr++).toString(16)
   }
 }
 

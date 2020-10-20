@@ -14,7 +14,8 @@ module.exports = async function wrapHyperdrive (drive, context) {
   const drivekey = drive.key.toString('hex')
   const oldCreateWriteStream = drive.createWriteStream
   const oldCreateReadStream = drive.createReadStream
-  const oldMkdir = drive.mkdir // TODO: mkdir
+  const oldMkdir = drive.mkdir
+  const oldLstat = drive.lstat
 
   drive.db.trie = wrapHypertrie(
     drive.db.trie,
@@ -27,6 +28,7 @@ module.exports = async function wrapHyperdrive (drive, context) {
   drive.mkdir = mkdir
   drive.createReadStream = createReadStream
   drive.createWriteStream = createWriteStream
+  drive.lstat = lstat
   drive.writeEncryptedFile = (name, buf, opts, cb) => drive.writeFile(name, buf, Object.assign({}, opts, { db: { encrypted: true } }, cb))
   drive.readEncryptedFile = (name, opts, cb) => drive.readFile(name, Object.assign({}, opts, { db: { encrypted: true } }, cb))
   return drive
@@ -148,5 +150,22 @@ module.exports = async function wrapHyperdrive (drive, context) {
       input.on('error', (err) => stream.destroy(err))
       return stream
     }
+  }
+
+  async function lstat (name, opts, cb) {
+    name = unixify(name)
+    opts = Object.assign({}, opts)
+    opts.db = opts.db || {}
+    const encrypted = opts.db.encrypted
+
+    if (!encrypted || name.startsWith('/' + graph.prefix)) {
+      return oldLstat.call(drive, name, opts, cb)
+    }
+
+    const { node } = await graph.find(name)
+    if (!node) cb(new FileNotFound(name))
+    const file = (node.file || (node.dir ? node.dir.file : null))
+    if (!file) cb(new Error('graph node is not a file or directory'))
+    return oldLstat.call(drive, file.id, opts, cb)
   }
 }
