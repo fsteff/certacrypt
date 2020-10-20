@@ -16,6 +16,7 @@ module.exports = async function wrapHyperdrive (drive, context) {
   const oldCreateReadStream = drive.createReadStream
   const oldMkdir = drive.mkdir
   const oldLstat = drive.lstat
+  const oldReaddir = drive.readdir
 
   drive.db.trie = wrapHypertrie(
     drive.db.trie,
@@ -29,6 +30,7 @@ module.exports = async function wrapHyperdrive (drive, context) {
   drive.createReadStream = createReadStream
   drive.createWriteStream = createWriteStream
   drive.lstat = lstat
+  drive.readdir = readdir
   drive.writeEncryptedFile = (name, buf, opts, cb) => drive.writeFile(name, buf, Object.assign({}, opts, { db: { encrypted: true } }, cb))
   drive.readEncryptedFile = (name, opts, cb) => drive.readFile(name, Object.assign({}, opts, { db: { encrypted: true } }, cb))
   return drive
@@ -154,9 +156,44 @@ module.exports = async function wrapHyperdrive (drive, context) {
     }
 
     const { node } = await graph.find(name)
-    if (!node) cb(new FileNotFound(name))
+    if (!node) return cb(new FileNotFound(name))
     const file = (node.file || (node.dir ? node.dir.file : null))
-    if (!file) cb(new Error('graph node is not a file or directory'))
+    if (!file) return cb(new Error('graph node is not a file or directory'))
     return oldLstat.call(drive, file.id, opts, cb)
+  }
+
+  async function readdir (name, opts, cb) {
+    name = unixify(name)
+    opts = Object.assign({}, opts)
+    opts.db = opts.db || {}
+    const encrypted = opts.db.encrypted
+    if (!encrypted) return oldReaddir.call(drive, name, opts, cb)
+
+    const { node } = await graph.find(name)
+    if (!node) return cb(new FileNotFound(name))
+    if (!node.dir) return cb(new Error('graph node is not a directory'))
+
+    const entries = []
+    for (const child of node.dir.children) {
+      const childname = name + '/' + child.name
+      if (opts.recursive) {
+        const node = await graph.getNode(child.id)
+        if (node.dir) {
+          const sub = await drive.promises.readdir(childname, opts)
+          sub.forEach(f => entries.push(f))
+        }
+      }
+
+      if (opts.includeStats) {
+        entries.push({
+          name: child.name,
+          path: childname,
+          stat: await drive.promises.stat(childname, opts)
+        })
+      } else {
+        entries.push(child.name)
+      }
+    }
+    return cb(null, entries)
   }
 }
