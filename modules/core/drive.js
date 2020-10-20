@@ -36,8 +36,8 @@ module.exports = async function wrapHyperdrive (drive, context) {
   return drive
 
   async function mkdir (name, opts, cb) {
-    opts = Object.assign({}, opts)
-    opts.db = opts.db || {}
+    name = unixify(name)
+    opts = fixOpts(opts)
     const encrypted = opts.db.encrypted
 
     if (!encrypted) {
@@ -54,11 +54,10 @@ module.exports = async function wrapHyperdrive (drive, context) {
     return oldMkdir.call(drive, node.dir.file.id, opts, cb)
   }
 
-  function createReadStream (name, opts, encrypted) {
+  function createReadStream (name, opts) {
     name = unixify(name)
-    opts = Object.assign({}, opts)
-    opts.db = opts.db || (encrypted ? { encrypted: true } : {})
-    if (!encrypted && opts.db.encrypted) encrypted = true
+    opts = fixOpts(opts)
+    const encrypted = opts.db.encrypted
 
     let namePromise
     if (encrypted) {
@@ -87,11 +86,10 @@ module.exports = async function wrapHyperdrive (drive, context) {
     }
   }
 
-  function createWriteStream (name, opts, encrypted) {
+  function createWriteStream (name, opts) {
     name = unixify(name)
-    opts = Object.assign({}, opts)
-    opts.db = opts.db || (encrypted ? { encrypted: true } : {})
-    if (!encrypted && opts.db.encrypted) encrypted = true
+    opts = fixOpts(opts)
+    const encrypted = opts.db.encrypted
 
     let namePromise
     if (encrypted) {
@@ -147,8 +145,7 @@ module.exports = async function wrapHyperdrive (drive, context) {
 
   async function lstat (name, opts, cb) {
     name = unixify(name)
-    opts = Object.assign({}, opts)
-    opts.db = opts.db || {}
+    opts = fixOpts(opts)
     const encrypted = opts.db.encrypted
 
     if (!encrypted || name.startsWith('/' + graph.prefix)) {
@@ -164,8 +161,7 @@ module.exports = async function wrapHyperdrive (drive, context) {
 
   async function readdir (name, opts, cb) {
     name = unixify(name)
-    opts = Object.assign({}, opts)
-    opts.db = opts.db || {}
+    opts = fixOpts(opts)
     const encrypted = opts.db.encrypted
     if (!encrypted) return oldReaddir.call(drive, name, opts, cb)
 
@@ -196,4 +192,11 @@ module.exports = async function wrapHyperdrive (drive, context) {
     }
     return cb(null, entries)
   }
+}
+
+function fixOpts (opts) {
+  opts = Object.assign({}, opts)
+  opts.db = opts.db || {}
+  opts.db.encrypted = opts.db.encrypted || opts.encrypted
+  return opts
 }
