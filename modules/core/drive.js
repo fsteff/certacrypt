@@ -2,7 +2,7 @@ const wrapHypertrie = require('../hypertrie-encryption-wrapper')
 const Minipass = require('minipass')
 const unixify = require('unixify')
 const Graph = require('../graph')
-const { FileNotFound } = require('hyperdrive/lib/errors')
+const { FileNotFound, PathAlreadyExists } = require('hyperdrive/lib/errors')
 
 module.exports = async function wrapHyperdrive (drive, context) {
   await drive.promises.ready()
@@ -14,7 +14,7 @@ module.exports = async function wrapHyperdrive (drive, context) {
   const drivekey = drive.key.toString('hex')
   const oldCreateWriteStream = drive.createWriteStream
   const oldCreateReadStream = drive.createReadStream
-  // const oldMkdir = drive.mkdir // TODO: mkdir
+  const oldMkdir = drive.mkdir // TODO: mkdir
 
   drive.db.trie = wrapHypertrie(
     drive.db.trie,
@@ -24,9 +24,36 @@ module.exports = async function wrapHyperdrive (drive, context) {
     context.getNodeDecryptor(drivekey)
   )
 
+  drive.mkdir = mkdir
   drive.createReadStream = createReadStream
   drive.createWriteStream = createWriteStream
+  drive.writeEncryptedFile = (name, buf, opts, cb) => drive.writeFile(name, buf, Object.assign({}, opts, { db: { encrypted: true } }, cb))
+  drive.readEncryptedFile = (name, opts, cb) => drive.readFile(name, Object.assign({}, opts, { db: { encrypted: true } }, cb))
   return drive
+
+  async function mkdir (name, opts, cb) {
+    opts = Object.assign({}, opts)
+    opts.db = opts.db || {}
+    const encrypted = opts.db.encrypted
+
+    if (!encrypted) {
+      return oldMkdir.call(name, opts, cb)
+    }
+
+    let { node, parent } = await graph.find(name)
+    if (!parent) throw new Error('no parent found')
+    if (node) throw new PathAlreadyExists(name)
+
+    const filename = name.substr(name.lastIndexOf('/') + 1)
+    node = graph.createDir(true)
+    const stat = node.dir.file
+    context.prepareNode(drivekey, node.id)
+    context.prepareStat(drivekey, stat.id)
+    graph.linkNode(node, parent, filename)
+    await graph.saveNode(parent)
+    await graph.saveNode(node)
+    return oldMkdir.call(drive, stat.id, opts, cb)
+  }
 
   function createReadStream (name, opts, encrypted) {
     name = unixify(name)
@@ -46,11 +73,9 @@ module.exports = async function wrapHyperdrive (drive, context) {
     return out
 
     async function prepareNodes () {
-      const { node, parent } = await graph.find(name)
-      // TODO: why is parent null?
-      if (!parent) throw new Error('no parent node found')
+      const { node } = await graph.find(name)
       if (!node) throw new FileNotFound(name)
-
+      if (!node.file) throw new Error('node is not of type file')
       return '/' + node.file.id
     }
 
@@ -104,7 +129,6 @@ module.exports = async function wrapHyperdrive (drive, context) {
     async function prepareNodes () {
       const filename = name.substr(name.lastIndexOf('/') + 1)
       let { node, parent } = await graph.find(name)
-      // TODO: why is parent null?
       if (!parent) throw new Error('no parent node found')
       if (!node) {
         node = graph.createFile()

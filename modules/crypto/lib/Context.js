@@ -111,6 +111,7 @@ class CryptoContext {
             feed = url.hostname
           }
           const secret = crypto.extractEncryptionKey(child.key)
+          child.key = null
           this.keystore.set(feed, child.id, secret)
         }
       }
