@@ -2,6 +2,7 @@ const wrapHypertrie = require('../hypertrie-encryption-wrapper')
 const Minipass = require('minipass')
 const unixify = require('unixify')
 const Graph = require('../graph')
+const { FileNotFound } = require('hyperdrive/lib/errors')
 
 module.exports = async function wrapHyperdrive (drive, context) {
   await drive.promises.ready()
@@ -12,15 +13,55 @@ module.exports = async function wrapHyperdrive (drive, context) {
 
   const drivekey = drive.key.toString('hex')
   const oldCreateWriteStream = drive.createWriteStream
+  const oldCreateReadStream = drive.createReadStream
   // const oldMkdir = drive.mkdir // TODO: mkdir
 
   drive.db.trie = wrapHypertrie(
     drive.db.trie,
     context.getStatEncryptor(drivekey),
-    context.getStatDecryptor(drivekey)
+    context.getStatDecryptor(drivekey),
+    null,
+    context.getNodeDecryptor(drivekey)
   )
 
+  drive.createReadStream = createReadStream
   drive.createWriteStream = createWriteStream
+  return drive
+
+  function createReadStream (name, opts, encrypted) {
+    name = unixify(name)
+    opts = Object.assign({}, opts)
+    opts.db = opts.db || (encrypted ? { encrypted: true } : {})
+    if (!encrypted && opts.db.encrypted) encrypted = true
+
+    let namePromise
+    if (encrypted) {
+      namePromise = prepareNodes()
+    } else {
+      namePromise = new Promise(resolve => resolve(name))
+    }
+    const out = new Minipass()
+
+    namePromise.then(prepareStream)
+    return out
+
+    async function prepareNodes () {
+      const { node, parent } = await graph.find(name)
+      // TODO: why is parent null?
+      if (!parent) throw new Error('no parent node found')
+      if (!node) throw new FileNotFound(name)
+
+      return '/' + node.file.id
+    }
+
+    async function prepareStream (filename) {
+      const stream = oldCreateReadStream.call(drive, filename, opts)
+      stream.on('error', (err) => out.destroy(err))
+      // out.on('error', (err) => stream.destroy(err))
+      stream.pipe(out)
+      return stream
+    }
+  }
 
   function createWriteStream (name, opts, encrypted) {
     name = unixify(name)
@@ -61,7 +102,7 @@ module.exports = async function wrapHyperdrive (drive, context) {
     return input
 
     async function prepareNodes () {
-      const filename = name.substr(name.lastIndexOf('/'))
+      const filename = name.substr(name.lastIndexOf('/') + 1)
       let { node, parent } = await graph.find(name)
       // TODO: why is parent null?
       if (!parent) throw new Error('no parent node found')
@@ -84,6 +125,4 @@ module.exports = async function wrapHyperdrive (drive, context) {
       return stream
     }
   }
-
-  return drive
 }

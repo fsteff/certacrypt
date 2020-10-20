@@ -21,6 +21,7 @@ class CryptoContext {
   getNodeEncryptor (feed) {
     const self = this
     return function encrypt (node, id) {
+      node = deepCopy(node)
       const secret = self.keystore.get(feed, id)
       if (!secret) {
         throw new Error('no encryption key present for feed node ' + feed + ' ' + id)
@@ -82,7 +83,7 @@ class CryptoContext {
         return child
       })
       if (node.share) node.share.children = copy
-      else node.dir = copy
+      else node.dir.children = copy
     }
 
     const file = (node.file || (node.dir && node.dir.file ? node.dir.file : null))
@@ -215,6 +216,22 @@ function getChildren (node) {
   if (node.dir) return node.dir.children
   if (node.share) return node.share.children
   return null
+}
+
+function deepCopy (inObject) {
+  let value, key
+
+  if (typeof inObject !== 'object' || inObject === null) {
+    return inObject
+  }
+
+  const outObject = Array.isArray(inObject) ? [] : {}
+  for (key in inObject) {
+    value = inObject[key]
+    outObject[key] = deepCopy(value)
+  }
+
+  return outObject
 }
 
 module.exports = CryptoContext

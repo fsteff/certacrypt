@@ -107,11 +107,8 @@ class Graph {
     for (const child of dir.children) {
       if (parts[0] === child.name) {
         const decoded = await this.getNode(child.id)
-        if (parts.length === 1) return { node: decoded }
-
-        const result = this.find(parts.slice(1), decoded)
-        if (parts.length === 2) result.parent = node
-        return result
+        if (parts.length === 1) return { node: decoded, parent: node }
+        return await this.find(parts.slice(1), decoded)
       }
     }
     return {}
