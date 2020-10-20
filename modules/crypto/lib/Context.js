@@ -189,7 +189,7 @@ class CryptoContext {
     return function encrypt (block, index) {
       const secret = self.keystore.get(feed, index)
       if (!secret) {
-        console.info('not encryption key for stream ' + feed + ' at ' + index)
+        // console.info('not encryption key for stream ' + feed + ' at ' + index)
         return block
       }
       return crypto.encryptBlockStream(block, index, secret)
@@ -205,7 +205,7 @@ class CryptoContext {
     return function decrypt (ciphertext, index) {
       const secret = self.keystore.get(feed, index)
       if (!secret) {
-        console.info('not decryption key for stream ' + feed + ' at ' + index)
+        // console.info('not decryption key for stream ' + feed + ' at ' + index)
         return ciphertext
       }
       return crypto.decryptBlockStream(ciphertext, index, secret)
