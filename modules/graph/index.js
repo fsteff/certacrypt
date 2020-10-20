@@ -1,7 +1,7 @@
 const primitives = require('../crypto/lib/primitives')
 const { Node, Link, File, Share, Directory, Stream } = require('./schema')
 
-const defaultOpts = { encrypted: true, graphNode: true }
+const defaultOpts = { encrypted: true, graphNode: true, hidden: true }
 
 class Graph {
   /**
@@ -17,7 +17,7 @@ class Graph {
   }
 
   createNode () {
-    const node = { id: (this.idCtr++).toString(16) }
+    const node = { id: '.enc/' + (this.idCtr++).toString(16) }
     return node
   }
 
@@ -25,14 +25,14 @@ class Graph {
     const node = this.createNode()
     node.dir = {}
     if (createStat) {
-      node.dir.file = { id: (this.idCtr++).toString(16) }
+      node.dir.file = { id: '.enc/' + (this.idCtr++).toString(16) }
     }
     return node
   }
 
   createFile () {
     const node = this.createNode()
-    node.file = { id: (this.idCtr++).toString(16) }
+    node.file = { id: '.enc/' + (this.idCtr++).toString(16) }
     return node
   }
 
@@ -62,10 +62,11 @@ class Graph {
   linkNode (node, target, name, url = null) {
     if (!target.dir && !target.share) throw new Error('target must be a dir or share')
 
-    const link = new Link()
-    link.id = node.id
-    link.name = name
-    link.url = url
+    const link = {
+      id: node.id,
+      name: name,
+      url: url
+    }
 
     const dir = target.dir || target.share
     if (!dir.children) dir.children = []

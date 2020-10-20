@@ -28,9 +28,41 @@ module.exports = async function wrapHyperdrive (drive, context) {
     opts.db = opts.db || (encrypted ? { encrypted: true } : {})
     if (!encrypted && opts.db.encrypted) encrypted = true
 
+    let namePromise
     if (encrypted) {
+      namePromise = prepareNodes()
+    } else {
+      namePromise = new Promise(resolve => resolve(name))
+    }
+
+    // writing to the stream needs to be deferred until the context is prepared
+    const input = new Minipass()
+    const streamPromise = namePromise.then(prepareStream)
+
+    drive.once('appending', async (filename) => {
+      const driveName = await namePromise
+      if (filename !== driveName) throw new Error('appending name !== filename')
+      const passedOpts = { trie: true }
+      if (encrypted) passedOpts.db = { encrypted: true }
+      drive.stat(driveName, passedOpts, async (err, stat, trie) => {
+        if (err && (err.errno !== 2)) return input.destroy(err)
+        drive._getContent(trie.feed, async (err, contentState) => {
+          if (err) return input.destroy(err)
+
+          const feedkey = contentState.feed.key.toString('hex')
+          if (encrypted) context.prepareStream(feedkey, contentState.feed.length)
+          else context.preparePublicStream(feedkey, contentState.feed.length)
+
+          input.pipe(await streamPromise)
+        })
+      })
+    })
+
+    return input
+
+    async function prepareNodes () {
       const filename = name.substr(name.lastIndexOf('/'))
-      let { node, parent } = graph.find(name)
+      let { node, parent } = await graph.find(name)
       // TODO: why is parent null?
       if (!parent) throw new Error('no parent node found')
       if (!node) {
@@ -42,34 +74,15 @@ module.exports = async function wrapHyperdrive (drive, context) {
       graph.linkNode(node, parent, filename)
       graph.saveNode(parent, false)
 
-      name = node.file.id
+      return '/' + node.file.id
     }
 
-    const stream = oldCreateWriteStream.call(drive, name, Object.assign(opts, { db: { encrypted: encrypted } }))
-    // writing to the stream needs to be deferred until the context is prepared
-    const input = new Minipass()
-    stream.on('error', (err) => input.destroy(err))
-    input.on('error', (err) => stream.destroy(err))
-
-    drive.once('appending', (filename) => {
-      if (filename !== name) throw new Error('appending name !== filename')
-      const passedOpts = { trie: true }
-      if (encrypted) passedOpts.db = { encrypted: true }
-      drive.stat(name, passedOpts, (err, stat, trie) => {
-        if (err && (err.errno !== 2)) return input.destroy(err)
-        drive._getContent(trie.feed, (err, contentState) => {
-          if (err) return input.destroy(err)
-
-          const feedkey = contentState.feed.key.toString('hex')
-          if (encrypted) context.prepareStream(feedkey, contentState.feed.length)
-          else context.preparePublicStream(feedkey, contentState.feed.length)
-
-          input.pipe(stream)
-        })
-      })
-    })
-
-    return input
+    function prepareStream (filename) {
+      const stream = oldCreateWriteStream.call(drive, filename, Object.assign(opts, { db: { encrypted: encrypted } }))
+      stream.on('error', (err) => input.destroy(err))
+      input.on('error', (err) => stream.destroy(err))
+      return stream
+    }
   }
 
   return drive

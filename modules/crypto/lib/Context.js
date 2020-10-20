@@ -74,7 +74,7 @@ class CryptoContext {
    */
   encryptNode (node, feed, secret) {
     const self = this
-    const children = (node.share || node.dir).children
+    const children = getChildren(node)
     if (Array.isArray(children)) {
       const copy = children.map(child => {
         child = Object.assign({}, child)
@@ -87,7 +87,7 @@ class CryptoContext {
 
     const file = (node.file || (node.dir && node.dir.file ? node.dir.file : null))
     if (file && !file.key) {
-      file.key = this.keystore.set(feed, file.id)
+      file.key = this.keystore.get(feed, file.id)
     }
 
     const block = GraphShema.Node.encode(node)
@@ -102,7 +102,7 @@ class CryptoContext {
   extractKeys (node, feed) {
     if (node.share || node.dir) {
       /** @type {Array<import('../../graph/schema').Link>|null|undefined} */
-      const children = (node.share || node.dir).children
+      const children = getChildren(node)
       if (Array.isArray(children)) {
         for (const child of children) {
           if (child.url) {
@@ -209,6 +209,12 @@ class CryptoContext {
       return crypto.decryptBlockStream(ciphertext, index, secret)
     }
   }
+}
+
+function getChildren (node) {
+  if (node.dir) return node.dir.children
+  if (node.share) return node.share.children
+  return null
 }
 
 module.exports = CryptoContext
