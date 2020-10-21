@@ -143,9 +143,6 @@ module.exports = async function wrapHyperdrive (drive, context, mainKey = null, 
           } else {
             context.preparePublicStream(feedKey.toString('hex'), contentState.feed.length)
           }
-
-          // TODO: keys for the stream have to be saved to nodes - but how and where?
-
           input.pipe(await streamPromise)
         })
       })
@@ -158,7 +155,11 @@ module.exports = async function wrapHyperdrive (drive, context, mainKey = null, 
       let { node, parent } = await graph.find(name)
       if (!parent) throw new Error('no parent node found')
       if (!node) {
-        node = await graph.createFile(true, true)
+        // don't save yet, we still need the content feed id and offset
+        const driveKey = drive.db.feed.key.toString('hex')
+        node = await graph.createFile(false)
+        context.prepareNode(driveKey, node.id)
+        context.prepareStat(driveKey, node.file.id)
       }
       await graph.linkNode(node, parent, filename, null, true)
 
