@@ -15,12 +15,16 @@ message Directory {
 
 message File {
     required string id = 1;  // the random filename used for storing it in the hyperdrive
-    required bytes key = 2;      // encryption key            
+    required bytes key = 2;  // encryption key of the stat entry
+    optional bytes streamKey = 3; // encyption key of the file contents
+    optional bytes streamId = 4; // public key of the stream (content feed)
+    optional uint64 streamOffset = 5; // position in the content feed
 }
 
 message Stream {
     required string url = 1;     // url to the hypercore used soely for that stream
     optional uint64 offset = 2;  // if a stream is deleted, the offset is the new start
+    optional bytes streamKey = 3;
 }
 
 message Share {

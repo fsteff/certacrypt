@@ -51,16 +51,16 @@ class CryptoContext {
       if (!secret) {
         throw new Error('no encryption key present for feed node ' + feed + ' ' + id)
       }
-      return self.decryptNode(ciphertext, secret)
+      return self.decryptNode(ciphertext, feed, secret)
     }
   }
 
   /**
    * @param {Buffer} ciphertext
-   * @param {import('sodium-native').SecureBuffer} secret encrytion key
    * @param {string} feed key as hex
+   * @param {import('sodium-native').SecureBuffer} secret encrytion key
    */
-  decryptNode (ciphertext, secret, feed) {
+  decryptNode (ciphertext, feed, secret) {
     const block = crypto.decryptBlob(ciphertext, secret)
     const node = GraphShema.Node.decode(block)
     this.extractKeys(node, feed)
@@ -89,6 +89,7 @@ class CryptoContext {
     const file = (node.file || (node.dir && node.dir.file ? node.dir.file : null))
     if (file && !file.key) {
       file.key = this.keystore.get(feed, file.id)
+      if (file.streamId) file.streamKey = this.keystore.get(file.streamId.toString('hex'), file.streamOffset)
     }
 
     const block = GraphShema.Node.encode(node)
@@ -118,8 +119,14 @@ class CryptoContext {
     }
     const file = (node.file || (node.dir && node.dir.file ? node.dir.file : null))
     if (file) {
-      this.keystore.set(feed, file.id, file.key)
+      const secret = crypto.extractEncryptionKey(file.key)
       file.key = null
+      this.keystore.set(feed, file.id, secret)
+      if (file.streamKey && file.streamId && file.streamOffset !== null) {
+        const streamSecret = crypto.extractEncryptionKey(file.streamKey)
+        file.streamKey = null
+        this.keystore.set(file.streamId.toString('hex'), file.streamOffset, streamSecret)
+      }
     }
   }
 
@@ -223,6 +230,10 @@ function deepCopy (inObject) {
   let value, key
 
   if (typeof inObject !== 'object' || inObject === null) {
+    return inObject
+  }
+
+  if (Buffer.isBuffer(inObject)) {
     return inObject
   }
 

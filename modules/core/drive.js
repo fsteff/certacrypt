@@ -4,20 +4,11 @@ const unixify = require('unixify')
 const Graph = require('../graph')
 const { FileNotFound, PathAlreadyExists } = require('hyperdrive/lib/errors')
 
-module.exports = async function wrapHyperdrive (drive, context) {
+module.exports = async function wrapHyperdrive (drive, context, mainKey = null, create = true) {
   await drive.promises.ready()
 
   const graph = new Graph(drive.db, context)
-  // TODO: persist & load
-  await graph.createRootNode(true)
-
   const drivekey = drive.key.toString('hex')
-  const oldCreateWriteStream = drive.createWriteStream
-  const oldCreateReadStream = drive.createReadStream
-  const oldMkdir = drive.mkdir
-  const oldLstat = drive.lstat
-  const oldReaddir = drive.readdir
-
   drive.db.trie = wrapHypertrie(
     drive.db.trie,
     context.getStatEncryptor(drivekey),
@@ -25,6 +16,19 @@ module.exports = async function wrapHyperdrive (drive, context) {
     null,
     context.getNodeDecryptor(drivekey)
   )
+
+  if (create) {
+    await graph.createRootNode(mainKey, !!create)
+  } else {
+    await new Promise((resolve, reject) => drive.db.feed.head((err) => err ? reject(err) : resolve()))
+    await graph.registerRootNode(mainKey)
+  }
+
+  const oldCreateWriteStream = drive.createWriteStream
+  const oldCreateReadStream = drive.createReadStream
+  const oldMkdir = drive.mkdir
+  const oldLstat = drive.lstat
+  const oldReaddir = drive.readdir
 
   drive.mkdir = mkdir
   drive.createReadStream = createReadStream
@@ -63,7 +67,7 @@ module.exports = async function wrapHyperdrive (drive, context) {
     if (encrypted) {
       namePromise = prepareNodes()
     } else {
-      namePromise = new Promise(resolve => resolve(name))
+      namePromise = preparePublic()
     }
     const out = new Minipass()
 
@@ -84,6 +88,24 @@ module.exports = async function wrapHyperdrive (drive, context) {
       stream.pipe(out)
       return stream
     }
+
+    async function preparePublic () {
+      // insert a zero-key into the keystore so the cryptocontext knows the file is unencrypted
+      await new Promise(resolve => {
+        drive.stat(name, { trie: true }, async (err, stat, trie) => {
+          if (err) throw err
+          drive._getContent(trie.feed, async (err, contentState) => {
+            if (err) throw err
+            const feedKey = contentState.feed.key
+            const offset = stat.offset
+            context.preparePublicStream(feedKey.toString('hex'), offset)
+            resolve()
+          })
+        })
+      })
+
+      return name
+    }
   }
 
   function createWriteStream (name, opts) {
@@ -95,7 +117,7 @@ module.exports = async function wrapHyperdrive (drive, context) {
     if (encrypted) {
       namePromise = prepareNodes()
     } else {
-      namePromise = new Promise(resolve => resolve(name))
+      namePromise = new Promise(resolve => resolve({ name }))
     }
 
     // writing to the stream needs to be deferred until the context is prepared
@@ -103,18 +125,26 @@ module.exports = async function wrapHyperdrive (drive, context) {
     const streamPromise = namePromise.then(prepareStream)
 
     drive.once('appending', async (filename) => {
-      const driveName = await namePromise
-      if (filename !== driveName) throw new Error('appending name !== filename')
+      const { name, node } = await namePromise
+      if (filename !== name) throw new Error('appending name !== filename')
       const passedOpts = { trie: true }
       if (encrypted) passedOpts.db = { encrypted: true }
-      drive.stat(driveName, passedOpts, async (err, stat, trie) => {
+      drive.stat(name, passedOpts, async (err, stat, trie) => {
         if (err && (err.errno !== 2)) return input.destroy(err)
         drive._getContent(trie.feed, async (err, contentState) => {
           if (err) return input.destroy(err)
 
-          const feedkey = contentState.feed.key.toString('hex')
-          if (encrypted) context.prepareStream(feedkey, contentState.feed.length)
-          else context.preparePublicStream(feedkey, contentState.feed.length)
+          const feedKey = contentState.feed.key
+          if (encrypted) {
+            node.file.streamOffset = contentState.feed.length
+            node.file.streamId = feedKey
+            context.prepareStream(feedKey.toString('hex'), contentState.feed.length)
+            await graph.saveNode(node)
+          } else {
+            context.preparePublicStream(feedKey.toString('hex'), contentState.feed.length)
+          }
+
+          // TODO: keys for the stream have to be saved to nodes - but how and where?
 
           input.pipe(await streamPromise)
         })
@@ -132,11 +162,11 @@ module.exports = async function wrapHyperdrive (drive, context) {
       }
       await graph.linkNode(node, parent, filename, null, true)
 
-      return '/' + node.file.id
+      return { name: '/' + node.file.id, node: node }
     }
 
-    function prepareStream (filename) {
-      const stream = oldCreateWriteStream.call(drive, filename, Object.assign(opts, { db: { encrypted: encrypted } }))
+    function prepareStream ({ name }) {
+      const stream = oldCreateWriteStream.call(drive, name, Object.assign(opts, { db: { encrypted: encrypted } }))
       stream.on('error', (err) => input.destroy(err))
       input.on('error', (err) => stream.destroy(err))
       return stream
@@ -168,6 +198,7 @@ module.exports = async function wrapHyperdrive (drive, context) {
     const { node } = await graph.find(name)
     if (!node) return cb(new FileNotFound(name))
     if (!node.dir) return cb(new Error('graph node is not a directory'))
+    if (!Array.isArray(node.dir.children)) return cb(null, [])
 
     const entries = []
     for (const child of node.dir.children) {

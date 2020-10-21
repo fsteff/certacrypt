@@ -263,6 +263,18 @@ function defineFile () {
     if (!defined(obj.key)) throw new Error("key is required")
     var len = encodings.bytes.encodingLength(obj.key)
     length += 1 + len
+    if (defined(obj.streamKey)) {
+      var len = encodings.bytes.encodingLength(obj.streamKey)
+      length += 1 + len
+    }
+    if (defined(obj.streamId)) {
+      var len = encodings.bytes.encodingLength(obj.streamId)
+      length += 1 + len
+    }
+    if (defined(obj.streamOffset)) {
+      var len = encodings.varint.encodingLength(obj.streamOffset)
+      length += 1 + len
+    }
     return length
   }
 
@@ -278,6 +290,21 @@ function defineFile () {
     buf[offset++] = 18
     encodings.bytes.encode(obj.key, buf, offset)
     offset += encodings.bytes.encode.bytes
+    if (defined(obj.streamKey)) {
+      buf[offset++] = 26
+      encodings.bytes.encode(obj.streamKey, buf, offset)
+      offset += encodings.bytes.encode.bytes
+    }
+    if (defined(obj.streamId)) {
+      buf[offset++] = 34
+      encodings.bytes.encode(obj.streamId, buf, offset)
+      offset += encodings.bytes.encode.bytes
+    }
+    if (defined(obj.streamOffset)) {
+      buf[offset++] = 40
+      encodings.varint.encode(obj.streamOffset, buf, offset)
+      offset += encodings.varint.encode.bytes
+    }
     encode.bytes = offset - oldOffset
     return buf
   }
@@ -289,7 +316,10 @@ function defineFile () {
     var oldOffset = offset
     var obj = {
       id: "",
-      key: null
+      key: null,
+      streamKey: null,
+      streamId: null,
+      streamOffset: 0
     }
     var found0 = false
     var found1 = false
@@ -313,6 +343,18 @@ function defineFile () {
         offset += encodings.bytes.decode.bytes
         found1 = true
         break
+        case 3:
+        obj.streamKey = encodings.bytes.decode(buf, offset)
+        offset += encodings.bytes.decode.bytes
+        break
+        case 4:
+        obj.streamId = encodings.bytes.decode(buf, offset)
+        offset += encodings.bytes.decode.bytes
+        break
+        case 5:
+        obj.streamOffset = encodings.varint.decode(buf, offset)
+        offset += encodings.varint.decode.bytes
+        break
         default:
         offset = skip(prefix & 7, buf, offset)
       }
@@ -334,6 +376,10 @@ function defineStream () {
       var len = encodings.varint.encodingLength(obj.offset)
       length += 1 + len
     }
+    if (defined(obj.streamKey)) {
+      var len = encodings.bytes.encodingLength(obj.streamKey)
+      length += 1 + len
+    }
     return length
   }
 
@@ -350,6 +396,11 @@ function defineStream () {
       encodings.varint.encode(obj.offset, buf, offset)
       offset += encodings.varint.encode.bytes
     }
+    if (defined(obj.streamKey)) {
+      buf[offset++] = 26
+      encodings.bytes.encode(obj.streamKey, buf, offset)
+      offset += encodings.bytes.encode.bytes
+    }
     encode.bytes = offset - oldOffset
     return buf
   }
@@ -361,7 +412,8 @@ function defineStream () {
     var oldOffset = offset
     var obj = {
       url: "",
-      offset: 0
+      offset: 0,
+      streamKey: null
     }
     var found0 = false
     while (true) {
@@ -382,6 +434,10 @@ function defineStream () {
         case 2:
         obj.offset = encodings.varint.decode(buf, offset)
         offset += encodings.varint.decode.bytes
+        break
+        case 3:
+        obj.streamKey = encodings.bytes.decode(buf, offset)
+        offset += encodings.bytes.decode.bytes
         break
         default:
         offset = skip(prefix & 7, buf, offset)

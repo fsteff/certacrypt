@@ -11,8 +11,8 @@ const corestore = wrapCorestore(new Corestore(ram), context)
 wrapHyperdrive(hyperdrive(corestore), context)
   .then(async (drive) => {
     await drive.promises.writeFile('a.txt', 'test')
-    await drive.promises.mkdir('test', { db: { encrypted: true } })
-    await drive.promises.writeFile('test/b.txt', 'test2', { db: { encrypted: true } })
+    await drive.promises.mkdir('test', { encrypted: true })
+    await drive.promises.writeFile('test/b.txt', 'test2', { encrypted: true })
 
     console.log('/:' + JSON.stringify(await drive.promises.readdir('')))
     console.log('/ (hidden):' + await drive.promises.readdir('', { db: { encrypted: true } }))

@@ -50,16 +50,22 @@ class Graph {
     return node
   }
 
-  async createRootNode (save = true) {
+  async createRootNode (mainKey = null, save = true) {
     this.rootNode = await this.createDir(false, false)
-    if (save) {
+    if (mainKey || save) {
       // TODO: persist somehow
-      const key = primitives.generateEncryptionKey()
+      const key = mainKey || primitives.generateEncryptionKey()
       const driveKey = this.db.feed.key.toString('hex')
       this.cryptoContext.keystore.set(driveKey, this.rootNode.id, key)
-      await this.saveNode(this.rootNode)
+      if (save) await this.saveNode(this.rootNode)
     }
     return this.rootNode
+  }
+
+  async registerRootNode (mainKey, id = (this.prefix + '1')) {
+    const driveKey = this.db.feed.key.toString('hex')
+    this.cryptoContext.keystore.set(driveKey, id, mainKey)
+    this.rootNode = await this.getNode(id)
   }
 
   async saveNode (node) {
@@ -102,6 +108,7 @@ class Graph {
     return await new Promise((resolve, reject) => {
       self.db.get(id, defaultOpts, (err, node) => {
         if (err) reject(err)
+        else if (!node) reject(new Error('node ' + id + ' not found'))
         else resolve(node.value)
       })
     })
