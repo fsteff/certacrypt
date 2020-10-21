@@ -125,7 +125,7 @@ module.exports = async function wrapHyperdrive (drive, context, mainKey = null, 
     const streamPromise = namePromise.then(prepareStream)
 
     drive.once('appending', async (filename) => {
-      const { name, node } = await namePromise
+      const { name, node, onSuccess } = await namePromise
       if (filename !== name) throw new Error('appending name !== filename')
       const passedOpts = { trie: true }
       if (encrypted) passedOpts.db = { encrypted: true }
@@ -140,6 +140,7 @@ module.exports = async function wrapHyperdrive (drive, context, mainKey = null, 
             node.file.streamId = feedKey
             context.prepareStream(feedKey.toString('hex'), contentState.feed.length)
             await graph.saveNode(node)
+            await onSuccess()
           } else {
             context.preparePublicStream(feedKey.toString('hex'), contentState.feed.length)
           }
@@ -161,9 +162,13 @@ module.exports = async function wrapHyperdrive (drive, context, mainKey = null, 
         context.prepareNode(driveKey, node.id)
         context.prepareStat(driveKey, node.file.id)
       }
-      await graph.linkNode(node, parent, filename, null, true)
 
-      return { name: '/' + node.file.id, node: node }
+      return { name: '/' + node.file.id, node: node, onSuccess: onFileCreated }
+
+      // only create link if the file creation is successful
+      async function onFileCreated () {
+        await graph.linkNode(node, parent, filename, null, true)
+      }
     }
 
     function prepareStream ({ name }) {
