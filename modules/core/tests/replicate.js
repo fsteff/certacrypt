@@ -6,7 +6,7 @@ const wrapHyperdrive = require('../../../modules/core/drive')
 const wrapCorestore = require('../../core/corestore')
 const CryptoContext = require('../../../modules/crypto/lib/Context')
 const primitives = require('../../../modules/crypto/lib/primitives')
-const {Server, Client} = require('hyperspace')
+const { Server, Client } = require('hyperspace')
 
 function replicate (a, b, opts) {
   var stream = a.replicate(true, opts)
@@ -46,7 +46,7 @@ tape('replicate', async t => {
 
 tape('hyperspace', async t => {
   t.plan(10)
-  const server = new Server()
+  const server = new Server({ storage: ram })
   await server.ready()
   const client = new Client()
   await client.ready()
