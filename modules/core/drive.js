@@ -20,7 +20,7 @@ module.exports = async function wrapHyperdrive (drive, context, mainKey = null, 
   if (create) {
     await graph.createRootNode(mainKey, !!create)
   } else {
-    await new Promise((resolve, reject) => drive.db.feed.head((err) => err ? reject(err) : resolve()))
+    // await new Promise((resolve, reject) => drive.db.feed.head((err) => err ? reject(err) : resolve()))
     await graph.registerRootNode(mainKey)
   }
 

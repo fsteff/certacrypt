@@ -11,10 +11,14 @@ module.exports = function wrapCorestore (corestore, context) {
 
   function get (...args) {
     const core = oldGet.call(corestore, ...args)
-    const key = core.key.toString('hex')
-    return wrapHypercore(core,
-      context.getStreamEncryptor(key),
-      context.getStreamDecryptor(key)
-    )
+    core.ready((err) => {
+      if (err) throw err
+      const key = core.key.toString('hex')
+      wrapHypercore(core,
+        context.getStreamEncryptor(key),
+        context.getStreamDecryptor(key)
+      )
+    })
+    return core
   }
 }

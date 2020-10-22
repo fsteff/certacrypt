@@ -28,12 +28,14 @@ function wrapHypercore (feed, encrypt, decrypt) {
   if (typeof feed._codec === 'object') {
     codec = feed._codec
     feed._codec = passThroughCodec
-  } else if (typeof feed.valueEncoding === 'object') {
+  } else if (feed.valueEncoding && typeof feed.valueEncoding === 'object') {
     codec = feed.valueEncoding
     feed.valueEncoding = passThroughCodec
-  } else if (typeof valueEncoding === 'string') {
+  } else if (feed.valueEncoding && typeof feed.valueEncoding === 'string') {
     codec = codecs(feed.valueEncoding)
     feed.valueEncoding = passThroughCodec
+  } else {
+    codec = passThroughCodec
   }
   const encode = codec.encode
   const decode = codec.decode
