@@ -1,8 +1,13 @@
-const wrapHypertrie = require('../hypertrie-encryption-wrapper')
 const Minipass = require('minipass')
 const unixify = require('unixify')
+const URL = require('url').URL
+const { Stat } = require('hyperdrive-schemas')
+const coreByteStream = require('hypercore-byte-stream')
+
+const wrapHypertrie = require('../hypertrie-encryption-wrapper')
 const Graph = require('../graph')
 const { FileNotFound, PathAlreadyExists } = require('hyperdrive/lib/errors')
+const primitives = require('../crypto/lib/primitives')
 
 module.exports = async function wrapHyperdrive (drive, context, mainKey = null, create = true) {
   await drive.promises.ready()
@@ -37,6 +42,10 @@ module.exports = async function wrapHyperdrive (drive, context, mainKey = null, 
   drive.readdir = readdir
   drive.writeEncryptedFile = (name, buf, opts, cb) => drive.writeFile(name, buf, Object.assign({}, opts, { db: { encrypted: true } }, cb))
   drive.readEncryptedFile = (name, opts, cb) => drive.readFile(name, Object.assign({}, opts, { db: { encrypted: true } }, cb))
+  drive.promises.shareByURL = shareByURL
+  drive.promises.mountURL = mountURL
+  drive.shareByURL = async (path, opts, cb) => shareByURL(path, opts).then(url => cb(null, url)).catch(err => cb(err))
+  drive.mountURL = async (url, path, cb) => mountURL(url, path, cb).then(cb).catch(err => cb(err))
   return drive
 
   async function mkdir (name, opts, cb) {
@@ -71,31 +80,62 @@ module.exports = async function wrapHyperdrive (drive, context, mainKey = null, 
     }
     const out = new Minipass()
 
-    namePromise.then(prepareStream)
+    namePromise.then(prepareStream).catch(err => out.destroy(err))
     return out
 
     async function prepareNodes () {
-      const { node } = await graph.find(name)
+      const { node, trie } = await graph.find(name)
       if (!node) throw new FileNotFound(name)
       if (!node.file) throw new Error('node is not of type file')
-      return '/' + node.file.id
+      return { filename: '/' + node.file.id, trie }
     }
 
-    async function prepareStream (filename) {
-      const stream = oldCreateReadStream.call(drive, filename, opts)
+    async function prepareStream ({ filename, trie }) {
+      let stream
+      const length = typeof opts.end === 'number' ? 1 + opts.end - (opts.start || 0) : typeof opts.length === 'number' ? opts.length : -1
+      if (trie === drive.db) {
+        stream = oldCreateReadStream.call(drive, filename, opts)
+      } else {
+        stream = coreByteStream({
+          ...opts,
+          highWaterMark: opts.highWaterMark || 64 * 1024
+        })
+        const passedOpts = { file: true }
+        if (opts.db) passedOpts.db = opts.db
+        drive.stat(name, passedOpts, onstat)
+      }
       stream.on('error', (err) => out.destroy(err))
       // out.on('error', (err) => stream.destroy(err))
       stream.pipe(out)
       return stream
+
+      function onstat (err, stat, trie) {
+        if (err) return stream.destroy(err)
+        return drive._getContent(trie.feed, (err, contentState) => {
+          if (err) return stream.destroy(err)
+          return oncontent(stat, contentState)
+        })
+      }
+
+      function oncontent (st, contentState) {
+        stream.start({
+          feed: contentState.feed,
+          blockOffset: st.offset,
+          blockLength: st.blocks,
+          byteOffset: opts.start ? st.byteOffset + opts.start : (length === -1 ? -1 : st.byteOffset),
+          byteLength: Math.min(length, st.size)
+        })
+      }
     }
 
     async function preparePublic () {
       // insert a zero-key into the keystore so the cryptocontext knows the file is unencrypted
-      await new Promise(resolve => {
+      await new Promise((resolve, reject) => {
         drive.stat(name, { trie: true }, async (err, stat, trie) => {
-          if (err) throw err
+          if (err) return reject(err)
           drive._getContent(trie.feed, async (err, contentState) => {
-            if (err) throw err
+            if (err) return reject(err)
+            if (!stat) return reject(new FileNotFound(name))
             const feedKey = contentState.feed.key
             const offset = stat.offset
             context.preparePublicStream(feedKey.toString('hex'), offset)
@@ -183,16 +223,41 @@ module.exports = async function wrapHyperdrive (drive, context, mainKey = null, 
     name = unixify(name)
     opts = fixOpts(opts)
     const encrypted = opts.db.encrypted
+    const self = this
 
     if (!encrypted || name.startsWith('/' + graph.prefix)) {
       return oldLstat.call(drive, name, opts, cb)
     }
 
-    const { node } = await graph.find(name)
+    const { node, trie } = await graph.find(name)
     if (!node) return cb(new FileNotFound(name))
+    if (node.share) return cb(null, Stat.directory(), trie)
     const file = (node.file || (node.dir ? node.dir.file : null))
     if (!file) return cb(new Error('graph node is not a file or directory'))
-    return oldLstat.call(drive, file.id, opts, cb)
+
+    if (trie === this.db) {
+      return oldLstat.call(drive, file.id, opts, cb)
+    } else {
+      // mounted drive
+      trie.get(file.id, opts.db, onRemoteStat)
+    }
+
+    function onRemoteStat (err, node, trie, mount, mountPath) {
+      if (err) return cb(err)
+      if (!node && opts.trie) return cb(null, null, trie, mount, mountPath)
+      if (!node && opts.file) return cb(new FileNotFound(name))
+      if (!node) return cb(null, Stat.directory(), trie) // TODO: modes?
+      try {
+        var st = Stat.decode(node.value)
+      } catch (err) {
+        return cb(err)
+      }
+      const writingFd = self._writingFds.get(name)
+      if (writingFd) {
+        st.size = writingFd.stat.size
+      }
+      cb(null, st, trie, mount, mountPath)
+    }
   }
 
   async function readdir (name, opts, cb) {
@@ -228,6 +293,47 @@ module.exports = async function wrapHyperdrive (drive, context, mainKey = null, 
       }
     }
     return cb(null, entries)
+  }
+
+  async function shareByURL (path, opts = { encrypted: true }) {
+    path = unixify(path)
+    path = path.startsWith('/') ? path : '/' + path
+    opts = fixOpts(opts)
+    if (!opts.name) opts.name = 'url to' + path
+
+    if (!await drive.promises.exists(path, opts)) throw new FileNotFound(path)
+
+    const url = 'hyper://' + drive.key.toString('hex')
+    if (!opts.encrypted) return url + path
+
+    const { node } = await graph.find(path)
+    const share = await graph.createShare(opts.name, false)
+    const secret = primitives.generateEncryptionKey()
+    const secretString = secret.toString('hex')
+    context.prepareNode(drive.key.toString('hex'), share.id, secret)
+
+    const filename = path.substring(path.lastIndexOf('/') + 1)
+    await graph.linkNode(node, share, filename, null, true)
+    return url + '/' + share.id + '?key=' + secretString
+  }
+
+  async function mountURL (url, path) {
+    const parsed = new URL(url)
+    const key = Buffer.from(parsed.host, 'hex')
+    const id = unixify(parsed.pathname).substring(1)
+    const secret = parsed.searchParams.get('key')
+    if (!key || !id || !secret) throw new Error('invalid url')
+
+    const { node, parent } = await graph.find(path)
+    if (!parent) throw new FileNotFound(path.substring(0, path.lastIndexOf('/')))
+    if (node) throw new PathAlreadyExists(path)
+
+    const remoteGraph = await graph.getRemoteGraph(graph.db.corestore, key)
+    context.prepareNode(key.toString('hex'), id, Buffer.from(secret, 'hex'))
+    const share = await remoteGraph.getNode(id)
+    if (!share) throw new Error('could not load url')
+
+    await graph.linkNode(share, parent, path, key, true)
   }
 }
 

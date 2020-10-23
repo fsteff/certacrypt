@@ -5,7 +5,8 @@ message Link {
     required string id = 1;     // KV storage key/id
     required bytes key = 2;     // encryption key
     optional string name = 3;   // human-readable name
-    optional string url = 4;    // typically hypercore-url, but not necessarily - no url implies a relative link
+    optional bytes remoteFeed = 4; // remote hyperdrive (mount)
+    //optional string url = 5;    // typically hypercore-url, but not necessarily - no url implies a relative link
 }
 
 message Directory {

@@ -17,7 +17,7 @@ tape('replicate', async t => {
   t.plan(10)
   const context = new CryptoContext()
   const corestore = wrapCorestore(new Corestore(ram), context)
-  const key = primitives.generateEncryptionKey()
+  const key = primitives.generateEncryptionKey().toString('hex')
 
   const drive = await wrapHyperdrive(hyperdrive(corestore), context, key)
   await drive.promises.writeFile('a.txt', 'test')
@@ -53,7 +53,7 @@ tape('hyperspace', async t => {
 
   const context = new CryptoContext()
   const corestore = wrapCorestore(client.corestore(), context)
-  const key = primitives.generateEncryptionKey()
+  const key = primitives.generateEncryptionKey().toString('hex')
 
   const drive = await wrapHyperdrive(hyperdrive(corestore), context, key)
   await drive.promises.writeFile('a.txt', 'test')

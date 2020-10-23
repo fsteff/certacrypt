@@ -1,4 +1,6 @@
+const MountableHypertrie = require('mountable-hypertrie')
 const primitives = require('../crypto/lib/primitives')
+const wrapHypertrie = require('../hypertrie-encryption-wrapper')
 
 const defaultOpts = { encrypted: true, graphNode: true, hidden: true }
 
@@ -14,6 +16,7 @@ class Graph {
     this.db = db
     this.prefix = '.enc/'
     this.encryptNode = context.getNodeEncryptor(this.db.feed.key.toString('hex'))
+    this.remoteGraphs = new Map()
   }
 
   createNode () {
@@ -50,19 +53,35 @@ class Graph {
     return node
   }
 
+  async createShare (name, save = true) {
+    const node = this.createNode()
+    node.share = { name: name }
+    if (save) {
+      const driveKey = this.db.feed.key.toString('hex')
+      this.cryptoContext.prepareNode(driveKey, node.id)
+      await this.saveNode(node)
+    }
+    return node
+  }
+
   async createRootNode (mainKey = null, save = true) {
     this.rootNode = await this.createDir(false, false)
     if (mainKey || save) {
-      // TODO: persist somehow
+      if (typeof mainKey === 'string') {
+        mainKey = Buffer.from(mainKey, 'hex')
+      }
       const key = mainKey || primitives.generateEncryptionKey()
       const driveKey = this.db.feed.key.toString('hex')
-      this.cryptoContext.keystore.set(driveKey, this.rootNode.id, key)
+      this.cryptoContext.prepareNode(driveKey, this.rootNode.id, key)
       if (save) await this.saveNode(this.rootNode)
     }
     return this.rootNode
   }
 
   async registerRootNode (mainKey, id = (this.prefix + '1')) {
+    if (typeof mainKey === 'string') {
+      mainKey = Buffer.from(mainKey, 'hex')
+    }
     const driveKey = this.db.feed.key.toString('hex')
     this.cryptoContext.keystore.set(driveKey, id, mainKey)
     this.rootNode = await this.getNode(id)
@@ -79,13 +98,13 @@ class Graph {
     })
   }
 
-  async linkNode (node, target, name, url = null, save = true) {
+  async linkNode (node, target, name, remoteFeed = null, save = true) {
     if (!target.dir && !target.share) throw new Error('target must be a dir or share')
 
     const link = {
       id: node.id,
       name: name,
-      url: url
+      remoteFeed: remoteFeed
     }
 
     const dir = target.dir || target.share
@@ -120,24 +139,53 @@ class Graph {
     let parts
     if (Array.isArray(path)) parts = path
     else parts = path.split('/').filter(elem => elem.length > 0)
-    if (parts.length === 0) return { node }
+    if (parts.length === 0) return { node, trie: this.db }
 
     if (!node.dir && !node.share) throw new Error('root has to be dir or share')
     const dir = node.dir || node.share
     if (!Array.isArray(dir.children)) {
-      if (parts.length === 1) return { parent: node }
-      else return {}
+      if (parts.length === 1) return { parent: node, trie: this.db }
+      else return { trie: this.db }
     }
     for (const child of dir.children) {
       if (parts[0] === child.name) {
-        const decoded = await this.getNode(child.id)
-        if (parts.length === 1) return { node: decoded, parent: node }
-        const result = await this.find(parts.slice(1), decoded)
-        if (parts.length === 2 && !result.parent) result.parent = decoded
-        return result
+        if (child.remoteFeed) {
+          const graph = await this.getRemoteGraph(this.db.corestore, child.remoteFeed)
+          const share = await graph.getNode(child.id)
+          if (parts.length === 1) return { node: share, parent: node, trie: this.db }
+
+          const result = await graph.find(parts, share)
+          if (parts.length === 2 && !result.parent) result.parent = share
+          return result
+        } else {
+          const decoded = await this.getNode(child.id)
+          if (parts.length === 1) return { node: decoded, parent: node, trie: this.db }
+
+          const result = await this.find(parts.slice(1), decoded)
+          if (parts.length === 2 && !result.parent) result.parent = decoded
+          return result
+        }
       }
     }
     return {}
+  }
+
+  async getRemoteGraph (corestore, key) {
+    const keyStr = Buffer.isBuffer(key) ? key.toString('hex') : key
+    if (this.remoteGraphs.has(keyStr)) return this.remoteGraphs.get(keyStr)
+
+    const db = new MountableHypertrie(corestore, key)
+    await new Promise((resolve, reject) => db.ready(err => err ? reject(err) : resolve()))
+    const remoteGraph = new Graph(db, this.cryptoContext)
+    wrapHypertrie(
+      db.trie,
+      this.cryptoContext.getStatEncryptor(keyStr),
+      this.cryptoContext.getStatDecryptor(keyStr),
+      null,
+      this.cryptoContext.getNodeDecryptor(keyStr)
+    )
+    this.remoteGraphs.set(keyStr, remoteGraph)
+    return remoteGraph
   }
 
   _nextId () {

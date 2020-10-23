@@ -22,6 +22,7 @@ function wrapHypertrie (trie, encryptStat, decryptStat, encryptNode, decryptNode
       return function (err, node, ...args) {
         if (err) return cb(err)
         if (!node || !node.value) return cb(err, node, ...args)
+        if (node.key !== key) return cb(null, null, ...args) // might mean the key does not exist
         const plain = decrypt(node.value, key)
         node = Object.assign({}, node, { value: plain })
         node.hidden = false // overwrite getter so the node is passed up to the hyperdrive by mountable-hypertrie

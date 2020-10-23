@@ -84,8 +84,8 @@ function defineLink () {
       var len = encodings.string.encodingLength(obj.name)
       length += 1 + len
     }
-    if (defined(obj.url)) {
-      var len = encodings.string.encodingLength(obj.url)
+    if (defined(obj.remoteFeed)) {
+      var len = encodings.bytes.encodingLength(obj.remoteFeed)
       length += 1 + len
     }
     return length
@@ -108,10 +108,10 @@ function defineLink () {
       encodings.string.encode(obj.name, buf, offset)
       offset += encodings.string.encode.bytes
     }
-    if (defined(obj.url)) {
+    if (defined(obj.remoteFeed)) {
       buf[offset++] = 34
-      encodings.string.encode(obj.url, buf, offset)
-      offset += encodings.string.encode.bytes
+      encodings.bytes.encode(obj.remoteFeed, buf, offset)
+      offset += encodings.bytes.encode.bytes
     }
     encode.bytes = offset - oldOffset
     return buf
@@ -126,7 +126,7 @@ function defineLink () {
       id: "",
       key: null,
       name: "",
-      url: ""
+      remoteFeed: null
     }
     var found0 = false
     var found1 = false
@@ -155,8 +155,8 @@ function defineLink () {
         offset += encodings.string.decode.bytes
         break
         case 4:
-        obj.url = encodings.string.decode(buf, offset)
-        offset += encodings.string.decode.bytes
+        obj.remoteFeed = encodings.bytes.decode(buf, offset)
+        offset += encodings.bytes.decode.bytes
         break
         default:
         offset = skip(prefix & 7, buf, offset)

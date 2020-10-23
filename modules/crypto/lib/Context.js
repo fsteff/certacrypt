@@ -1,6 +1,7 @@
 const crypto = require('./primitives')
 const GraphShema = require('../../graph/schema')
 const KeyCache = require('./KeyCache')
+const primitives = require('./primitives')
 
 /**
  * @typedef { import('../../graph/schema') } GraphShema
@@ -31,12 +32,15 @@ class CryptoContext {
   }
 
   /**
-   * Generates a new encryption key for a new graph node
+   * Generates a new encryption key for a new graph node or copies an existing one.
+   * If an existing one is passed, the original buffer is wiped!
    * @param {string} feed hypertrie discovery key
    * @param {string} id hypertrie key
+   * @param {Buffer} secret encryption key (optional)
    */
-  prepareNode (feed, id) {
-    const secret = crypto.generateEncryptionKey()
+  prepareNode (feed, id, secret = null) {
+    if (!secret) secret = crypto.generateEncryptionKey()
+    else secret = crypto.extractEncryptionKey(secret)
     this.keystore.set(feed, id, secret)
   }
 
@@ -78,8 +82,10 @@ class CryptoContext {
     const children = getChildren(node)
     if (Array.isArray(children)) {
       const copy = children.map(child => {
+        let nodeFeed = feed
         child = Object.assign({}, child)
-        child.key = self.keystore.get(feed, child.id)
+        if (child.remoteFeed) nodeFeed = child.remoteFeed.toString('hex')
+        child.key = self.keystore.get(nodeFeed, child.id)
         return child
       })
       if (node.share) node.share.children = copy
@@ -107,13 +113,13 @@ class CryptoContext {
       const children = getChildren(node)
       if (Array.isArray(children)) {
         for (const child of children) {
-          if (child.url) {
-            const url = new URL(child.url)
-            feed = url.hostname
+          let nodeFeed = feed
+          if (Buffer.isBuffer(child.remoteFeed)) {
+            nodeFeed = child.remoteFeed.toString('hex')
           }
           const secret = crypto.extractEncryptionKey(child.key)
           child.key = null
-          this.keystore.set(feed, child.id, secret)
+          this.keystore.set(nodeFeed, child.id, secret)
         }
       }
     }
