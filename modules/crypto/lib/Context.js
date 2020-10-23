@@ -1,7 +1,6 @@
 const crypto = require('./primitives')
 const GraphShema = require('../../graph/schema')
 const KeyCache = require('./KeyCache')
-const primitives = require('./primitives')
 
 /**
  * @typedef { import('../../graph/schema') } GraphShema

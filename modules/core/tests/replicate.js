@@ -19,7 +19,7 @@ tape('replicate', async t => {
   const corestore = wrapCorestore(new Corestore(ram), context)
   const key = primitives.generateEncryptionKey().toString('hex')
 
-  const drive = await wrapHyperdrive(hyperdrive(corestore), context, key)
+  const drive = await wrapHyperdrive(hyperdrive(corestore), context, { mainKey: key, createRoot: true })
   await drive.promises.writeFile('a.txt', 'test')
   await drive.promises.mkdir('test', { encrypted: true })
   await drive.promises.writeFile('test/b.txt', 'test2', { encrypted: true })
@@ -35,7 +35,7 @@ tape('replicate', async t => {
 
   const drive2 = hyperdrive(corestore2, drive.key, { sparse: false, sparseMetadata: false })
   replicate(drive, drive2)
-  await wrapHyperdrive(drive2, context2, key, false)
+  await wrapHyperdrive(drive2, context2, { mainKey: key, createRoot: false })
 
   t.same(['a.txt'], await drive2.promises.readdir(''))
   t.same(['test'], await drive2.promises.readdir('', { encrypted: true }))
@@ -55,7 +55,7 @@ tape('hyperspace', async t => {
   const corestore = wrapCorestore(client.corestore(), context)
   const key = primitives.generateEncryptionKey().toString('hex')
 
-  const drive = await wrapHyperdrive(hyperdrive(corestore), context, key)
+  const drive = await wrapHyperdrive(hyperdrive(corestore), context, { mainKey: key, createRoot: true })
   await drive.promises.writeFile('a.txt', 'test')
   await drive.promises.mkdir('test', { encrypted: true })
   await drive.promises.writeFile('test/b.txt', 'test2', { encrypted: true })
@@ -70,7 +70,7 @@ tape('hyperspace', async t => {
   const corestore2 = wrapCorestore(client.corestore(), context2)
 
   const drive2 = hyperdrive(corestore2, drive.key, { sparse: false, sparseMetadata: false })
-  await wrapHyperdrive(drive2, context2, key, false)
+  await wrapHyperdrive(drive2, context2, { mainKey: key, createRoot: false })
 
   t.same(['a.txt'], await drive2.promises.readdir(''))
   t.same(['test'], await drive2.promises.readdir('', { encrypted: true }))

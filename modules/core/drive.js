@@ -9,7 +9,7 @@ const Graph = require('../graph')
 const { FileNotFound, PathAlreadyExists } = require('hyperdrive/lib/errors')
 const primitives = require('../crypto/lib/primitives')
 
-module.exports = async function wrapHyperdrive (drive, context, mainKey = null, create = true) {
+module.exports = async function wrapHyperdrive (drive, context, opts = { mainKey: null, createRoot: true, id: null }) {
   await drive.promises.ready()
 
   const graph = new Graph(drive.db, context)
@@ -22,11 +22,10 @@ module.exports = async function wrapHyperdrive (drive, context, mainKey = null, 
     context.getNodeDecryptor(drivekey)
   )
 
-  if (create) {
-    await graph.createRootNode(mainKey, !!create)
+  if (!opts || (opts && opts.createRoot !== false)) {
+    await graph.createRootNode(opts ? opts.mainKey : null, !opts || opts.createRoot !== false)
   } else {
-    // await new Promise((resolve, reject) => drive.db.feed.head((err) => err ? reject(err) : resolve()))
-    await graph.registerRootNode(mainKey)
+    await graph.registerRootNode(opts.mainKey, opts.id)
   }
 
   const oldCreateWriteStream = drive.createWriteStream
@@ -268,15 +267,17 @@ module.exports = async function wrapHyperdrive (drive, context, mainKey = null, 
 
     const { node } = await graph.find(name)
     if (!node) return cb(new FileNotFound(name))
-    if (!node.dir) return cb(new Error('graph node is not a directory'))
-    if (!Array.isArray(node.dir.children)) return cb(null, [])
+
+    const dir = node.dir || node.share
+    if (!dir) return cb(new Error('graph node is not a directory or share'))
+    if (!Array.isArray(dir.children)) return cb(null, [])
 
     const entries = []
-    for (const child of node.dir.children) {
+    for (const child of dir.children) {
       const childname = name + '/' + child.name
       if (opts.recursive) {
-        const node = await graph.getNode(child.id)
-        if (node.dir) {
+        const subnode = await graph.getNode(child.id)
+        if (subnode.dir || subnode.share) {
           const sub = await drive.promises.readdir(childname, opts)
           sub.forEach(f => entries.push(f))
         }

@@ -1,10 +1,11 @@
 const ram = require('random-access-memory')
 const tape = require('tape')
 const hyperdrive = require('hyperdrive')
+const { Server, Client } = require('hyperspace')
 const wrapHyperdrive = require('../../../modules/core/drive')
 const wrapCorestore = require('../../core/corestore')
 const CryptoContext = require('../../../modules/crypto/lib/Context')
-const { Server, Client } = require('hyperspace')
+const fromUrl = require('../url')
 
 tape('URL', async t => {
   t.plan(2)
@@ -26,9 +27,7 @@ tape('URL', async t => {
   const context2 = new CryptoContext()
   const corestore2 = wrapCorestore(client.corestore(), context2)
 
-  const drive2 = hyperdrive(corestore2)
-  await wrapHyperdrive(drive2, context2)
-  await drive2.promises.mountURL(url, 'test')
+  const drive2 = await fromUrl(url, corestore2, context2)
 
   t.same(['test'], await drive2.promises.readdir('', { encrypted: true }))
   t.same('test2', await drive2.promises.readFile('test/b.txt', { encrypted: true, encoding: 'utf-8' }))

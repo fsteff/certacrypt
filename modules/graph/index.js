@@ -78,12 +78,15 @@ class Graph {
     return this.rootNode
   }
 
-  async registerRootNode (mainKey, id = (this.prefix + '1')) {
+  async registerRootNode (mainKey, id) {
     if (typeof mainKey === 'string') {
       mainKey = Buffer.from(mainKey, 'hex')
     }
+    if (!id) {
+      id = (this.prefix + '1')
+    }
     const driveKey = this.db.feed.key.toString('hex')
-    this.cryptoContext.keystore.set(driveKey, id, mainKey)
+    this.cryptoContext.prepareNode(driveKey, id, mainKey)
     this.rootNode = await this.getNode(id)
   }
 
