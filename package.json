@@ -4,7 +4,7 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "test": "standard --fix && tape ./modules/*/tests/*.js",
+    "test": "tape ./modules/*/tests/*.js",
     "generate_protobuf": "protocol-buffers -o ./modules/graph/schema.js ./modules/graph/schema.proto"
   },
   "repository": {
@@ -42,7 +42,8 @@
   "standard": {
     "ignore": [
       "/node_modules/",
-      "/modules/*/schema.js"
+      "/modules/*/schema.js",
+      "index.js"
     ]
   }
 }

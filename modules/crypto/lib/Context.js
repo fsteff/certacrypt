@@ -178,9 +178,11 @@ class CryptoContext {
   /**
    * @param {string} feed key as hex
    * @param {number} index hypercore enctry index
+   * @param {string|Buffer} key secret key (optional)
    */
-  prepareStream (feed, index) {
-    const secret = crypto.generateEncryptionKey()
+  prepareStream (feed, index, key = null) {
+    if (typeof key === 'string') key = Buffer.from(key, 'hex')
+    const secret = key || crypto.generateEncryptionKey()
     this.keystore.set(feed, index, secret)
   }
 

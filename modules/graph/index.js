@@ -5,6 +5,10 @@ const wrapHypertrie = require('../hypertrie-encryption-wrapper')
 const defaultOpts = { encrypted: true, graphNode: true, hidden: true }
 
 class Graph {
+  static prefix () {
+    return '.enc/'
+  }
+
   /**
    * @param {import('hypertrie')} db
    * @param {import('../crypto/lib/Context')} context
@@ -14,7 +18,7 @@ class Graph {
     this.idCtr = 1 // TODO: load latest value from db - history or db entry?
     this.cryptoContext = context
     this.db = db
-    this.prefix = '.enc/'
+    this.prefix = Graph.prefix()
     this.encryptNode = context.getNodeEncryptor(this.db.feed.key.toString('hex'))
     this.remoteGraphs = new Map()
   }
