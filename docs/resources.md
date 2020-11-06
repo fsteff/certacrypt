@@ -64,6 +64,21 @@ List of links to relevant external resources.
 - [A capability-based transparent cryptographic file system(2005)](https://ieeexplore.ieee.org/abstract/document/1587522)
 - [A cryptographic file system for UNIX (1993)](https://dl.acm.org/doi/abs/10.1145/168588.168590)
 - [CryFS Master Thesis](https://www.cryfs.org/cryfs_mathesis.pdf)
+- [IVY R/W P2P Filesystem (2002)](https://dl.acm.org/doi/pdf/10.1145/844128.844132)
+  - log-based P2P FS that allows multiple writers by creating "views"
+  - stores data directly in a DHT
+  - does conflict resolution using version vectors (where possible)
+- [Eliot P2P mutable Filesystem](https://ieeexplore.ieee.org/stamp/stamp.jsp?arnumber=1180204)
+- [POST Cooperative Messaging System](https://www.researchgate.net/profile/Xavier_Bonnaire/publication/221150810_POST_A_Secure_Resilient_Cooperative_Messaging_System/links/09e4150b7d21c4d641000000/POST-A-Secure-Resilient-Cooperative-Messaging-System.pdf)
+  - Conceptually based on IVY
+  - P2P Notification "Service" for sending content-hashes and encryption keys
+- [Kademlia DHT](http://people.cs.aau.dk/~bnielsen/DSE07/papers/kademlia.pdf)
+- [Secure Deduplication with Converget Encryption](https://ieeexplore.ieee.org/stamp/stamp.jsp?arnumber=6658753)
+  - not applicable for P2P, but noteworthy
+- [Sessions: E2EE conversations with minimal metadata leakage](https://arxiv.org/pdf/2002.04609)
+  - Modifies Signal protocol for P2P usage
+    - [X3DH Key Exchange](https://signal.org/docs/specifications/x3dh/x3dh.pdf) but with friend requests instead of prekey-bundles on central servers
+  - Onion Routing Protocol
 
 ## Broader Spectrum
 
@@ -77,4 +92,14 @@ List of links to relevant external resources.
 - [CryFS](https://www.cryfs.org)
   - [Comparison of cryptographic file systems to CryFS](https://www.cryfs.org/comparison/)
 - [PGP / gnupg](https://wiki.gnupg.org/)
+- [securefs](https://github.com/netheril96/securefs/blob/master/docs/design.md)
 - [Attribute-based encryption](https://en.wikipedia.org/wiki/Attribute-based_encryption)
+- [Analysis of BitTorrent's two Kademlia-based DHTs](https://scholarship.rice.edu/bitstream/handle/1911/96357/TR07-04.pdf?sequence=1&isAllowed=y)
+- [Secure Scuttlebutt Private Messages](https://ssbc.github.io/scuttlebutt-protocol-guide/#encrypting)
+- [Private-Box](https://github.com/auditdrivencrypto/private-box)
+  - Might be useable for constructing the Outbox functionality
+  - [Issue: "ephemeral" key doesn't achive anything (in the context of ssb)](https://github.com/auditdrivencrypto/private-box/issues/6)
+  => also applicable for Outbox
+- [libsodium sealed box](https://doc.libsodium.org/public-key_cryptography/sealed_boxes)
+- [Using Ed25519 keys for encryption](https://blog.filippo.io/using-ed25519-keys-for-encryption/)
+- [Question: Same Ed25519 keypair for DH and signing](https://crypto.stackexchange.com/questions/3260/using-same-keypair-for-diffie-hellman-and-signing) (TLDR: yes, but not recommended)
