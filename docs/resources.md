@@ -2,7 +2,7 @@
 
 List of links to relevant external resources.
 
-## Repos/Orgs
+## 1. Repos/Orgs
 
 - [Hypercore Protocol](https://github.com/hypercore-protocol)
   - [hypercore](https://github.com/hypercore-protocol/hypercore)
@@ -17,7 +17,7 @@ List of links to relevant external resources.
   - [hypercore-strong-link](https://github.com/mafintosh/hypercore-strong-link)
   - [hypercore-extension-rpc](https://github.com/mafintosh/hypercore-extension-rpc)
 
-## Standartization Efforts
+## 2. Standartization Efforts
 
 - [Dat DEPs](https://github.com/datprotocol/DEPs/tree/master/proposals)
   - [0007-hypercore-header](https://github.com/datprotocol/DEPs/blob/master/proposals/0007-hypercore-header.md)
@@ -26,7 +26,7 @@ List of links to relevant external resources.
 - [issue: related feeds](https://github.com/datproject/comm-comm/issues/134#issuecomment-604806258)
 - [DDEP-001: hypercore header for manifestfeed](https://github.com/playproject-io/datdot-research/issues/17#issuecomment-625902121)
 
-## Directly related Issues & Discussions
+## 3. Directly related Issues & Discussions
 
 - [issue: hiding/encrypting data](https://github.com/datprotocol/DEPs/issues/21)
 - [issue: dat private key for encryption](https://github.com/datproject/discussions/issues/80)
@@ -34,7 +34,7 @@ List of links to relevant external resources.
 - [DatFS (old)](https://github.com/fsteff/DatFS)
 - [Hyperidentity (old)](https://github.com/poga/hyperidentity)
 
-## Interesting Ideas & Projects
+## 4. Interesting Ideas & Projects
 
 - [CoBox](https://gitlab.com/coboxcoop)
   - [crypto-encoder](https://gitlab.com/coboxcoop/crypto-encoder)
@@ -53,26 +53,32 @@ List of links to relevant external resources.
 - [Tradle](https://github.com/tradle) (does research on hyper* stuff)
   - [hypercore FAQ](https://github.com/tradle/why-hypercore/blob/master/FAQ.md)
 
-## Papers
+## 5. Papers
 
-- [Tahoe LaFS](https://agoric.com/assets/pdf/papers/tahoe-the-least-authority-filesystem.pdf)
-- [Tresorit](https://tresorit.com/tresoritwhitepaper.pdf)
-- [Local-First Software](https://storage.googleapis.com/jellyposter-store/16620200e730651d20d1a25d315508c7.pdf)
-- [Capability Myths Demolished](http://www-users.cselabs.umn.edu/classes/Fall-2019/csci5271/papers/SRL2003-02.pdf)
-- [Password Capability System (1986)](https://doi.org/10.1093/comjnl/29.1.1)
-- [Password-Capabilites: their evolution from the pwassword-capability system into Walnut and beyond(2001)](https://doi.org/10.1109/ACAC.2001.903370)
-- [A capability-based transparent cryptographic file system(2005)](https://ieeexplore.ieee.org/abstract/document/1587522)
+### 5.1 Cryptographic Filesystems
+
 - [A cryptographic file system for UNIX (1993)](https://dl.acm.org/doi/abs/10.1145/168588.168590)
 - [CryFS Master Thesis](https://www.cryfs.org/cryfs_mathesis.pdf)
+
+### 5.2 P2P Filesystems
+
 - [IVY R/W P2P Filesystem (2002)](https://dl.acm.org/doi/pdf/10.1145/844128.844132)
   - log-based P2P FS that allows multiple writers by creating "views"
   - stores data directly in a DHT
   - does conflict resolution using version vectors (where possible)
 - [Eliot P2P mutable Filesystem](https://ieeexplore.ieee.org/stamp/stamp.jsp?arnumber=1180204)
-- [POST Cooperative Messaging System](https://www.researchgate.net/profile/Xavier_Bonnaire/publication/221150810_POST_A_Secure_Resilient_Cooperative_Messaging_System/links/09e4150b7d21c4d641000000/POST-A-Secure-Resilient-Cooperative-Messaging-System.pdf)
-  - Conceptually based on IVY
-  - P2P Notification "Service" for sending content-hashes and encryption keys
-- [Kademlia DHT](http://people.cs.aau.dk/~bnielsen/DSE07/papers/kademlia.pdf)
+
+### 5.3 Capability Systems
+
+- [Tahoe LaFS](https://agoric.com/assets/pdf/papers/tahoe-the-least-authority-filesystem.pdf)
+- [Capability Myths Demolished](http://www-users.cselabs.umn.edu/classes/Fall-2019/csci5271/papers/SRL2003-02.pdf)
+- [Password Capability System (1986)](https://doi.org/10.1093/comjnl/29.1.1)
+- [Password-Capabilites: their evolution from the pwassword-capability system into Walnut and beyond(2001)](https://doi.org/10.1109/ACAC.2001.903370)
+- [A capability-based transparent cryptographic file system(2005)](https://ieeexplore.ieee.org/abstract/document/1587522)
+
+  
+### 5.4 Key Exchange & Cryptography
+
 - [Secure Deduplication with Converget Encryption](https://ieeexplore.ieee.org/stamp/stamp.jsp?arnumber=6658753)
   - not applicable for P2P, but noteworthy
 - [Sessions: E2EE conversations with minimal metadata leakage](https://arxiv.org/pdf/2002.04609)
@@ -80,7 +86,32 @@ List of links to relevant external resources.
     - [X3DH Key Exchange](https://signal.org/docs/specifications/x3dh/x3dh.pdf) but with friend requests instead of prekey-bundles on central servers
   - Onion Routing Protocol
 
-## Broader Spectrum
+### 5.5 Access Control for Distributed/Cloud Environments
+
+- [CloudHKA](https://link.springer.com/chapter/10.1007/978-3-642-38980-1_3)
+  - Hierachical (Bell-LaPadula basesd) system that heavily uses Proxy-Re-Encryption
+  - Computationally intensive key derivation operations can be outsourced to cloud provider whithout compromising security.
+- [Hierachical Access Control in Distributed Environments](https://ieeexplore.ieee.org/abstract/document/936308)
+- [A Data Outsourcing Architecture Combining Cryptography and Access Control](https://dl.acm.org/doi/pdf/10.1145/1314466.1314477)
+  - Uses a graph for key derivation (key derived from secrets of users)
+  - Targets distributed DBs
+- [Privacy Enhanced Access Control for Outsourced Data Sharing](https://citeseerx.ist.psu.edu/viewdoc/download?doi=10.1.1.455.3874&rep=rep1&type=pdf)
+  - Two levels of access control: Coarse (for downloading larger blocks, applied by the cloud provider) and fine grained per file
+  - ACLs per file and user, graph used to derive encryption keys given the ACL of the file (same ACL means same encryption key for two individual files)
+- [An Efficient Key-Management Scheme for Hierarchical Access Control in E-Medicine System](https://link.springer.com/article/10.1007%2Fs10916-011-9700-7)
+  - hierachical access control that utilizes key derivation for managing file encryption
+- [Achieving Secure, Scalable, and Fine-grained Data Access Control in Cloud Computing](https://ieeexplore.ieee.org/abstract/document/5462174)
+
+### 5.6 Other Relevant Papers
+
+- [Tresorit](https://tresorit.com/tresoritwhitepaper.pdf)
+- [Local-First Software](https://storage.googleapis.com/jellyposter-store/16620200e730651d20d1a25d315508c7.pdf)
+- [POST Cooperative Messaging System](https://www.researchgate.net/profile/Xavier_Bonnaire/publication/221150810_POST_A_Secure_Resilient_Cooperative_Messaging_System/links/09e4150b7d21c4d641000000/POST-A-Secure-Resilient-Cooperative-Messaging-System.pdf)
+  - Conceptually based on IVY
+  - P2P Notification "Service" for sending content-hashes and encryption keys
+- [Kademlia DHT](http://people.cs.aau.dk/~bnielsen/DSE07/papers/kademlia.pdf)
+
+## 6. Broader Spectrum
 
 - [Ceph](https://developer.ibm.com/tutorials/l-ceph/)
 - [Paxos Consensus](https://en.wikipedia.org/wiki/Paxos_(computer_science))
