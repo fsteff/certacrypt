@@ -85,9 +85,15 @@ List of links to relevant external resources.
   - Modifies Signal protocol for P2P usage
     - [X3DH Key Exchange](https://signal.org/docs/specifications/x3dh/x3dh.pdf) but with friend requests instead of prekey-bundles on central servers
   - Onion Routing Protocol
+- [Efficient Uni-directional Proxy-Re-Encryption](https://ink.library.smu.edu.sg/cgi/viewcontent.cgi?article=2315&context=sis_research)
+- [Attribute-Based Encryption for Fine-Grained Access Control of Encrypted Data (KP-ABE)](https://dl.acm.org/doi/pdf/10.1145/1180405.1180418)
 
 ### 5.5 Access Control for Distributed/Cloud Environments
 
+- [Cryptographic Access Control in a Distributed Filesystem (2003)](https://dl.acm.org/doi/pdf/10.1145/775412.775432)
+  - Early appraoch of replacing traditional AC systems with cryptography. 
+  - Encrypted on the server side, decrypted on the client - Download allowed for everyone, only readable when the encryption key is known.
+  - Based on a log-structured filesystem for ensuring integrity and availability.
 - [CloudHKA](https://link.springer.com/chapter/10.1007/978-3-642-38980-1_3)
   - Hierachical (Bell-LaPadula basesd) system that heavily uses Proxy-Re-Encryption
   - Computationally intensive key derivation operations can be outsourced to cloud provider whithout compromising security.
