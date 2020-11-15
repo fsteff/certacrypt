@@ -33,7 +33,7 @@ export class CertaCrypt{
         this.readyPromise = new Promise((resolve, reject) => {
             dbStore.ready((err) => {
                 if (err) reject(err)
-                const feedKey = dbStore.toString('hex')
+                const feedKey = dbStore.key.toString('hex')
                 this.crypto.prepareStream(feedKey, 0, masterKey)
                 wrapHypercore(dbStore, 
                     this.crypto.getStreamEncryptor(feedKey), 
@@ -76,8 +76,9 @@ export class CertaCrypt{
         return await fromUrl(url, this.corestore, this.crypto)
     }
 
-    getDefaultDrive () {
+    async getDefaultDrive () {
         const self = this
+        await this.ready()
         return this.getDB('drives/default')
             .then((node: {value: any}) => {
                 if (node) return node.value
@@ -93,8 +94,8 @@ export class CertaCrypt{
             return drive
         }
 
-        async function createDefault () {
-            console.warn('no default hyperdrive found - creating a new one')
+        async function createDefault (err: Error) {
+            console.warn('no default hyperdrive found - creating a new one (Error: ' + err.message + ')')
             const drive = hyperdrive(self.corestore)
             await drive.promises.ready()
             const graphOpts =  {
@@ -107,7 +108,7 @@ export class CertaCrypt{
                 id: graphOpts.id,
                 key: drive.key.toString('hex')
             }
-
+            // FIXME: drive.key == self.db.key - but why?
             await wrapHyperdrive(drive, self.crypto, graphOpts)
             await self.putDB('drives/default', driveOpts)
         }

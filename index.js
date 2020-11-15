@@ -29,7 +29,7 @@ class CertaCrypt {
             dbStore.ready((err) => {
                 if (err)
                     reject(err);
-                const feedKey = dbStore.toString('hex');
+                const feedKey = dbStore.key.toString('hex');
                 this.crypto.prepareStream(feedKey, 0, masterKey);
                 hypercore_encryption_wrapper_1.default(dbStore, this.crypto.getStreamEncryptor(feedKey), this.crypto.getStreamDecryptor(feedKey));
                 self.db = hypertrie_1.default(null, null, { feed: dbStore, valueEncoding: 'json' });
@@ -65,8 +65,9 @@ class CertaCrypt {
     async getDriveFromURL(url) {
         return await url_1.default(url, this.corestore, this.crypto);
     }
-    getDefaultDrive() {
+    async getDefaultDrive() {
         const self = this;
+        await this.ready();
         return this.getDB('drives/default')
             .then((node) => {
             if (node)
@@ -82,8 +83,8 @@ class CertaCrypt {
             await drive_1.default(drive, self.crypto, { mainKey: opts.rootKey, id: opts.id, createRoot: false });
             return drive;
         }
-        async function createDefault() {
-            console.warn('no default hyperdrive found - creating a new one');
+        async function createDefault(err) {
+            console.warn('no default hyperdrive found - creating a new one (Error: ' + err.message + ')');
             const drive = hyperdrive_1.default(self.corestore);
             await drive.promises.ready();
             const graphOpts = {
