@@ -9,6 +9,11 @@ const Graph = require('../graph')
 const { FileNotFound, PathAlreadyExists } = require('hyperdrive/lib/errors')
 const primitives = require('../crypto/lib/primitives')
 
+/**
+ * @param {import 'hyperdrive'} drive
+ * @param {import '../crypto/lib/Context'} context
+ * @param {{ mainKey: string, createRoot: boolean, id: string }} opts
+ */
 module.exports = async function wrapHyperdrive (drive, context, opts = { mainKey: null, createRoot: true, id: null }) {
   await drive.promises.ready()
 
@@ -21,6 +26,10 @@ module.exports = async function wrapHyperdrive (drive, context, opts = { mainKey
     null,
     context.getNodeDecryptor(drivekey)
   )
+
+  if (drive.writeable) {
+    console.info('most current id is' + await graph.getIdFromHistory())
+  }
 
   if (!opts || (opts && opts.createRoot !== false)) {
     await graph.createRootNode(opts ? opts.mainKey : null, !opts || opts.createRoot !== false)

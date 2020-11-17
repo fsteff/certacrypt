@@ -15,7 +15,7 @@ class Graph {
    */
   constructor (db, context) {
     this.rootNode = null
-    this.idCtr = 1 // TODO: load latest value from db - history or db entry?
+    this.idCtr = 1
     this.cryptoContext = context
     this.db = db
     this.prefix = Graph.prefix()
@@ -197,6 +197,20 @@ class Graph {
 
   _nextId () {
     return this.prefix + (this.idCtr++).toString(16)
+  }
+
+  // TODO: more efficient approach, e.g. binary search or looking at history
+  async getIdFromHistory () {
+    const self = this
+    let id = 1
+    while (await exists(Graph.prefix() + id)) id++
+
+    this.idCtr = id
+    return Graph.prefix() + id
+
+    async function exists (path) {
+      return await self.getNode(path).then(() => true).catch(() => false)
+    }
   }
 }
 

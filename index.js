@@ -13,16 +13,15 @@ const url_1 = __importDefault(require("./modules/core/url"));
 const graph_1 = __importDefault(require("./modules/graph"));
 const Context_1 = __importDefault(require("./modules/crypto/lib/Context"));
 const primitives_1 = require("./modules/crypto/lib/primitives");
-const hypercore_encryption_wrapper_1 = __importDefault(require("./modules/hypercore-encryption-wrapper"));
 class CertaCrypt {
     constructor(masterKey, corestore, crypto) {
         const namespace = primitives_1.hash(masterKey).toString('hex');
         this.crypto = crypto || new Context_1.default();
         if (typeof corestore === 'string') {
-            this.corestore = corestore_2.default(new corestore_1.default(corestore).namespace(namespace), this.crypto, false);
+            this.corestore = corestore_2.default(new corestore_1.default(corestore).namespace(namespace), this.crypto);
         }
         else {
-            this.corestore = corestore_2.default(corestore.namespace(namespace), this.crypto, false);
+            this.corestore = corestore_2.default(corestore.namespace(namespace), this.crypto);
         }
         const dbStore = this.corestore.default();
         const self = this;
@@ -33,7 +32,6 @@ class CertaCrypt {
                 const feedKey = dbStore.key.toString('hex');
                 console.info('db feed key is ' + feedKey);
                 self.crypto.prepareStream(feedKey, 0, masterKey);
-                hypercore_encryption_wrapper_1.default(dbStore, self.crypto.getStreamEncryptor(feedKey), self.crypto.getStreamDecryptor(feedKey));
                 self.db = hypertrie_1.default(null, null, { feed: dbStore, valueEncoding: 'json' });
                 resolve();
             });
@@ -55,7 +53,7 @@ class CertaCrypt {
         else {
             const graphOpts = {
                 mainKey: primitives_1.generateEncryptionKey().toString('hex'),
-                id: graph_1.default.prefix(),
+                id: graph_1.default.prefix() + '1',
                 createRoot: true
             };
             const drive = await this.createNewHyperdrive();
@@ -86,11 +84,11 @@ class CertaCrypt {
             return drive;
         }
         async function createDefault(err) {
-            console.warn('no default hyperdrive found - creating a new one (Error: ' + err.message + ')');
+            console.warn(`no default hyperdrive found - creating a new one (Error: "${err.message}" at ${err.stack ? '\n' + err.stack + '\n' : 'no stacktrace available'})`);
             const drive = await self.createNewHyperdrive();
             const graphOpts = {
                 mainKey: primitives_1.generateEncryptionKey().toString('hex'),
-                id: graph_1.default.prefix(),
+                id: graph_1.default.prefix() + '1',
                 createRoot: true,
             };
             const driveOpts = {
@@ -98,7 +96,6 @@ class CertaCrypt {
                 id: graphOpts.id,
                 key: drive.key.toString('hex')
             };
-            // FIXME: drive.key == self.db.key - but why?
             await drive_1.default(drive, self.crypto, graphOpts);
             console.info('default drive key is ' + drive.key.toString('hex'));
             await self.putDB('drives/default', driveOpts);

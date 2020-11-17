@@ -24,9 +24,9 @@ export class CertaCrypt{
         const namespace = hash(masterKey).toString('hex')
         this.crypto = crypto || new CryptoContext()
         if (typeof corestore === 'string') {
-            this.corestore = wrapCorestore(new Corestore(corestore).namespace(namespace), this.crypto, false)
+            this.corestore = wrapCorestore(new Corestore(corestore).namespace(namespace), this.crypto)
         } else {
-            this.corestore = wrapCorestore(corestore.namespace(namespace), this.crypto, false)
+            this.corestore = wrapCorestore(corestore.namespace(namespace), this.crypto)
         }
         
         const dbStore = this.corestore.default()
@@ -37,10 +37,6 @@ export class CertaCrypt{
                 const feedKey = dbStore.key.toString('hex')
                 console.info('db feed key is ' + feedKey)
                 self.crypto.prepareStream(feedKey, 0, masterKey)
-                wrapHypercore(dbStore, 
-                    self.crypto.getStreamEncryptor(feedKey), 
-                    self.crypto.getStreamDecryptor(feedKey)
-                )
                 self.db = hypertrie(null, null, { feed: dbStore, valueEncoding: 'json' })
                 resolve()
             })
@@ -62,7 +58,7 @@ export class CertaCrypt{
         } else {
             const graphOpts =  {
                 mainKey: generateEncryptionKey().toString('hex'),
-                id: Graph.prefix(),
+                id: Graph.prefix() + '1',
                 createRoot: true
             }
 
@@ -97,11 +93,11 @@ export class CertaCrypt{
         }
 
         async function createDefault (err: Error) {
-            console.warn('no default hyperdrive found - creating a new one (Error: ' + err.message + ')')
+            console.warn(`no default hyperdrive found - creating a new one (Error: "${err.message}" at ${err.stack ? '\n' + err.stack + '\n' : 'no stacktrace available'})`)
             const drive = await self.createNewHyperdrive()
             const graphOpts =  {
                 mainKey: generateEncryptionKey().toString('hex'),
-                id: Graph.prefix(),
+                id: Graph.prefix() + '1',
                 createRoot: true,
             }
             const driveOpts = {
@@ -109,7 +105,7 @@ export class CertaCrypt{
                 id: graphOpts.id,
                 key: drive.key.toString('hex')
             }
-            // FIXME: drive.key == self.db.key - but why?
+
             await wrapHyperdrive(drive, self.crypto, graphOpts)
             console.info('default drive key is ' + drive.key.toString('hex'))
             await self.putDB('drives/default', driveOpts)

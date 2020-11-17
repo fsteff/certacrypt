@@ -8,6 +8,13 @@ function wrapHypertrie (trie, encryptStat, decryptStat, encryptNode, decryptNode
   const oldGet = trie.get
   const oldPut = trie.put
 
+  if (trie.hasCertaCryptWrapper) {
+    // seems the corestore does some sort of deduplication, this is only a dirty fix
+    console.warn('trie already has a wrapper: ' + trie.feed.key.toString('hex'))
+    return trie
+  }
+  trie.hasCertaCryptWrapper = true
+
   trie.get = get
   trie.put = put
 
