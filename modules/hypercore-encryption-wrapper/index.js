@@ -14,12 +14,12 @@ function wrapHypercore (feed, encrypt, decrypt) {
   const oldGet = feed.get
   // const oldGetBatch = feed.getBatch
 
-  if (feed.hasCertaCryptWrapper) {
+  if (feed.hasCertaCryptCoreWrapper) {
     // seems the corestore does some sort of deduplication, this is only a dirty fix
     console.warn('feed already has a wrapper: ' + feed.key.toString('hex'))
     return feed
   }
-  feed.hasCertaCryptWrapper = true
+  feed.hasCertaCryptCoreWrapper = true
 
   feed.append = append
   feed.get = get
