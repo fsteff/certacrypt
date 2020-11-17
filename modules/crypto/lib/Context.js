@@ -191,7 +191,7 @@ class CryptoContext {
    * @param {number} index hypercore enctry index
    */
   preparePublicStream (feed, index) {
-    this.keystore.set(feed, index, null)
+    this.keystore.set(feed, index, false)
   }
 
   /**
@@ -203,7 +203,7 @@ class CryptoContext {
     return function encrypt (block, index) {
       const secret = self.keystore.get(feed, index)
       if (!secret) {
-        // console.info('not encryption key for stream ' + feed + ' at ' + index)
+        if (secret === null) console.info('no encryption key for stream ' + feed + ' at ' + index)
         return block
       }
       return crypto.encryptBlockStream(block, index, secret)
@@ -219,7 +219,7 @@ class CryptoContext {
     return function decrypt (ciphertext, index) {
       const secret = self.keystore.get(feed, index)
       if (!secret) {
-        // console.info('not decryption key for stream ' + feed + ' at ' + index)
+        if (secret === null) console.info('no decryption key for stream ' + feed + ' at ' + index)
         return ciphertext
       }
       return crypto.decryptBlockStream(ciphertext, index, secret)

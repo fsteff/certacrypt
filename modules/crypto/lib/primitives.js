@@ -7,7 +7,8 @@ module.exports = {
   encryptBlockStream,
   decryptBlockStream,
   generateEncryptionKey,
-  extractEncryptionKey
+  extractEncryptionKey,
+  hash
 }
 
 /**
@@ -98,4 +99,16 @@ function extractEncryptionKey (buf) {
   buf.copy(key)
   buf.fill(0)
   return key
+}
+
+/**
+ * @param {Buffer|string} buf
+ */
+function hash (buf) {
+  if (!Buffer.isBuffer(buf)) {
+    buf = Buffer.from(buf)
+  }
+  const out = Buffer.allocUnsafe(sodium.crypto_generichash_BYTES)
+  sodium.crypto_generichash(out, buf)
+  return out
 }

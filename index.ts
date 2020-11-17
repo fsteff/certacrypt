@@ -7,7 +7,7 @@ import wrapHyperdrive from './modules/core/drive'
 import fromUrl from './modules/core/url'
 import Graph from './modules/graph'
 import CryptoContext from './modules/crypto/lib/Context'
-import { generateEncryptionKey } from './modules/crypto/lib/primitives'
+import { generateEncryptionKey, hash } from './modules/crypto/lib/primitives'
 import wrapHypercore from './modules/hypercore-encryption-wrapper'
 
 
@@ -21,11 +21,12 @@ export class CertaCrypt{
 
 
     constructor (masterKey: string, corestore: Corestore | string, crypto?: CryptoContext) {
+        const namespace = hash(masterKey).toString('hex')
         this.crypto = crypto || new CryptoContext()
         if (typeof corestore === 'string') {
-            this.corestore = wrapCorestore(new Corestore(corestore), this.crypto)
+            this.corestore = wrapCorestore(new Corestore(corestore).namespace(namespace), this.crypto, false)
         } else {
-            this.corestore = wrapCorestore(corestore, this.crypto)
+            this.corestore = wrapCorestore(corestore.namespace(namespace), this.crypto, false)
         }
         
         const dbStore = this.corestore.default()
@@ -34,10 +35,11 @@ export class CertaCrypt{
             dbStore.ready((err) => {
                 if (err) reject(err)
                 const feedKey = dbStore.key.toString('hex')
-                this.crypto.prepareStream(feedKey, 0, masterKey)
+                console.info('db feed key is ' + feedKey)
+                self.crypto.prepareStream(feedKey, 0, masterKey)
                 wrapHypercore(dbStore, 
-                    this.crypto.getStreamEncryptor(feedKey), 
-                    this.crypto.getStreamDecryptor(feedKey)
+                    self.crypto.getStreamEncryptor(feedKey), 
+                    self.crypto.getStreamDecryptor(feedKey)
                 )
                 self.db = hypertrie(null, null, { feed: dbStore, valueEncoding: 'json' })
                 resolve()
@@ -64,7 +66,7 @@ export class CertaCrypt{
                 createRoot: true
             }
 
-            const drive = hyperdrive(this.corestore, key, graphOpts)
+            const drive = await this.createNewHyperdrive()
             await wrapHyperdrive(drive, this.crypto, graphOpts)
 
             await this.putDB('drives/' + drive.key.toString('hex'), graphOpts)           
@@ -76,7 +78,7 @@ export class CertaCrypt{
         return await fromUrl(url, this.corestore, this.crypto)
     }
 
-    async getDefaultDrive () {
+    async getDefaultDrive (): typeof hyperdrive {
         const self = this
         await this.ready()
         return this.getDB('drives/default')
@@ -96,8 +98,7 @@ export class CertaCrypt{
 
         async function createDefault (err: Error) {
             console.warn('no default hyperdrive found - creating a new one (Error: ' + err.message + ')')
-            const drive = hyperdrive(self.corestore)
-            await drive.promises.ready()
+            const drive = await self.createNewHyperdrive()
             const graphOpts =  {
                 mainKey: generateEncryptionKey().toString('hex'),
                 id: Graph.prefix(),
@@ -110,7 +111,9 @@ export class CertaCrypt{
             }
             // FIXME: drive.key == self.db.key - but why?
             await wrapHyperdrive(drive, self.crypto, graphOpts)
+            console.info('default drive key is ' + drive.key.toString('hex'))
             await self.putDB('drives/default', driveOpts)
+            return drive
         }
     }
 
@@ -132,5 +135,14 @@ export class CertaCrypt{
 
     static generateMasterKey() {
         return generateEncryptionKey().toString('hex')
+    }
+
+    private async createNewHyperdrive() {
+        // make sure to pass enough new entropy to the corestore
+        const sub = this.corestore.namespace(generateEncryptionKey().toString('hex'))
+        wrapCorestore(sub, this.crypto)
+        const drive = hyperdrive(sub)
+        await drive.promises.ready()
+        return drive
     }
 }
