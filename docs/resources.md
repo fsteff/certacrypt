@@ -117,6 +117,7 @@ List of links to relevant external resources.
 ### 5.6 Blockchain based Papers on AC
 - [BlendCAC: A Smart Contract Enabled Decentralized Capability-Based Access Control Mechanism for the IoT ](https://www.mdpi.com/2073-431X/7/3/39/pdf)
 - [Privacy aware decentralized access control system](https://www.sciencedirect.com/science/article/pii/S0167739X18332308)
+- [Blockchain-Based, Decentralized Access Control for IPFS](https://www.researchgate.net/profile/Wazen_Shbair/publication/327034734_Blockchain-Based_Decentralized_Access_Control_for_IPFS/links/5b9d7375299bf13e60343df2/Blockchain-Based-Decentralized-Access-Control-for-IPFS.pdf)
 
 ### 5.6 Other Relevant Papers
 
