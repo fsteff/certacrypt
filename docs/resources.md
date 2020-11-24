@@ -107,6 +107,16 @@ List of links to relevant external resources.
 - [An Efficient Key-Management Scheme for Hierarchical Access Control in E-Medicine System](https://link.springer.com/article/10.1007%2Fs10916-011-9700-7)
   - hierachical access control that utilizes key derivation for managing file encryption
 - [Achieving Secure, Scalable, and Fine-grained Data Access Control in Cloud Computing](https://ieeexplore.ieee.org/abstract/document/5462174)
+- [Decentralized Access Control in Distributed File Systems (2008)](https://dl.acm.org/doi/pdf/10.1145/1380584.1380588)
+  - Survey over access control mechanisms and distributed file systems
+  - Rather outdated, but very relevant!
+- [Decentralized Access Control with Anonymous Authentication of Data Stored in Clouds](https://ieeexplore.ieee.org/document/6463404)
+  - AC using ABE techniques in the cloud
+  - Good explanations of the basics (ABE, revocation, etc) but not directly applicable for P2P
+
+### 5.6 Blockchain based Papers on AC
+- [BlendCAC: A Smart Contract Enabled Decentralized Capability-Based Access Control Mechanism for the IoT ](https://www.mdpi.com/2073-431X/7/3/39/pdf)
+- [Privacy aware decentralized access control system](https://www.sciencedirect.com/science/article/pii/S0167739X18332308)
 
 ### 5.6 Other Relevant Papers
 
