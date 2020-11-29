@@ -75,7 +75,6 @@ List of links to relevant external resources.
 - [Password Capability System (1986)](https://doi.org/10.1093/comjnl/29.1.1)
 - [Password-Capabilites: their evolution from the pwassword-capability system into Walnut and beyond(2001)](https://doi.org/10.1109/ACAC.2001.903370)
 - [A capability-based transparent cryptographic file system(2005)](https://ieeexplore.ieee.org/abstract/document/1587522)
-
   
 ### 5.4 Key Exchange & Cryptography
 
@@ -86,7 +85,15 @@ List of links to relevant external resources.
     - [X3DH Key Exchange](https://signal.org/docs/specifications/x3dh/x3dh.pdf) but with friend requests instead of prekey-bundles on central servers
   - Onion Routing Protocol
 - [Efficient Uni-directional Proxy-Re-Encryption](https://ink.library.smu.edu.sg/cgi/viewcontent.cgi?article=2315&context=sis_research)
+
+Attribute-Based Encryption allows a user to encrypt data if the user has certain attributes assigned by an authority (usually centralized)
 - [Attribute-Based Encryption for Fine-Grained Access Control of Encrypted Data (KP-ABE)](https://dl.acm.org/doi/pdf/10.1145/1180405.1180418)
+- [Shorter Decentralized Attribute-Based Encryption via Extended Dual System Groups](https://www.hindawi.com/journals/scn/2017/7323158/)
+- [Decentralizing Attribute-Based Encryption](https://link.springer.com/chapter/10.1007/978-3-642-20465-4_31)
+
+Predicate Encryption (pretty new and mostly theoretical...)
+- [Practical Predicate Encryption for Inner Product](https://eprint.iacr.org/2020/270.pdf)
+- [Subset Predicate Encryption and its Applications](https://publik.tuwien.ac.at/files/publik_268469.pdf)
 
 ### 5.5 Access Control for Distributed/Cloud Environments
 
@@ -119,7 +126,7 @@ List of links to relevant external resources.
 - [Privacy aware decentralized access control system](https://www.sciencedirect.com/science/article/pii/S0167739X18332308)
 - [Blockchain-Based, Decentralized Access Control for IPFS](https://www.researchgate.net/profile/Wazen_Shbair/publication/327034734_Blockchain-Based_Decentralized_Access_Control_for_IPFS/links/5b9d7375299bf13e60343df2/Blockchain-Based-Decentralized-Access-Control-for-IPFS.pdf)
 
-### 5.6 Other Relevant Papers
+### 5.7 Other Relevant Papers
 
 - [Tresorit](https://tresorit.com/tresoritwhitepaper.pdf)
 - [Local-First Software](https://storage.googleapis.com/jellyposter-store/16620200e730651d20d1a25d315508c7.pdf)
