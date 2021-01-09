@@ -67,6 +67,13 @@ List of links to relevant external resources.
   - stores data directly in a DHT
   - does conflict resolution using version vectors (where possible)
 - [Eliot P2P mutable Filesystem](https://ieeexplore.ieee.org/stamp/stamp.jsp?arnumber=1180204)
+- Bittorent
+  - [BEP-44 Storing arbitrary data in the DHT](http://bittorrent.org/beps/bep_0044.html) DHT key is the public key for signing the data instead of a content hash
+  - [BEP-46 Updating Torrents via DHT Mutable Items](http://bittorrent.org/beps/bep_0046.html)
+  - [2019 2.46% of downstream, and 27.58% of upstream internet traffic](https://onlinelibrary.wiley.com/doi/abs/10.1002/cpe.5723)
+- [IPFS](https://docs.ipfs.io/) P2P filesystem, uses content addressing; [Paper](https://raw.githubusercontent.com/ipfs-inactive/papers/master/ipfs-cap2pfs/ipfs-p2p-file-system.pdf)
+  - [Mutable File System](https://docs.ipfs.io/concepts/file-systems/#mutable-file-system-mfs) API that takes care of managing content hashes
+  - [DNSLink] (https://docs.ipfs.io/concepts/dnslink/#publish-using-a-subdomain) DNS -> IPFS content hash mapping
 
 ### 5.3 Capability Systems
 
