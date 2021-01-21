@@ -168,3 +168,11 @@ Predicate Encryption (pretty new and mostly theoretical...)
 - [Textile Threads](https://docs.textile.io/threads/)
   - IPFS- and Ethereum-based distributed Multi-Party-DB with access control, event sourcing
   - [Paper](https://docsend.com/view/gu3ywqi)
+- [Peergos P2P E2EE Storage](https://peergos.org/)
+  - Based on IPFS
+  - Access control data structure [Cryptree](https://book.peergos.org/security/cryptree.html)
+    - Tree of symmetric keys to control read access
+    - Second tree containing signing key pairs controls write permissions
+- Twitter's Project BlueSky
+  - [Summary of the modern P2P Ecosystems](https://matrix.org/_matrix/media/r0/download/twitter.modular.im/981b258141aa0b197804127cd2f7d298757bad20)
+- [GUN P2P Graph DB](https://gun.eco/)
