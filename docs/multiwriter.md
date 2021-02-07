@@ -1,7 +1,9 @@
 # Concept for giving Write Access
 
 To rule out a large number of edge cases, write access uses a rather simplified concept of *Collaboration-Spaces*.
-*(Here, a directory in terms of graph theory is a vertex and all its edges, including the referenced nodes)*
+
+*Here, a directory in terms of graph theory is a vertex and all its edges*
+
 A space typically is is a directory, but technically works independently of it.
 Multiple spaces can intersect, but write permissions in one do not automatically give write permissions in the other - even if the directory structure would suggest that.
 A space is owned by one user and its definition can only be modified by that user.
