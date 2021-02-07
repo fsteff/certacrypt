@@ -13,7 +13,7 @@
 
 - [x] getting and putting nodes
 - [x] queries
-  - [ ] make more powerful
+  - [ ] extend functionality to allow practically any queries
   - [ ] filesystem-like query system
 - [ ] watch for changes of graph node(s)
 - [ ] show history of node (using HyperObjects object history)*
@@ -38,15 +38,22 @@
 
 ## [CertaCrypt-Graph](https://github.com/fsteff/certacrypt-graph)
 
-- [x] reading and writing encrypted nodes
-- [x] automatic extraction of encryption keys
+- [x] **Read Access**
+  - [x] reading and writing encrypted nodes
+  - [x] automatic extraction of encryption keys
 - [ ] referrer nodes
-- [ ] write access
-  - [x] by pointing to existing nodes
-  - [ ] using referrer nodes
-- [ ] graph union views
-  - [ ] last-write wins (using timestamp)
-  - [ ] use a CRDT*
+- [ ] **Collaboration Spaces** (write access)
+  - [ ] ACL datatype definition / space referrer nodes
+  - [ ] write access
+    - [ ] by pointing to existing nodes
+    - [ ] using referrer nodes
+  - [ ] access control enforcement (which links to follow)
+  - [ ] graph union views
+    - [ ] last-write wins (using timestamp)
+    - [ ] use a CRDT*
+  - [ ] revoking write permissions
+    - [ ] removing edges to the nodes
+    - [ ] pinning vertex versions
 - [ ] **Inbox**
   - [ ] sealed box *envelopes*
   - [ ] implement using referrer nodes
@@ -56,9 +63,7 @@
 - [ ] **Communication Channel**
   - [ ] sketch concept
 - [ ] **Revoking Permissions**
-  - [ ] remove write permissions
-    - [x] by removing edges
-    - [ ] by pinning to versions
+  - [ ] removing write permissions (see collaboration spaces)
   - [ ] removing read permissions
     - [ ] creating a new key for a node
     - [ ] rewriting parts of a graph
@@ -75,14 +80,19 @@
 
 ## CertaCrypt High-Level API
 
-- [ ]  basic hierachies
+- [ ]  **Basic Hierachies**
+  Internal graph structures that persists and organizes data - the *glue* between the features
   - [ ]  public data (shareable by id+key link)
-  - [ ]  track access permissions
+  - [ ]  track access permissions & collaboration spaces
   - [ ]  contacts & friends
-- [ ] utility functions
-  - [ ] generate URLs
-  - [ ] parse URLs  
-- [ ] simple read&write permissions API
+- [ ] **Session Management**
+  - [ ] encrypted, private DB for storing the application state
+  - [ ] utility functions that use the DB if possible or else re-compute the state from the graph
+    - application state can be re-computed even if the DB is deleted (but might be slow)
+    - a lot of caching on that layer
+    - [ ] generate & parse URLs
+    - [ ] more detailed user & friend management (inbox + communication + spaces)
+- [ ] easy-to-use read & write permissions API
 - [ ] [CTZN](https://github.com/pfrazee/ctzn) integration*
   - [ ] for user management / PKI
   - [ ] provide DB layer for CTZN (???)
@@ -101,7 +111,9 @@
   - [ ] public profile
   - [ ] friends & friend lists
   - [ ] address book of all known users
-- [ ] sharing files & directories with users
+- [ ] collaboration spaces
+  - [ ] show as directory, but mark as space
+  - [ ] configuration dialogue
 - [ ] changes-feed*
 - [ ] groups*
 
