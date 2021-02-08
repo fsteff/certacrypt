@@ -10,8 +10,7 @@ The *Inbox* is a public graph vertex that then refers to the individual communic
 There is one main prequesite: both user's clients need to know their public keys and they both have to check each other's feeds for *envelopes* addressed to them.
 This can be met using the following strategy:
 
-1. User A has to get the public key of user B in order to create an *envelope*
-   this can happen over multiple channels:
+1. User A has to get the public key of user B in order to create an *envelope*. This can happen over multiple channels:
    - being in the same group / collaboration channel
    - sending a friend request link over any other channel (which are URLs to one user's *Inbox*)
    - at a later stage probably over CTZN
