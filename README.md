@@ -13,6 +13,7 @@ Effort to create an access-control-system for [Hyperdrive](https://hypercore-pro
 **Concept Documents:**
 
 - *[Initial Concept "Paper"](https://github.com/fsteff/certacrypt/blob/master/docs/concept.pdf) (old)*
+- [Drive](https://github.com/fsteff/certacrypt/blob/master/docs/drive.md)
 - [Multiwriter / Collaboration Spaces](https://github.com/fsteff/certacrypt/blob/master/docs/multiwriter.md)
 - [Inbox](https://github.com/fsteff/certacrypt/blob/master/docs/inbox.md)
 - [Pre-Shared Vertices](https://github.com/fsteff/certacrypt/blob/master/docs/preshared-vertices.md)
