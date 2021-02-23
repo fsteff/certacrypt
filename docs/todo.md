@@ -24,7 +24,7 @@
 - [x] basic implementation
   - [x] subscribe and publish messages
   - [x] dedicated DHT key per topic
-- [ ] history
+- [ ] history*
   - [ ] research spam- & denial-of-service-proof way of keeping history
     - probably application-defined trust/reputation system
   - [ ] periodic re-transmission
@@ -58,8 +58,8 @@
   - [ ] sealed box *envelopes*
   - [ ] implement using referrer nodes
   - [ ] notify others by using [hyperpubsub](https://github.com/fsteff/hyperpubsub)
-    - [ ] sketch out how pinning of friend's messages could work
-    - [ ] implement pinning of friend's messages (see hyperpubsub history)
+    - [ ] sketch out how pinning of friend's messages could work*
+    - [ ] implement pinning of friend's messages (see hyperpubsub history)*
 - [ ] **Communication Channel**
   - [ ] sketch concept
 - [ ] **Revoking Permissions**
