@@ -26,4 +26,7 @@ If the directory structure does not match the file structure in the graph that c
 
 ## Architecture
 
+By using wrappers for the used Hypercore and Hypertrie instances, write and read operations can be intercepted to inject encryption and decryption. 
+
+Writing to a file results in the following process (reading is similar):
 ![Architecture Sketch](https://raw.githubusercontent.com/fsteff/certacrypt/master/docs/architecture-write.png)
