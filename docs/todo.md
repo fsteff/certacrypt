@@ -5,7 +5,7 @@
 - [x] implement basic object store
   - [x] transactions
   - [x] simple merge handler
-- [ ] transaction info (seq-nr, timestamp)
+- [x] transaction info (seq-nr, timestamp)
 - [ ] object history*
 - [ ] watch objects for changes
 
@@ -14,7 +14,7 @@
 - [x] getting and putting nodes
 - [x] queries
   - [ ] extend functionality to allow practically any queries
-  - [ ] filesystem-like query system
+  - [x] filesystem-like query system
 - [ ] watch for changes of graph node(s)
 - [ ] show history of node (using HyperObjects object history)*
 - [ ] pin edges to node versions
