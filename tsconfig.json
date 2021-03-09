@@ -10,11 +10,11 @@
       "noImplicitAny": false,
       "suppressImplicitAnyIndexErrors": true,
       "rootDir": "./",
-      "outDir": "./",
+      "outDir": "./dist",
       "esModuleInterop": true,
       "strict": false
     },
     "lib": ["ES2017"],
-    "include": ["index.ts"],
+    "include": ["index.ts", "tests/*.ts"],
     "exclude": ["node_moules"]
   }

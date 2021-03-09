@@ -5,7 +5,7 @@ const wrapHyperdrive = require('./drive')
 module.exports = async function createFromUrl (url, corestore, context) {
   const parsed = new URL(url)
   const key = Buffer.from(parsed.host, 'hex')
-  const id = unixify(parsed.pathname).substring(1)
+  const id = unixify(parsed.pathname).split('/').slice(0, 2)
   const secret = parsed.searchParams.get('key')
 
   const drive = hyperdrive(corestore, key)

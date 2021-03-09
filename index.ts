@@ -70,7 +70,7 @@ export class CertaCrypt{
         }
     }
 
-    async getDriveFromURL(url) {
+    async getDriveFromURL(url) : hyperdrive {
         return await fromUrl(url, this.corestore, this.crypto)
     }
 
