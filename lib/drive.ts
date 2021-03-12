@@ -1,11 +1,10 @@
-import { HyperGraphDB, Vertex, Corestore } from 'hyper-graphdb'
+import { HyperGraphDB, Vertex, Corestore, GraphObject } from 'hyper-graphdb'
 import { CertaCryptGraph } from 'certacrypt-graph'
 import { Cipher, ICrypto } from 'certacrypt-crypto'
 import { cryptoCorestore } from './crypto'
-import { Directory, File, DriveGraphObject } from './graphObjects'
-import { CB0, CB1, CB2, Hyperdrive, Stat } from './types'
+import { Directory, GraphObjectTypeNames } from './graphObjects'
+import { CB1, CB2, Hyperdrive, readdirOpts, readdirResult, Stat } from './types'
 import { MetaStorage } from './meta'
-import { Feed } from 'hyperobjects'
 import createHyperdrive from 'hyperdrive'
 import coreByteStream from 'hypercore-byte-stream'
 import MiniPass from 'minipass'
@@ -20,10 +19,12 @@ export async function cryptoDrive(corestore: Corestore, graph: CertaCryptGraph, 
 
   const oldCreateWriteStream = drive.createWriteStream
   const oldLstat = drive.lstat
+  const oldReaddir = drive.readdir
 
   drive.createReadStream = createReadStream
   drive.createWriteStream = createWriteStream
-  //drive.lstat = lstat
+  drive.lstat = lstat
+  drive.readdir = readdir
 
   return drive
 
@@ -80,8 +81,8 @@ export async function cryptoDrive(corestore: Corestore, graph: CertaCryptGraph, 
     drive.once('appending', async (filename) => {
       const { path, fkey, stream } = await state
       if (filename !== path) throw new Error('appending name !== filename')
-      
-      const passedOpts = { trie: true, db: dbOpts}
+
+      const passedOpts = { trie: true, db: dbOpts }
       drive.stat(path, passedOpts, async (err, stat, trie) => {
         if (err && (err.errno !== 2)) return input.destroy(err)
         drive._getContent(trie.feed, async (err, contentState) => {
@@ -114,28 +115,73 @@ export async function cryptoDrive(corestore: Corestore, graph: CertaCryptGraph, 
     }
   }
 
-  function lstat(name: string, opts: extendedOpts, cb: CB2<Stat, any>) {
+  function lstat(name: string, opts: extendedOpts, cb: CB2<Stat, any>): Promise<Stat> | any {
     opts = fixOpts(opts)
-    if (opts.db.public || !opts.db.resolve) {
+    if (!opts.resolve) {
       return oldLstat.call(drive, name, opts, cb)
     } else {
-      meta.find(name)
+      return meta.find(name)
         .then(async ({ path, feed }) => {
           const feedTrie = await meta.getTrie(feed)
-          const { stat, trie } = await meta.lstat(path, feedTrie, !!opts.file)
+          const { stat, trie } = await meta.lstat(path, !!opts.db.encrypted, feedTrie, !!opts.file)
           cb(null, stat, trie)
+          return stat
         })
         .catch(err => cb(err))
     }
   }
+
+  async function readdir(name: string, opts: readdirOpts, cb: CB1<readdirResult[]>) {
+    opts = fixOpts(opts)
+    const encrypted = opts.db.encrypted
+    if (!encrypted) return oldReaddir.call(drive, name, opts, cb)
+
+    const results = new Array<readdirResult>()
+    for await (const vertex of graph.queryPathAtVertex(name, root).vertices()) {
+      const labels = distinct(vertex.getEdges().map(edge => edge.label))
+      const children = labels
+          .map(label => {
+            return { path: name + '/' + label, label }
+          })
+          .map(async ({ path, label }) => {
+            try {
+              const file = await meta.readableFile(path)
+              return { label, ... file }
+            } catch(err) {
+              console.error(err)
+              return null
+            }
+          })
+          .filter(child => !!child)
+
+        for (const child of await Promise.all(children)) {
+          if(opts.includeStats) {
+          results.push({ name: child.label, path: child.path, stat: child.stat })
+          } else {
+            results.push(child.label)
+          }
+        }
+    }
+
+    return cb(null, results)
+  }
 }
 
-type extendedOpts = { db?: { public?: boolean }, public?: boolean } & any
-type fixedOpts = { db: { public?: boolean } } & any
+type extendedOpts = { db?: { encrypted?: boolean }, encrypted?: boolean } & any
+type fixedOpts = { db: { encrypted?: boolean } } & any
 
 function fixOpts(opts: extendedOpts): fixedOpts {
   opts = Object.assign({}, opts)
   opts.db = opts.db || {}
   opts.db.encrypted = !!(opts.db.encrypted || opts.encrypted)
   return opts
+}
+
+function isDriveObject(vertex: Vertex<GraphObject>) {
+  const type = vertex.getContent()?.typeName
+  return type === GraphObjectTypeNames.DIRECTORY || type === GraphObjectTypeNames.FILE
+}
+
+function distinct<T>(arr: T[]): T[] {
+  return [... (new Set(arr).values())]
 }

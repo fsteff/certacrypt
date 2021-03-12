@@ -13,6 +13,9 @@ export type CB0 = (err?: HyperdriveError) => void
 export type CB1<T> = (err?: HyperdriveError, arg1?: T) => void
 export type CB2<T, V> = (err?: HyperdriveError, arg1?: T, arg2?: V) => void
 
+export type readdirOpts = { db?: { encrypted?: boolean }, includeStats?: boolean, recursive?: boolean }
+export type readdirResult = string | { name: string, path: string, stat: Stat }
+
 export interface Stat {
     dev: number,
     nlink: number,
@@ -53,7 +56,8 @@ export interface Hyperdrive extends EventEmitter {
         ready(): Promise<void>
         mkdir(name: string): Promise<void>,
         readFile(name: string, opts?: {encoding: Codec} & any | string): Promise<any>,
-        writeFile(name: string, buf, opts?: {encoding: Codec} & any | string ): Promise<void>
+        writeFile(name: string, buf, opts?: {encoding: Codec} & any | string ): Promise<void>,
+        readdir(name: string, opts?: readdirOpts) : Promise<readdirResult[]>
     }
     ready(cb: CBF): void
     getContent(cb: CB1<Feed>): void
@@ -76,7 +80,7 @@ export interface Hyperdrive extends EventEmitter {
     info(name: string, cb: CBF)
     access(name: string, opts, cb: CBF)
     exists(name: string, opts, cb: CBF)
-    readdir(name: string, opts, cb: CBF)
+    readdir(name: string, opts: readdirOpts, cb: CB1<readdirResult[]>)
     unlink(name: string, cb: CBF)
     replicate(isInitiator, opts)
     checkout(version, opts)

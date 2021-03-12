@@ -6,16 +6,22 @@ import Corestore from 'corestore'
 import tape from 'tape'
 import { CertaCryptGraph } from 'certacrypt-graph'
 import { Cipher, DefaultCrypto } from 'certacrypt-crypto'
+import { readdirResult } from '../lib/types'
 
 const encryptedOpts = {db: {encrypted: true}, encoding: 'utf-8'}
 
-tape('write and read', async t => {
+async function createDB() {
     const store = new Corestore(RAM)
     await store.ready()
     const crypto = new DefaultCrypto()
     const db = new CertaCryptGraph(store, null, crypto)
     db.codec.registerImpl(data => new File(data))
     db.codec.registerImpl(data => new Directory(data))
+    return {store, crypto, db}
+}
+
+tape('write and read', async t => {
+    const {store, crypto, db} = await createDB()
 
     const v1 = db.create<Directory>()
     await db.put(v1)
@@ -23,17 +29,17 @@ tape('write and read', async t => {
     const drive = await cryptoDrive(store, db, crypto, v1)
     await drive.promises.writeFile('test.txt', 'hello world', encryptedOpts)
 
-    const content = await drive.promises.readFile('test.txt', encryptedOpts)
+    let content = await drive.promises.readFile('test.txt', encryptedOpts)
     t.same(content, 'hello world')
+
+    await drive.promises.writeFile('/subdir/test.txt', 'hello there', encryptedOpts)
+
+    content = await drive.promises.readFile('/subdir/test.txt', encryptedOpts)
+    t.same(content, 'hello there')
 })
 
 tape('public', async t => {
-    const store = new Corestore(RAM)
-    await store.ready()
-    const crypto = new DefaultCrypto()
-    const db = new CertaCryptGraph(store, null, crypto)
-    db.codec.registerImpl(data => new File(data))
-    db.codec.registerImpl(data => new Directory(data))
+    const {store, crypto, db} = await createDB()
 
     const v1 = db.create<Directory>()
     await db.put(v1)
@@ -71,4 +77,23 @@ tape('2 DBs', async t => {
     const drive2 = await cryptoDrive(store.namespace('d2'), db2, crypto2, v2)
     const content = await drive2.promises.readFile('/mount/test.txt', encryptedOpts)
     t.same(content, 'hello world')
+})
+
+tape('readdir', async t => {
+    const {store, crypto, db} = await createDB()
+
+    const v1 = db.create<Directory>()
+    await db.put(v1)
+
+    const drive = await cryptoDrive(store, db, crypto, v1)
+    await drive.promises.writeFile('docs/test.txt', 'hello world', encryptedOpts)
+
+    const content = await drive.promises.readFile('docs/test.txt', encryptedOpts)
+    t.same(content, 'hello world')
+
+    const results = await drive.promises.readdir('docs', {...encryptedOpts, includeStats: true})
+    t.same(results.length, 1)
+    const first = <{name: string, path: string}> results[0]
+    t.same(first.name, 'text.txt')
+    t.same(first.path, '/docs/test.txt')
 })
