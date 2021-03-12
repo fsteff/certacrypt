@@ -7,7 +7,27 @@ import tape from 'tape'
 import { CertaCryptGraph } from 'certacrypt-graph'
 import { Cipher, DefaultCrypto } from 'certacrypt-crypto'
 
+const encryptedOpts = {db: {encrypted: true}, encoding: 'utf-8'}
+
 tape('write and read', async t => {
+    const store = new Corestore(RAM)
+    await store.ready()
+    const crypto = new DefaultCrypto()
+    const db = new CertaCryptGraph(store, null, crypto)
+    db.codec.registerImpl(data => new File(data))
+    db.codec.registerImpl(data => new Directory(data))
+
+    const v1 = db.create<Directory>()
+    await db.put(v1)
+
+    const drive = await cryptoDrive(store, db, crypto, v1)
+    await drive.promises.writeFile('test.txt', 'hello world', encryptedOpts)
+
+    const content = await drive.promises.readFile('test.txt', encryptedOpts)
+    t.same(content, 'hello world')
+})
+
+tape('public', async t => {
     const store = new Corestore(RAM)
     await store.ready()
     const crypto = new DefaultCrypto()
@@ -46,9 +66,9 @@ tape('2 DBs', async t => {
     await db2.put(v2)
 
     const drive = await cryptoDrive(store.namespace('d1'), db, crypto, v1)
-    await drive.promises.writeFile('test.txt', 'hello world', 'utf-8')
+    await drive.promises.writeFile('test.txt', 'hello world', encryptedOpts)
     
     const drive2 = await cryptoDrive(store.namespace('d2'), db2, crypto2, v2)
-    const content = await drive2.promises.readFile('/mount/test.txt', 'utf-8')
+    const content = await drive2.promises.readFile('/mount/test.txt', encryptedOpts)
     t.same(content, 'hello world')
 })

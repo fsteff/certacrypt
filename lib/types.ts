@@ -52,8 +52,8 @@ export interface Hyperdrive extends EventEmitter {
         // TODO: rest
         ready(): Promise<void>
         mkdir(name: string): Promise<void>,
-        readFile(name: string, opts?: Codec): Promise<any>,
-        writeFile(name: string, buf, opts?: Codec ): Promise<void>
+        readFile(name: string, opts?: {encoding: Codec} & any | string): Promise<any>,
+        writeFile(name: string, buf, opts?: {encoding: Codec} & any | string ): Promise<void>
     }
     ready(cb: CBF): void
     getContent(cb: CB1<Feed>): void
@@ -65,8 +65,8 @@ export interface Hyperdrive extends EventEmitter {
     createDirectoryStream(name: string, opts?: {includeStats?: boolean}): ReadableStream
     createWriteStream(name: string, opts?: {}): WritableStream
     create(name: string, opts?: {} | CBF, cb?: CBF): void
-    readFile(name: string, opts?: Codec | CBF, cb?: CBF): void
-    writeFile(name: string, buf, opts?: Codec | CBF, cb?: CBF): void
+    readFile(name: string, opts?: {encoding: Codec} & any | string | CBF, cb?: CBF): void
+    writeFile(name: string, buf, opts?: {encoding: Codec} & any| string | CBF, cb?: CBF): void
     truncate(name:string, size?: number, cb?: CBF)
     ftruncate(fd: number, size?: number, cb?: CBF)
     mkdir(name: string, opts?: {directory?: boolean} | CBF, cb?: CBF)

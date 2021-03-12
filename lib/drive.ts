@@ -77,7 +77,7 @@ export async function cryptoDrive(corestore: Corestore, graph: CertaCryptGraph, 
       const { path, fkey, stream } = await state
       if (filename !== path) throw new Error('appending name !== filename')
       const passedOpts = { trie: true, db: encrypted ? { encrypted: true } : undefined }
-      drive.stat(name, passedOpts, async (err, stat, trie) => {
+      drive.stat(path, passedOpts, async (err, stat, trie) => {
         if (err && (err.errno !== 2)) return input.destroy(err)
         drive._getContent(trie.feed, async (err, contentState) => {
           if (err) return input.destroy(err)
