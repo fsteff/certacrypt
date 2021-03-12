@@ -75,6 +75,12 @@
 
 - [x] basic implementation of reading and writing encrypted files
 - [ ] refactor using CertaCrypt-Graph
+  - [x] createReadStream
+  - [x] createWriteStream
+  - [ ] mkdir
+  - [ ] lstat
+  - [ ] readdir
+  - [ ] ... other utility functions?
 - [ ] stream file type (hypercore)
 - [ ] expose permission api (here?)
 
