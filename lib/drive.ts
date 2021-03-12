@@ -3,7 +3,7 @@ import { CertaCryptGraph } from 'certacrypt-graph'
 import { Cipher, ICrypto } from 'certacrypt-crypto'
 import { cryptoCorestore } from './crypto'
 import { Directory, File, DriveGraphObject } from './graphObjects'
-import { Hyperdrive, Stat } from './types'
+import { CB0, CB1, CB2, Hyperdrive, Stat } from './types'
 import { MetaStorage } from './meta'
 import { Feed } from 'hyperobjects'
 import createHyperdrive from 'hyperdrive'
@@ -19,16 +19,20 @@ export async function cryptoDrive(corestore: Corestore, graph: CertaCryptGraph, 
   const meta = new MetaStorage(drive, graph, root, crypto)
 
   const oldCreateWriteStream = drive.createWriteStream
+  const oldLstat = drive.lstat
 
   drive.createReadStream = createReadStream
   drive.createWriteStream = createWriteStream
+  //drive.lstat = lstat
 
   return drive
 
   function createReadStream(name, opts) {
     name = unixify(name)
     opts = fixOpts(opts)
-    const encrypted = opts.db.encrypted
+
+    // in order not to break the existing api, files are public by default!
+    const encrypted = !!opts.db.encrypted
 
     const filePromise = meta.readableFile(name, encrypted)
     const out = new MiniPass()
@@ -62,11 +66,12 @@ export async function cryptoDrive(corestore: Corestore, graph: CertaCryptGraph, 
   function createWriteStream(name, opts): WritableStream<any> {
     name = unixify(name)
     opts = fixOpts(opts)
-    const encrypted = opts.db.encrypted
+    // in order not to break the existing api, files are public by default!
+    const encrypted = !!opts.db.encrypted
     const input = new MiniPass()
     const state = meta.writeableFile(name, encrypted)
-                      .then(prepareStream)
-                      .catch(err => input.destroy(err))
+      .then(prepareStream)
+      .catch(err => input.destroy(err))
 
     drive.once('appending', async (filename) => {
       const { path, fkey, stream } = await state
@@ -103,18 +108,29 @@ export async function cryptoDrive(corestore: Corestore, graph: CertaCryptGraph, 
       }
     }
   }
+
+  function lstat(name: string, opts: extendedOpts, cb: CB2<Stat, any>) {
+    opts = fixOpts(opts)
+    if (opts.db.public || !opts.db.resolve) {
+      return oldLstat.call(drive, name, opts, cb)
+    } else {
+      meta.find(name)
+        .then(async ({ path, feed }) => {
+          const feedTrie = await meta.getTrie(feed)
+          const { stat, trie } = await meta.lstat(path, feedTrie, !!opts.file)
+          cb(null, stat, trie)
+        })
+        .catch(err => cb(err))
+    }
+  }
 }
 
+type extendedOpts = { db?: { public?: boolean }, public?: boolean } & any
+type fixedOpts = { db: { public?: boolean } } & any
 
-function fixOpts(opts) {
+function fixOpts(opts: extendedOpts): fixedOpts {
   opts = Object.assign({}, opts)
   opts.db = opts.db || {}
-  opts.db.encrypted = opts.db.encrypted || opts.encrypted
+  opts.db.encrypted = !!(opts.db.encrypted || opts.encrypted)
   return opts
-}
-
-function latestWrite(vertices: Vertex<DriveGraphObject>[]) {
-  // TODO: use more sophisticated method
-  if (!vertices || vertices.length === 0) return null
-  return vertices.sort((a, b) => a.getTimestamp() - b.getTimestamp())[0]
 }

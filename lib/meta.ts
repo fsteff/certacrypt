@@ -10,6 +10,7 @@ import MountableHypertrie from 'mountable-hypertrie'
 import { Feed } from 'hyperobjects'
 import drive from '../modules/core/drive'
 import { Directory } from '../modules/graph/schema'
+import { Stat as TrieStat } from 'hyperdrive-schemas'
 
 
 
@@ -30,18 +31,15 @@ export class MetaStorage {
     }
 
     async readableFile(filename: string, encrypted = true) {
-        const vertex = latestWrite(await this.graph.queryPathAtVertex(filename, this.root).generator().destruct())
-        if (!vertex) throw new FileNotFound(filename)
-
-        const file = vertex.getContent()
-        if (!file.filename) throw new Error('vertex is not of type file or directory, it does not have a filename url')
-        const { feed, path, mkey, fkey } = this.parseUrl(file.filename)
+        const file = await this.find(filename)
+        if (!file) throw new FileNotFound(filename)
+        const { feed, path, mkey, fkey } = file
 
         if(encrypted) this.crypto.registerKey(mkey, { feed, index: path, type: Cipher.XChaCha20_Blob })
         else this.crypto.registerPublic(feed, path)
 
         const trie = await this.getTrie(feed)
-        const { stat, contentFeed } = await this.stat(path, trie)
+        const { stat, contentFeed } = await this.lstat(path, encrypted, trie)
         
         const dataFeed = contentFeed.key.toString('hex')
         if(encrypted) this.crypto.registerKey(fkey, { feed: dataFeed, type: Cipher.ChaCha20_Stream, index: stat.offset })
@@ -50,19 +48,17 @@ export class MetaStorage {
         return { path, trie, stat, contentFeed }
     }
 
-    async writeableFile(filename: string, encrypted = true) {
-        let vertex = latestWrite(await this.graph.queryPathAtVertex(filename, this.root).generator().destruct())
-        let fileid
+    async writeableFile(filename: string, encrypted = true): Promise<{path: string, fkey?: Buffer}> {
+        let parsedFile = await this.find(filename)
+        let fileid: string
+        let vertex: Vertex<DriveGraphObject> = parsedFile?.vertex
         const feed = this.drive.key.toString('hex')
-        if (vertex) {
-            const file = vertex.getContent()
-            if (!file.filename) throw new Error('vertex is not of type file or directory, it does not have a filename url')
-            const parsed = this.parseUrl(file.filename)
+        if (parsedFile) {
             
-            if(encrypted) this.crypto.registerKey(parsed.mkey, { feed, index: parsed.path, type: Cipher.XChaCha20_Blob })
-            else this.crypto.registerPublic(feed, parsed.path)
+            if(encrypted) this.crypto.registerKey(parsedFile.mkey, { feed, index: parsedFile.path, type: Cipher.XChaCha20_Blob })
+            else this.crypto.registerPublic(feed, parsedFile.path)
             
-            fileid = parsed.path
+            fileid = parsedFile.path
         } else {
             vertex = this.createFile()
 
@@ -71,7 +67,7 @@ export class MetaStorage {
         }
 
         let url = 'hyper://' + feed + fileid
-        let fkey: Buffer | undefined
+        let fkey: Buffer
         if(encrypted) {
             const mkey = this.crypto.generateEncryptionKey(Cipher.XChaCha20_Blob)
             fkey = this.crypto.generateEncryptionKey(Cipher.ChaCha20_Stream)
@@ -103,20 +99,55 @@ export class MetaStorage {
         return this.graph.create<File>()
     }
 
-    private stat(path, trie?): Promise<{ stat: Stat, trie: MountableHypertrie, contentFeed: Feed }> {
-        const opts = { db: trie }
+    public async find(path: string) {
+        const vertex = await latestWrite(await this.graph.queryPathAtVertex(path, this.root).generator().destruct())
+        if(!vertex) return null
+
+        const file = vertex.getContent()
+        if (!file.filename) throw new Error('vertex is not of type file or directory, it does not have a filename url')
+        const parsed = this.parseUrl(file.filename)
+        return {vertex, ...parsed}
+    }
+
+    public lstat(path, encrypted: boolean, trie?, file?: boolean): Promise<{ stat: Stat, trie: MountableHypertrie, contentFeed: Feed }> {
+        const self = this
+        const opts = { file: !!file, db: {trie, encrypted } }
         return new Promise((resolve, reject) => {
-            this.drive.stat(path, opts, (err, stat, trie) => {
+            if(trie && trie !== self.drive.db) {
+                trie.get(path, opts.db, onRemoteStat)   
+            } else {
+                this.drive.lstat(path, opts, onStat)
+            }
+
+            function onStat(err, stat, passedTrie) {
                 if (err) return reject(err)
-                this.drive._getContent(trie.feed, (err, contentState) => {
+                if (stat && !passedTrie) return resolve(stat)
+                self.drive._getContent(passedTrie.feed, (err, contentState) => {
                     if (err) return reject(err)
-                    else resolve({ stat, trie, contentFeed: contentState.feed })
+                    else resolve({ stat, trie: passedTrie, contentFeed: contentState.feed })
                 })
-            })
+            }
+
+            function onRemoteStat(err, node, trie) {
+                if (err) return reject(err)
+                // vanilla hyperdrive mounts are not supported yet
+                if (!node && opts.file) return reject(new FileNotFound(path))
+                if (!node) return onStat(null, TrieStat.directory(), trie) // TODO: modes?
+                try {
+                    var st = TrieStat.decode(node.value)
+                } catch (err) {
+                    return reject(err)
+                }
+                const writingFd = self.drive._writingFds.get(path)
+                if (writingFd) {
+                    st.size = writingFd.stat.size
+                }
+                onStat(null, st, trie)
+            }
         })
     }
 
-    private async getTrie(feedKey: string) {
+    public async getTrie(feedKey: string) {
         if (this.tries.has(feedKey)) return this.tries.get(feedKey)
         const trie = await cryptoTrie(this.drive.corestore, this.crypto, feedKey)
         this.tries.set(feedKey, trie)
@@ -126,7 +157,7 @@ export class MetaStorage {
     private parseUrl(url) {
         const parsed = new URL(url)
         const [feed, versionStr] = parsed.host.split('+', 2)
-        const path = unixify(parsed.pathname)
+        const path= <string> unixify(parsed.pathname)
         const metaKey = parsed.searchParams.get('mkey')
         const fileKey = parsed.searchParams.get('fkey')
 

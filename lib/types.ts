@@ -32,6 +32,7 @@ export interface Stat {
 }
 
 export interface Hyperdrive extends EventEmitter {
+    _writingFds: any
     key?: Buffer,
     discoveryKey?: Buffer,
     live: boolean,

@@ -45,10 +45,10 @@ tape('2 DBs', async t => {
     crypto2.registerKey(db.getKey(v1), {feed: v1.getFeed(), index: v1.getId(), type: Cipher.ChaCha20_Stream})
     await db2.put(v2)
 
-    const drive = await cryptoDrive(store, db, crypto, v1)
+    const drive = await cryptoDrive(store.namespace('d1'), db, crypto, v1)
     await drive.promises.writeFile('test.txt', 'hello world', 'utf-8')
     
-    const drive2 = await cryptoDrive(store, db2, crypto2, v2)
+    const drive2 = await cryptoDrive(store.namespace('d2'), db2, crypto2, v2)
     const content = await drive2.promises.readFile('/mount/test.txt', 'utf-8')
     t.same(content, 'hello world')
 })
