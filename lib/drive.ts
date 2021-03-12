@@ -66,8 +66,12 @@ export async function cryptoDrive(corestore: Corestore, graph: CertaCryptGraph, 
   function createWriteStream(name, opts): WritableStream<any> {
     name = unixify(name)
     opts = fixOpts(opts)
+
     // in order not to break the existing api, files are public by default!
     const encrypted = !!opts.db.encrypted
+    const dbOpts = encrypted ? { encrypted: true, hidden: true } : undefined
+    opts.db = dbOpts
+
     const input = new MiniPass()
     const state = meta.writeableFile(name, encrypted)
       .then(prepareStream)
@@ -76,7 +80,8 @@ export async function cryptoDrive(corestore: Corestore, graph: CertaCryptGraph, 
     drive.once('appending', async (filename) => {
       const { path, fkey, stream } = await state
       if (filename !== path) throw new Error('appending name !== filename')
-      const passedOpts = { trie: true, db: encrypted ? { encrypted: true } : undefined }
+      
+      const passedOpts = { trie: true, db: dbOpts}
       drive.stat(path, passedOpts, async (err, stat, trie) => {
         if (err && (err.errno !== 2)) return input.destroy(err)
         drive._getContent(trie.feed, async (err, contentState) => {

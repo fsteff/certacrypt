@@ -39,7 +39,7 @@ export class MetaStorage {
         else this.crypto.registerPublic(feed, path)
 
         const trie = await this.getTrie(feed)
-        const { stat, contentFeed } = await this.lstat(path, encrypted, trie)
+        const { stat, contentFeed } = await this.lstat(path, encrypted, trie, true)
         
         const dataFeed = contentFeed.key.toString('hex')
         if(encrypted) this.crypto.registerKey(fkey, { feed: dataFeed, type: Cipher.ChaCha20_Stream, index: stat.offset })
@@ -111,7 +111,7 @@ export class MetaStorage {
 
     public lstat(path, encrypted: boolean, trie?, file?: boolean): Promise<{ stat: Stat, trie: MountableHypertrie, contentFeed: Feed }> {
         const self = this
-        const opts = { file: !!file, db: {trie, encrypted } }
+        const opts = { file: !!file, db: {trie, encrypted , hidden: !!encrypted} }
         return new Promise((resolve, reject) => {
             if(trie && trie !== self.drive.db) {
                 trie.get(path, opts.db, onRemoteStat)   

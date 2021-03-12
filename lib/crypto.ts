@@ -102,6 +102,7 @@ export async function cryptoTrie(corestore: Corestore, crypto: ICrypto, feedKey:
     return trie
 
     function get(key, opts, cb) {
+        key = normalize(key)
         opts = mapOpts(opts)
         return tryOrError(() => oldGet.call(trie, key, opts, opts.encrypted ? onData(key, cb) : cb), cb)
         function onData(key, cb) {
@@ -118,6 +119,7 @@ export async function cryptoTrie(corestore: Corestore, crypto: ICrypto, feedKey:
     }
 
     function put(key, value, opts, cb) {
+        key =  normalize(key)
         opts = mapOpts(opts)
         value = opts.encrypted ? encrypt(value, key) : value
         return tryOrError(() => oldPut.call(trie, key, value, opts, cb), cb)
@@ -128,6 +130,11 @@ function mapOpts(opts) {
     if (!opts) return {}
     if (!opts.encrypted) return opts
     return Object.assign({}, opts, { hidden: true })
+}
+
+function normalize(key: string) {
+    if(key.startsWith('/')) return key.slice(1)
+    else return key
 }
 
 function tryOrError(foo, cb) {
