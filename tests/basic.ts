@@ -32,6 +32,7 @@ tape('write and read', async t => {
     let content = await drive.promises.readFile('test.txt', encryptedOpts)
     t.same(content, 'hello world')
 
+    // FIXME: there is a hyperobjects index mismatch - seems the object id-index entry is broken (written index: 12, persisted index is 15!)
     await drive.promises.writeFile('/subdir/test.txt', 'hello there', encryptedOpts)
 
     content = await drive.promises.readFile('/subdir/test.txt', encryptedOpts)
@@ -95,5 +96,5 @@ tape('readdir', async t => {
     t.same(results.length, 1)
     const first = <{name: string, path: string}> results[0]
     t.same(first.name, 'test.txt')
-    t.same(first.path, '/docs/test.txt')
+    t.same(first.path, 'docs/test.txt')
 })

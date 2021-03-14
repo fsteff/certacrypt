@@ -148,7 +148,7 @@ export async function cryptoDrive(corestore: Corestore, graph: CertaCryptGraph, 
           .map(async ({ path, label }) => {
             try {
               const file = await meta.readableFile(path)
-              return { label, ... file }
+              return { label, path, stat: file.stat }
             } catch(err) {
               console.error(err)
               return null
@@ -158,7 +158,7 @@ export async function cryptoDrive(corestore: Corestore, graph: CertaCryptGraph, 
 
         for (const child of await Promise.all(children)) {
           if(opts.includeStats) {
-          results.push({ name: child.label, path: child.path, stat: child.stat })
+            results.push({ name: child.label, path: child.path, stat: child.stat })
           } else {
             results.push(child.label)
           }
