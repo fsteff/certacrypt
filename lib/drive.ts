@@ -116,6 +116,7 @@ export async function cryptoDrive(corestore: Corestore, graph: CertaCryptGraph, 
   }
 
   function lstat(name: string, opts: extendedOpts, cb: CB2<Stat, any>): Promise<Stat> | any {
+    name = unixify(name)
     opts = fixOpts(opts)
     if (!opts.resolve) {
       return oldLstat.call(drive, name, opts, cb)
@@ -132,6 +133,7 @@ export async function cryptoDrive(corestore: Corestore, graph: CertaCryptGraph, 
   }
 
   async function readdir(name: string, opts: readdirOpts, cb: CB1<readdirResult[]>) {
+    name = unixify(name)
     opts = fixOpts(opts)
     const encrypted = opts.db.encrypted
     if (!encrypted) return oldReaddir.call(drive, name, opts, cb)

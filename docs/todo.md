@@ -16,6 +16,9 @@
   - [ ] extend functionality to allow practically any queries
   - [x] filesystem-like query system
 - [ ] watch for changes of graph node(s)
+- [ ] update/notify vertex objects when other instance persists changes (?)
+  - [ ] track objects without having problems with the gc
+  - [ ] dirty flag - must not apply changes if updated somewhere else
 - [ ] show history of node (using HyperObjects object history)*
 - [ ] pin edges to node versions
 

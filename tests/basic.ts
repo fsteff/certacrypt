@@ -94,6 +94,6 @@ tape('readdir', async t => {
     const results = await drive.promises.readdir('docs', {...encryptedOpts, includeStats: true})
     t.same(results.length, 1)
     const first = <{name: string, path: string}> results[0]
-    t.same(first.name, 'text.txt')
+    t.same(first.name, 'test.txt')
     t.same(first.path, '/docs/test.txt')
 })
