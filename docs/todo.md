@@ -77,12 +77,14 @@
 ## CertaCrypt Drive
 
 - [x] basic implementation of reading and writing encrypted files
-- [ ] refactor using CertaCrypt-Graph
+- [x] refactor using CertaCrypt-Graph
   - [x] createReadStream
   - [x] createWriteStream
-  - [ ] mkdir
-  - [x] lstat
-  - [x] readdir
+  - [x] mkdir
+  - [x] lstat/stat
+    - [ ] return correct file size for directories (has to be calculated at runtime... very costly)*
+    - [ ] follow hyperdrive symbolic links*
+  - [x] readdir (out of scope: recursive mode)
   - [ ] ... other utility functions?
 - [ ] stream file type (hypercore)
 - [ ] expose permission api (here?)

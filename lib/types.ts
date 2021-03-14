@@ -54,10 +54,12 @@ export interface Hyperdrive extends EventEmitter {
     promises: {
         // TODO: rest
         ready(): Promise<void>
-        mkdir(name: string): Promise<void>,
+        mkdir(name: string, opts?: any): Promise<void>,
         readFile(name: string, opts?: {encoding: Codec} & any | string): Promise<any>,
         writeFile(name: string, buf, opts?: {encoding: Codec} & any | string ): Promise<void>,
-        readdir(name: string, opts?: readdirOpts) : Promise<readdirResult[]>
+        readdir(name: string, opts?: readdirOpts): Promise<readdirResult[]>
+        lstat(name: string, opts?: any): Promise<Stat>,
+        stat(name: string, opts?: any): Promise<Stat>,
     }
     ready(cb: CBF): void
     getContent(cb: CB1<Feed>): void
@@ -73,7 +75,7 @@ export interface Hyperdrive extends EventEmitter {
     writeFile(name: string, buf, opts?: {encoding: Codec} & any| string | CBF, cb?: CBF): void
     truncate(name:string, size?: number, cb?: CBF)
     ftruncate(fd: number, size?: number, cb?: CBF)
-    mkdir(name: string, opts?: {directory?: boolean} | CBF, cb?: CBF)
+    mkdir(name: string, opts?: any | CBF, cb?: CBF)
     readlink(name: string, cb: CBF)
     lstat(name: string, opts, cb: CBF)
     stat(name: string, opts, cb: CBF)

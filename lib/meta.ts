@@ -1,15 +1,13 @@
 import { Hyperdrive, Stat } from './types'
 import { CertaCryptGraph } from 'certacrypt-graph'
-import { Vertex } from 'hyper-graphdb'
-import { DriveGraphObject, File, GraphObjectTypeNames } from './graphObjects'
+import { GraphObject, Vertex } from 'hyper-graphdb'
+import { Directory, DriveGraphObject, File, GraphObjectTypeNames } from './graphObjects'
 import { FileNotFound, PathAlreadyExists } from 'hyperdrive/lib/errors'
 import unixify from 'unixify'
 import { cryptoTrie } from './crypto'
 import { Cipher, ICrypto } from 'certacrypt-crypto'
 import MountableHypertrie from 'mountable-hypertrie'
 import { Feed } from 'hyperobjects'
-import drive from '../modules/core/drive'
-import { Directory } from '../modules/graph/schema'
 import { Stat as TrieStat } from 'hyperdrive-schemas'
 
 
@@ -60,7 +58,7 @@ export class MetaStorage {
             
             fileid = parsedFile.path
         } else {
-            vertex = this.createFile()
+            vertex = this.graph.create<File>()
 
             if(encrypted) fileid = '/.enc/' + this.idCtr++
             else fileid = filename
@@ -88,15 +86,41 @@ export class MetaStorage {
                 .matches(v => v.getContent()?.typeName === GraphObjectTypeNames.DIRECTORY)
                 .generator().destruct()
             if(dirs.length === 0) {
-                //await this.drive.promises.mkdir(path) //  todo: implement or better?
+                await this.createDirectory(path)
             }
         }
 
         return {path: fileid, fkey}
     }
 
-    private createFile(): Vertex<DriveGraphObject> {
-        return this.graph.create<File>()
+    public async createDirectory(name: string): Promise<Vertex<Directory>> {
+        const dirs = this.graph.queryPathAtVertex(name, this.root).vertices()
+        let target: Vertex<Directory>
+        for await (const vertex of dirs) {
+            const content = vertex.getContent()
+            if(content?.typeName === GraphObjectTypeNames.DIRECTORY) {
+                throw new PathAlreadyExists(name)
+            }
+            if(content === null && vertex.getFeed() === this.root.getFeed()) {
+                target = <Vertex<Directory>>vertex
+            }
+        }
+
+        if(!target) {
+            target = this.graph.create<Directory>()
+        }
+        const feed = this.drive.db.feed.key.toString('hex')
+        const mkey = this.crypto.generateEncryptionKey(Cipher.XChaCha20_Blob)
+        const fileid = '/.enc/' + this.idCtr++
+        const url = `hyper://${feed}${fileid}?mkey=${mkey.toString('hex')}`
+        const dir = new Directory()
+        dir.filename = url
+        target.setContent(dir)
+        this.crypto.registerKey(mkey, {feed, type: Cipher.XChaCha20_Blob, index: fileid})
+        await this.drive.mkdir(fileid) // without encrypted flag, therefore calls oldMkdir
+        await this.graph.put(target)
+        await this.graph.createEdgesToPath(name, this.root, target)
+        return target
     }
 
     public async find(path: string) {

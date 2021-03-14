@@ -3,7 +3,7 @@ import { CertaCryptGraph } from 'certacrypt-graph'
 import { Cipher, ICrypto } from 'certacrypt-crypto'
 import { cryptoCorestore } from './crypto'
 import { Directory, GraphObjectTypeNames } from './graphObjects'
-import { CB1, CB2, Hyperdrive, readdirOpts, readdirResult, Stat } from './types'
+import { CBF, CB1, CB2, Hyperdrive, readdirOpts, readdirResult, Stat } from './types'
 import { MetaStorage } from './meta'
 import createHyperdrive from 'hyperdrive'
 import coreByteStream from 'hypercore-byte-stream'
@@ -20,11 +20,13 @@ export async function cryptoDrive(corestore: Corestore, graph: CertaCryptGraph, 
   const oldCreateWriteStream = drive.createWriteStream
   const oldLstat = drive.lstat
   const oldReaddir = drive.readdir
+  const oldMkdir = drive.mkdir
 
   drive.createReadStream = createReadStream
   drive.createWriteStream = createWriteStream
   drive.lstat = lstat
   drive.readdir = readdir
+  drive.mkdir = mkdir
 
   return drive
 
@@ -167,6 +169,17 @@ export async function cryptoDrive(corestore: Corestore, graph: CertaCryptGraph, 
 
     return cb(null, results)
   }
+
+  function mkdir(name: string, opts?: extendedOpts | CBF, cb?: CBF) {
+    name = unixify(name)
+    opts = fixOpts(opts)
+    const encrypted = opts.db.encrypted
+    if(!encrypted) return oldMkdir.call(drive, name, opts, cb)
+
+    meta.createDirectory(name)
+      .then(v => cb(null, v))
+      .catch(err => cb(err))
+  }
 }
 
 type extendedOpts = { db?: { encrypted?: boolean }, encrypted?: boolean } & any
@@ -177,11 +190,6 @@ function fixOpts(opts: extendedOpts): fixedOpts {
   opts.db = opts.db || {}
   opts.db.encrypted = !!(opts.db.encrypted || opts.encrypted)
   return opts
-}
-
-function isDriveObject(vertex: Vertex<GraphObject>) {
-  const type = vertex.getContent()?.typeName
-  return type === GraphObjectTypeNames.DIRECTORY || type === GraphObjectTypeNames.FILE
 }
 
 function distinct<T>(arr: T[]): T[] {
