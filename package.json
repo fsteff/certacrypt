@@ -4,9 +4,9 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "test": "tape ./modules/*/tests/*.js",
+    "test": "tape ./dist/tests/*.js",
     "generate_protobuf": "protocol-buffers -o ./modules/graph/schema.js ./modules/graph/schema.proto",
-    "build": "tsc && copy-files",
+    "build": "tsc && npm run copy-files",
     "copy-files": "copyfiles ./lib/js/*.js dist"
   },
   "repository": {
