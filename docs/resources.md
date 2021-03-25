@@ -141,6 +141,7 @@ Predicate Encryption (pretty new and mostly theoretical...)
   - Conceptually based on IVY
   - P2P Notification "Service" for sending content-hashes and encryption keys
 - [Kademlia DHT](http://people.cs.aau.dk/~bnielsen/DSE07/papers/kademlia.pdf)
+- [Conflict-free Replicated Data Types](https://hal.inria.fr/inria-00609399/document)
 
 ## 6. Broader Spectrum
 

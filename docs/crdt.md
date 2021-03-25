@@ -17,16 +17,16 @@ Let there be a set of 3 writers (A,B,C) that start with transaction ID 1.
 Each starts with a single root vertex for the merged space. The root vertex of A has an edge to B and C labeled as '.', meaning these are to be merged.
 Then the following changes are made:
 
- - C adds a vertex with content 'C.B' and then an edge labeled 'b'. The vector clock written to the edge therefore is (1,1,2).
- - C adds a vertex with content 'C.A' and then an edge labeled 'a'. The vector clock written to that edge is (1,1,3).
- - The changes are synchronized to A and B.
-   - The shared view is now consistent between A,B and C.
- - A adds a vertex with content 'A.A' and then and edge labeled 'a'. The vector clock written to that edge is (2,1,3).
- - A synchronizes its changes with C. Since the update by A happened after the one by C it is clear that the vertex with 'C.A' is overwritten by the one with 'A.A'.
- - B adds a thombstone and labels it 'a'. The vector clock written to that edge is (1,2,3)
- - A creates a vertex 'A.A.N'. It adds an edge from 'A.A' to 'A.A.N' and labels it 'n' and updates all edges *up* to the root vertex. The vector clock at both edges is (3,1,3).
- - A and B synchronize their changes with C. Since both changed the edge labeled 'a' the two vector clocks show a lower value for each other: (3,1,3) vs (2,2,3) (!). Therefore a conflict is detected that has to be resolved using a  set of rules that ensures determinism.
-   - The rules state that deletes have a lower priority than updates, the changes of A outweigh the ones of C.
+- C adds a vertex with content 'C.B' and then an edge labeled 'b'. The vector clock written to the edge therefore is (1,1,2).
+- C adds a vertex with content 'C.A' and then an edge labeled 'a'. The vector clock written to that edge is (1,1,3).
+- The changes are synchronized to A and B.
+  - The shared view is now consistent between A,B and C.
+- A adds a vertex with content 'A.A' and then and edge labeled 'a'. The vector clock written to that edge is (2,1,3).
+- A synchronizes its changes with C. Since the update by A happened after the one by C it is clear that the vertex with 'C.A' is overwritten by the one with 'A.A'.
+- B adds a thombstone and labels it 'a'. The vector clock written to that edge is (1,2,3)
+- A creates a vertex 'A.A.N'. It adds an edge from 'A.A' to 'A.A.N' and labels it 'n' and updates all edges *up* to the root vertex. The vector clock at both edges is (3,1,3).
+- A and B synchronize their changes with C. Since both changed the edge labeled 'a' the two vector clocks show a lower value for each other: (3,1,3) vs (2,2,3) (!). Therefore a conflict is detected that has to be resolved using a  set of rules that ensures determinism.
+  - The rules state that deletes have a lower priority than updates, the changes of A outweigh the ones of C.
 
 ![CRDT Sketch](https://raw.githubusercontent.com/fsteff/certacrypt/master/docs/crdt.png)
 
