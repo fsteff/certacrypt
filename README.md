@@ -19,4 +19,4 @@ Effort to create an access-control-system for [Hyperdrive](https://hypercore-pro
 - [Pre-Shared Vertices](https://github.com/fsteff/certacrypt/blob/master/docs/preshared-vertices.md)
 - [Private Communication Channels](https://github.com/fsteff/certacrypt/blob/master/docs/private-commchannel.md)
 - [Open Communication Channel](https://github.com/fsteff/certacrypt/blob/master/docs/open-commchannel.md)
-  
+- [Multiwriter CRDT](https://github.com/fsteff/certacrypt/blob/master/docs/crdt.md)  

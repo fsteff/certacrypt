@@ -19,6 +19,7 @@ It is implemented using an Access-Control-List (ACL) composed of:
 
 Spaces create a merged directory view - if there are multiple intersecting spaces, that happens independently of each other!
 To create such a view various strategies are possible, the simplest one (and therefore initiall implemented) is only using timestamps (last-write-wins).
+[Multiwriter CRDT](https://github.com/fsteff/certacrypt/blob/master/docs/crdt.md) is a concept on how a more sophisticated CRDT tailored for filesystems could look like.
 
 To allow one user deleting an other user's file or directory, *thombstones* are created. These are special vertices that define that a file should not be included in the view, unless there is a newer version of it than the *thombstone*.
 
