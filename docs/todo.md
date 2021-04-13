@@ -15,12 +15,16 @@
 - [x] queries
   - [ ] extend functionality to allow practically any queries
   - [x] filesystem-like query system
+  - [x] query views that create computed representations of graph(s)
 - [ ] watch for changes of graph node(s)
 - [ ] update/notify vertex objects when other instance persists changes*
   - [ ] track objects without having problems with the gc
   - [ ] dirty flag - must not apply changes if updated somewhere else
 - [ ] show history of node (using HyperObjects object history)*
 - [ ] pin edges to node versions
+  - [x] edges contain versions
+  - [x] vertices can be checked out with a certain version
+  - [ ] scheme that defines that an edge is pinned to a version
 
 ## [HyperPubSub](https://github.com/fsteff/hyperpubsub)
 
@@ -85,6 +89,7 @@
     - [ ] return correct file size for directories (has to be calculated at runtime... very costly)*
     - [ ] follow hyperdrive symbolic links*
   - [x] readdir (out of scope: recursive mode)
+  - [ ] symbolic links (on a graph level)
   - [ ] ... other utility functions?
 - [ ] stream file type (hypercore)
 - [ ] expose permission api (here?)
