@@ -2,13 +2,14 @@ import { HyperGraphDB, Vertex, Corestore, GraphObject } from 'hyper-graphdb'
 import { CertaCryptGraph } from 'certacrypt-graph'
 import { Cipher, ICrypto } from 'certacrypt-crypto'
 import { cryptoCorestore } from './crypto'
-import { Directory, GraphObjectTypeNames } from './graphObjects'
+import { Directory, DriveGraphObject } from './graphObjects'
 import { CBF, CB1, CB2, Hyperdrive, readdirOpts, readdirResult, Stat } from './types'
 import { MetaStorage } from './meta'
 import createHyperdrive from 'hyperdrive'
 import coreByteStream from 'hypercore-byte-stream'
 import MiniPass from 'minipass'
 import unixify from 'unixify'
+import { IVertex } from 'hyper-graphdb/lib/Vertex'
 
 export async function cryptoDrive(corestore: Corestore, graph: CertaCryptGraph, crypto: ICrypto, root: Vertex<Directory>): Promise<Hyperdrive> {
   corestore = cryptoCorestore(corestore.namespace('cryptoDrive'), crypto)
@@ -141,8 +142,8 @@ export async function cryptoDrive(corestore: Corestore, graph: CertaCryptGraph, 
     if (!encrypted) return oldReaddir.call(drive, name, opts, cb)
 
     const results = new Array<readdirResult>()
-    for await (const vertex of graph.queryPathAtVertex(name, root).vertices()) {
-      const labels = distinct(vertex.getEdges().map(edge => edge.label))
+    for (const vertex of await graph.queryPathAtVertex(name, root).vertices()) {
+      const labels = distinct((<IVertex<DriveGraphObject>>vertex).getEdges().map(edge => edge.label))
       const children = labels
           .map(label => {
             return { path: name + '/' + label, label }

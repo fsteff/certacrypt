@@ -9,7 +9,7 @@ import { Cipher, ICrypto } from 'certacrypt-crypto'
 import MountableHypertrie from 'mountable-hypertrie'
 import { Feed } from 'hyperobjects'
 import { Stat as TrieStat } from 'hyperdrive-schemas'
-
+import { parseUrl } from './url'
 
 
 export class MetaStorage {
@@ -94,9 +94,9 @@ export class MetaStorage {
     }
 
     public async createDirectory(name: string): Promise<Vertex<Directory>> {
-        const dirs = this.graph.queryPathAtVertex(name, this.root).vertices()
+        const dirs = <Vertex<DriveGraphObject>[]>  await this.graph.queryPathAtVertex(name, this.root).vertices()
         let target: Vertex<Directory>
-        for await (const vertex of dirs) {
+        for (const vertex of dirs) {
             const content = vertex.getContent()
             if(content?.typeName === GraphObjectTypeNames.DIRECTORY) {
                 throw new PathAlreadyExists(name)
@@ -124,12 +124,12 @@ export class MetaStorage {
     }
 
     public async find(path: string) {
-        const vertex = await latestWrite(await this.graph.queryPathAtVertex(path, this.root).generator().destruct())
+        const vertex = latestWrite(<Vertex<DriveGraphObject>[]> await this.graph.queryPathAtVertex(path, this.root).vertices())
         if(!vertex) return null
 
         const file = vertex.getContent()
         if (!file.filename) throw new Error('vertex is not of type file or directory, it does not have a filename url')
-        const parsed = this.parseUrl(file.filename)
+        const parsed = parseUrl(file.filename)
         return {vertex, ...parsed}
     }
 
@@ -177,27 +177,10 @@ export class MetaStorage {
         this.tries.set(feedKey, trie)
         return trie
     }
-
-    private parseUrl(url) {
-        const parsed = new URL(url)
-        const [feed, versionStr] = parsed.host.split('+', 2)
-        const path= <string> unixify(parsed.pathname)
-        const metaKey = parsed.searchParams.get('mkey')
-        const fileKey = parsed.searchParams.get('fkey')
-
-        let mkey: Buffer | undefined, fkey: Buffer | undefined
-        if (metaKey) mkey = Buffer.from(metaKey, 'hex')
-        if (fileKey) fkey = Buffer.from(fileKey, 'hex')
-
-        let version: number | undefined
-        if (versionStr) version = parseInt(versionStr)
-
-        return { feed, path, mkey, fkey, versionStr }
-    }
 }
 
 function latestWrite(vertices: Vertex<DriveGraphObject>[]) {
-    // TODO: use more sophisticated method
+    // TODO: use more sophisticated method - e.g. a view that makes sure there is only one vertex
     if (!vertices || vertices.length === 0) return null
     else if (vertices.length === 1) return vertices[0]
     else return vertices.sort((a, b) => a.getTimestamp() - b.getTimestamp())[0]
