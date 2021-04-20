@@ -17,6 +17,7 @@ The root vertex referts to various strictly defined vertices:
 Additionaly, there are views that simplify the development and *might* increase performance in case of materialized views:
 
 - `shares` refers to all vertices shared with other users, that helps to keep track of which data is shared with whom and is required to enable revokation of read access to certain users.
+  - `url` (multiple) refers to all shares for the share-by-url feature.
 - `channels` refers to all [Communication Channels](https://github.com/fsteff/certacrypt/blob/master/docs/private-commchannel.md) in order to simplify app development.
 - `spaces` refers to all [Collaboration Spaces](https://github.com/fsteff/certacrypt/blob/master/docs/multiwriter.md)
 

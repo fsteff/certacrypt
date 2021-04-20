@@ -1,3 +1,4 @@
+import { GraphObject, Vertex } from 'hyper-graphdb'
 import unixify from 'unixify'
 
 export function parseUrl(url: string) {
@@ -17,4 +18,9 @@ export function parseUrl(url: string) {
     if (versionStr && /^\d+$/.test(versionStr)) version = parseInt(versionStr)
 
     return { feed, path, id, mkey, fkey, key, version }
+}
+
+export function createUrl(vertex: Vertex<GraphObject>, key: Buffer, version?: number) {
+    let versionStr = version ? '+' + version : ''
+    return `hyper://${vertex.getFeed()}${versionStr}/${vertex.getId()}?key=${key.toString('hex')}`
 }
