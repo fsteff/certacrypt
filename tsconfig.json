@@ -15,6 +15,6 @@
       "strict": false
     },
     "lib": ["ES2017"],
-    "include": ["index.ts", "tests/*.ts"],
+    "include": ["index.ts", "tests/*.ts", "examples/*.ts"],
     "exclude": ["node_moules"]
   }

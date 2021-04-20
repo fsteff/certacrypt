@@ -1,7 +1,10 @@
 import { Cipher, ICrypto } from "certacrypt-crypto";
 import { CertaCryptGraph } from "certacrypt-graph";
+import { ShareGraphObject, SHARE_VIEW } from "certacrypt-graph";
 import { Core, Corestore, GraphObject, SimpleGraphObject, Vertex } from "hyper-graphdb";
+import { Directory, DriveGraphObject } from "./lib/graphObjects";
 import { parseUrl, createUrl } from './lib/url'
+import { cryptoDrive } from './lib/drive'
 
 
 export class CertaCrypt{
@@ -47,16 +50,34 @@ export class CertaCrypt{
         return createUrl(root, this.graph.getKey(root))
     }
 
-    public async path(path: string){
+    public async path(path: string): Promise<Vertex<GraphObject>>{
         return this.graph.queryPathAtVertex(path, await this.sessionRoot).vertices()
             .then(res => {
-                if(res.length === 1) return res[0]
+                if(res.length === 1) return <Vertex<GraphObject>> res[0]
                 else throw new Error('path query requires unique results')
             })
     }
 
     public async share(vertex: Vertex<GraphObject>) {
-        const shares = this.path('/shares')
+        const shares = await this.path('/shares')
+        const created = this.graph.create<ShareGraphObject>()
+        created.addEdgeTo(vertex, 'share')
+        await this.graph.put(created)
 
+        shares.addEdgeTo(created, 'url', undefined, undefined, SHARE_VIEW)
+        await this.graph.put(shares)
+        
+        return created
+    }
+
+    public async mountShare(target: Vertex<GraphObject>, label: string, url: string) {
+        const {feed, id, key} = parseUrl(url)
+        const vertex = await this.graph.get(id, feed, key)
+        target.addEdgeTo(vertex, label, undefined, undefined, SHARE_VIEW)
+        await this.graph.put(target)
+    }
+
+    public async drive(rootDir: Vertex<Directory>) {
+        return cryptoDrive(this.corestore, this.graph, this.crypto, rootDir)
     }
 }

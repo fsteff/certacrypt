@@ -25,10 +25,11 @@
   },
   "homepage": "https://github.com/fsteff/certacrypt#readme",
   "dependencies": {
+    "hyper-graphdb": "git+https://github.com/fsteff/hyper-graphdb.git",
+    "certacrypt-graph": "git+https://github.com/fsteff/certacrypt-graph.git",
     "@types/codecs": "^2.2.2",
     "bulk-write-stream": "^2.0.1",
     "codecs": "^2.2.0",
-    
     "hyperdrive": "git+https://github.com/fsteff/hyperdrive.git",
     "hypertrie": "^5.1.1",
     "minipass": "^3.1.3",
