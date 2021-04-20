@@ -20,3 +20,4 @@ Effort to create an access-control-system for [Hyperdrive](https://hypercore-pro
 - [Private Communication Channels](https://github.com/fsteff/certacrypt/blob/master/docs/private-commchannel.md)
 - [Open Communication Channel](https://github.com/fsteff/certacrypt/blob/master/docs/open-commchannel.md)
 - [Multiwriter CRDT](https://github.com/fsteff/certacrypt/blob/master/docs/crdt.md)  
+- [App Sessions](https://github.com/fsteff/certacrypt/blob/master/docs/session.md)  
