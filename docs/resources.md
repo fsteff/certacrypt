@@ -9,6 +9,7 @@ List of links to relevant external resources.
   - [hypertrie](https://github.com/hypercore-protocol/hypertrie)
   - [hyperdrive](https://github.com/hypercore-protocol/hyperdrive)
   - [hyperspace](https://github.com/hypercore-protocol/hyperspace)
+    - [locking api for RemoteHypercore](https://github.com/hypercore-protocol/hyperspace/blob/26d6d36f3d3f9d6ca1269994af5a2ddf9096c583/test/local.js#L311)
   - [hyperspace-rpc](https://github.com/hypercore-protocol/hyperspace-rpc)
 - [Hyperswarm](https://github.com/hyperswarm/)
 - [Mafintosh's hyper*](https://github.com/mafintosh?tab=repositories&q=hyper&type=&language=)
