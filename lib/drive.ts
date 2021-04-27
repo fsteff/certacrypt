@@ -144,9 +144,12 @@ export async function cryptoDrive(corestore: Corestore, graph: CertaCryptGraph, 
     const results = new Array<readdirResult>()
     for (const vertex of await graph.queryPathAtVertex(name, root).vertices()) {
       const labels = distinct((<IVertex<DriveGraphObject>>vertex).getEdges().map(edge => edge.label))
-      const children = labels
+      const children = (await Promise.all(labels
           .map(label => {
-            return { path: name + '/' + label, label }
+            let path: string
+            if(name.endsWith('/')) path = name + label
+            else path = name + '/' + label
+            return { path, label }
           })
           .map(async ({ path, label }) => {
             try {
@@ -156,10 +159,10 @@ export async function cryptoDrive(corestore: Corestore, graph: CertaCryptGraph, 
               console.error(err)
               return null
             }
-          })
-          .filter(child => !!child)
+          })))
+          .filter(child => child !== null)
 
-        for (const child of await Promise.all(children)) {
+        for (const child of children) {
           if(opts.includeStats) {
             results.push({ name: child.label, path: child.path, stat: child.stat })
           } else {

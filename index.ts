@@ -2,7 +2,7 @@ import { Cipher, ICrypto } from "certacrypt-crypto";
 import { CertaCryptGraph } from "certacrypt-graph";
 import { ShareGraphObject, SHARE_VIEW } from "certacrypt-graph";
 import { Core, Corestore, GraphObject, SimpleGraphObject, Vertex } from "hyper-graphdb";
-import { Directory, DriveGraphObject } from "./lib/graphObjects";
+import { Directory, File} from "./lib/graphObjects";
 import { parseUrl, createUrl } from './lib/url'
 import { cryptoDrive } from './lib/drive'
 
@@ -26,6 +26,8 @@ export class CertaCrypt{
             this.graph = new CertaCryptGraph(corestore, undefined, crypto)
             this.sessionRoot = this.initSession()
         } 
+        this.graph.codec.registerImpl(data => new File(data))
+        this.graph.codec.registerImpl(data => new Directory(data))
     }
 
     private async initSession() {

@@ -128,6 +128,7 @@ export class MetaStorage {
         if(!vertex) return null
 
         const file = vertex.getContent()
+        if (!file) throw new Error('vertex is not of type file or directory, it has no content at all')
         if (!file.filename) throw new Error('vertex is not of type file or directory, it does not have a filename url')
         const parsed = parseUrl(file.filename)
         return {vertex, ...parsed}

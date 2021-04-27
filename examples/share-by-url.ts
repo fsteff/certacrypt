@@ -8,8 +8,8 @@ import { Directory } from '../lib/graphObjects'
 import unixify from 'unixify'
 import { createUrl } from '../lib/url'
 
-let close: () => void
 let server
+let close: () => void
 
 startHyperspace()
     .then(startCertaCrypt)
@@ -20,10 +20,10 @@ startHyperspace()
 async function runApp(app: CertaCrypt) {
     switch (process.argv[2]) {
         case 'start':
-            start(app)
+            await start(app)
             break
         case 'open':
-            open(app)
+            await open(app)
             break
     }
 }
@@ -31,7 +31,16 @@ async function runApp(app: CertaCrypt) {
 async function open(app: CertaCrypt) {
     let url = process.argv[3]
     if(!url) throw new Error('no URL specified')
+    let target = process.argv[4]
+    if(!target) throw new Error('no target file specified')
+
     await app.mountShare(await app.path('/apps'), 'shared', url)
+    const dir = <Vertex<Directory>> (await app.path('/apps/shared'))
+    const drive = await app.drive(dir)
+    const files = await drive.promises.readdir('/', {db: {encrypted: true}})
+    console.log('found files: ' + files)
+    const content = await drive.promises.readFile('/' + files[0])
+    await fs.writeFile(target, content)
 }
 
 async function start(app: CertaCrypt) {
@@ -55,7 +64,7 @@ async function start(app: CertaCrypt) {
     await drive.promises.writeFile(filename, content)
     console.log('file successfully written')
 
-    const share = await app.share(appRoot)
+    const share = await app.share(driveRoot)
     const url = createUrl(share, app.graph.getKey(share))
     console.log('drive can be shared using the url ' + url)
 
