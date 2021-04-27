@@ -1,11 +1,10 @@
-import { Cipher, ICrypto } from "certacrypt-crypto";
+import { Cipher, ICrypto, DefaultCrypto } from "certacrypt-crypto";
 import { CertaCryptGraph } from "certacrypt-graph";
 import { ShareGraphObject, SHARE_VIEW } from "certacrypt-graph";
-import { Core, Corestore, GraphObject, SimpleGraphObject, Vertex } from "hyper-graphdb";
+import { Core, Corestore, GraphObject, SimpleGraphObject, Vertex, IVertex } from "hyper-graphdb";
 import { Directory, File} from "./lib/graphObjects";
 import { parseUrl, createUrl } from './lib/url'
 import { cryptoDrive } from './lib/drive'
-
 
 export class CertaCrypt{
     readonly corestore: Corestore
