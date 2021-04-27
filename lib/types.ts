@@ -63,7 +63,7 @@ export interface Hyperdrive extends EventEmitter {
     }
     ready(cb: CBF): void
     getContent(cb: CB1<Feed>): void
-    open(name: string, flags: string, cb: CB0): void
+    open(name: string, flags: string, cb: CB1<number>): void
     read(fd: number, buf: Buffer, offset: number, len: number, pos: number, cb: CB2<number, Buffer>): void
     write(fd: number, buf: Buffer, offset: number, len: number, pos: number, cb: CB2<number, Buffer>): void
     createReadStream(name: string, opts?: { start?: number, end?: number, length?: number, highWaterMark?: number }): ReadableStream

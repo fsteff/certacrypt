@@ -5,6 +5,9 @@ import { Core, Corestore, GraphObject, SimpleGraphObject, Vertex, IVertex } from
 import { Directory, File} from "./lib/graphObjects";
 import { parseUrl, createUrl } from './lib/url'
 import { cryptoDrive } from './lib/drive'
+import { Hyperdrive } from "./lib/types";
+
+export {Directory, File, Hyperdrive}
 
 export class CertaCrypt{
     readonly corestore: Corestore
@@ -78,7 +81,7 @@ export class CertaCrypt{
         await this.graph.put(target)
     }
 
-    public async drive(rootDir: Vertex<Directory>) {
+    public async drive(rootDir: Vertex<Directory>): Promise<Hyperdrive> {
         return cryptoDrive(this.corestore, this.graph, this.crypto, rootDir)
     }
 }
