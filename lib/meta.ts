@@ -40,7 +40,7 @@ export class MetaStorage {
     async readableFile(filename: string, encrypted = true) {
         const file = await this.find(filename)
         if (!file) throw new FileNotFound(filename)
-        const { feed, path, mkey, fkey } = file
+        const { vertex, feed, path, mkey, fkey } = file
 
         if(encrypted) this.crypto.registerKey(mkey, { feed, index: path, type: Cipher.XChaCha20_Blob })
         else this.crypto.registerPublic(feed, path)
@@ -52,7 +52,11 @@ export class MetaStorage {
         if(encrypted) this.crypto.registerKey(fkey, { feed: dataFeed, type: Cipher.ChaCha20_Stream, index: stat.offset })
         else this.crypto.registerPublic(dataFeed, stat.offset)
 
-        debug(`created readableFile ${filename} from ${encrypted ? 'encrypted' : 'public'} file hyper://${feed}${path}`)
+        const typeName = (<Vertex<DriveGraphObject>>vertex).getContent().typeName
+        if(typeName === GraphObjectTypeNames.FILE) stat.isFile = true
+        else if (typeName === GraphObjectTypeNames.DIRECTORY) stat.isDirectory = true
+
+        debug(`created readableFile ${filename} from ${encrypted ? 'encrypted' : 'public'} ${stat.isFile ? 'file' : 'directory'} hyper://${feed}${path}`)
 
         return { path, trie, stat, contentFeed }
     }

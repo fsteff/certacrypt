@@ -31,7 +31,10 @@ export interface Stat {
     atime: string,
     mtime: string,
     ctime: string,
-    linkname?: string
+    linkname?: string,
+    isFile?: boolean,
+    isDirectory?: boolean,
+    isSymlink?: boolean
 }
 
 export interface Hyperdrive extends EventEmitter {
