@@ -1,7 +1,7 @@
 import { HyperGraphDB, Vertex, Corestore, GraphObject } from 'hyper-graphdb'
 import { CertaCryptGraph } from 'certacrypt-graph'
 import { Cipher, ICrypto } from 'certacrypt-crypto'
-import { cryptoCorestore } from './crypto'
+import { cryptoCorestore, wrapTrie } from './crypto'
 import { Directory, DriveGraphObject } from './graphObjects'
 import { CBF, CB1, CB2, Hyperdrive, readdirOpts, readdirResult, Stat } from './types'
 import { MetaStorage } from './meta'
@@ -17,6 +17,7 @@ export async function cryptoDrive(corestore: Corestore, graph: CertaCryptGraph, 
   await drive.promises.ready()
 
   const meta = new MetaStorage(drive, graph, root, crypto)
+  drive.db = wrapTrie(drive.db, crypto)
 
   const oldCreateWriteStream = drive.createWriteStream
   const oldLstat = drive.lstat
@@ -180,7 +181,7 @@ export async function cryptoDrive(corestore: Corestore, graph: CertaCryptGraph, 
     const encrypted = opts.db.encrypted
     if(!encrypted) return oldMkdir.call(drive, name, opts, cb)
 
-    meta.createDirectory(name)
+    meta.createDirectory(name, (fileid, mkdirCb) => oldMkdir.call(drive, fileid, {db:{encrypted: true}},mkdirCb))
       .then(v => cb(null, v))
       .catch(err => cb(err))
   }

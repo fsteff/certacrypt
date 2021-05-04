@@ -9,12 +9,19 @@ const hyperdrive_schemas_1 = require("hyperdrive-schemas");
 const url_1 = require("./url");
 class MetaStorage {
     constructor(drive, graph, root, crypto) {
-        this.idCtr = 0;
         this.drive = drive;
         this.graph = graph;
         this.root = root;
         this.crypto = crypto;
         this.tries = new Map();
+    }
+    async getCtr() {
+        const nodes = await new Promise((resolve, reject) => this.drive.db.list('.enc', { hidden: true }, (err, res) => err ? reject(err) : resolve(res)));
+        let idCtr = 1;
+        nodes.map(node => parseInt(node.key.split('/', 2)[1]))
+            .forEach(id => idCtr = Math.max(idCtr, id + 1));
+        //console.log('idCtr=' + idCtr)
+        return idCtr;
     }
     async readableFile(filename, encrypted = true) {
         const file = await this.find(filename);
@@ -49,7 +56,7 @@ class MetaStorage {
         else {
             vertex = this.graph.create();
             if (encrypted)
-                fileid = '/.enc/' + this.idCtr++;
+                fileid = '/.enc/' + await this.getCtr();
             else
                 fileid = filename;
         }
@@ -69,18 +76,19 @@ class MetaStorage {
         file.filename = url;
         vertex.setContent(file);
         await this.graph.put(vertex);
+        console.log('writableFile ' + filename + ': ' + url);
         const created = await this.graph.createEdgesToPath(filename, this.root, vertex);
         for (const { path } of created) {
             const dirs = await this.graph.queryPathAtVertex(path, this.root)
                 .matches(v => { var _a; return ((_a = v.getContent()) === null || _a === void 0 ? void 0 : _a.typeName) === graphObjects_1.GraphObjectTypeNames.DIRECTORY; })
                 .generator().destruct();
             if (dirs.length === 0) {
-                await this.createDirectory(path);
+                await this.drive.promises.mkdir(path, { db: { encrypted: true } });
             }
         }
         return { path: fileid, fkey };
     }
-    async createDirectory(name) {
+    async createDirectory(name, makeStat) {
         const dirs = await this.graph.queryPathAtVertex(name, this.root).vertices();
         let target;
         for (const vertex of dirs) {
@@ -97,13 +105,15 @@ class MetaStorage {
         }
         const feed = this.drive.db.feed.key.toString('hex');
         const mkey = this.crypto.generateEncryptionKey(certacrypt_crypto_1.Cipher.XChaCha20_Blob);
-        const fileid = '/.enc/' + this.idCtr++;
+        const fileid = '/.enc/' + await this.getCtr();
         const url = `hyper://${feed}${fileid}?mkey=${mkey.toString('hex')}`;
         const dir = new graphObjects_1.Directory();
         dir.filename = url;
         target.setContent(dir);
         this.crypto.registerKey(mkey, { feed, type: certacrypt_crypto_1.Cipher.XChaCha20_Blob, index: fileid });
-        await this.drive.mkdir(fileid); // without encrypted flag, therefore calls oldMkdir
+        //await this.drive.mkdir(fileid) // without encrypted flag, therefore calls oldMkdir
+        console.log('mkdir ' + name + ': ' + url);
+        await new Promise((resolve, reject) => makeStat.call(null, fileid, err => err ? reject(err) : resolve(undefined)));
         await this.graph.put(target);
         await this.graph.createEdgesToPath(name, this.root, target);
         return target;
@@ -165,6 +175,8 @@ class MetaStorage {
         });
     }
     async getTrie(feedKey) {
+        if (feedKey === this.drive.key.toString('hex'))
+            return this.drive.db;
         if (this.tries.has(feedKey))
             return this.tries.get(feedKey);
         const trie = await crypto_1.cryptoTrie(this.drive.corestore, this.crypto, feedKey);

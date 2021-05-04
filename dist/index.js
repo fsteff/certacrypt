@@ -1,9 +1,11 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.CertaCrypt = void 0;
+exports.CertaCrypt = exports.File = exports.Directory = void 0;
 const certacrypt_graph_1 = require("certacrypt-graph");
 const certacrypt_graph_2 = require("certacrypt-graph");
 const graphObjects_1 = require("./lib/graphObjects");
+Object.defineProperty(exports, "Directory", { enumerable: true, get: function () { return graphObjects_1.Directory; } });
+Object.defineProperty(exports, "File", { enumerable: true, get: function () { return graphObjects_1.File; } });
 const url_1 = require("./lib/url");
 const drive_1 = require("./lib/drive");
 class CertaCrypt {

@@ -16,6 +16,7 @@ async function cryptoDrive(corestore, graph, crypto, root) {
     const drive = hyperdrive_1.default(corestore); // dirty fix 
     await drive.promises.ready();
     const meta = new meta_1.MetaStorage(drive, graph, root, crypto);
+    drive.db = crypto_1.wrapTrie(drive.db, crypto);
     const oldCreateWriteStream = drive.createWriteStream;
     const oldLstat = drive.lstat;
     const oldReaddir = drive.readdir;
@@ -156,7 +157,7 @@ async function cryptoDrive(corestore, graph, crypto, root) {
         const encrypted = opts.db.encrypted;
         if (!encrypted)
             return oldMkdir.call(drive, name, opts, cb);
-        meta.createDirectory(name)
+        meta.createDirectory(name, (fileid, mkdirCb) => oldMkdir.call(drive, fileid, { db: { encrypted: true } }, mkdirCb))
             .then(v => cb(null, v))
             .catch(err => cb(err));
     }

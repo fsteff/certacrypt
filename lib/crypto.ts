@@ -5,7 +5,7 @@ import { CB1, CBF } from './types'
 import wrapHypercore from './js/CryptoCore'
 import MountableHypertrie from 'mountable-hypertrie'
 
-interface CryptoTrie extends MountableHypertrie {
+export interface CryptoTrie extends MountableHypertrie {
     hasCertaCryptTrieWrapper?: boolean,
     get(key: string, opts, cb: CB1<any>)
     put(key: string, value, opts, cb: CBF),
@@ -85,6 +85,11 @@ export async function cryptoTrie(corestore: Corestore, crypto: ICrypto, feedKey:
     const trie: CryptoTrie = new MountableHypertrie(corestore, feedKey)
     await new Promise((resolve, reject) => trie.ready(err => err ? reject(err) : resolve(null)))
 
+    return wrapTrie(trie, crypto)    
+}
+
+export function wrapTrie(trie: MountableHypertrie, crypto: ICrypto) {
+    const feedKey = trie.key.toString('hex')
     if (trie.hasCertaCryptTrieWrapper) {
         // seems the corestore does some sort of deduplication, this is only a dirty fix
         return trie

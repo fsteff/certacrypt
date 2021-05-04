@@ -3,7 +3,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.cryptoTrie = exports.cryptoCorestore = exports.blobDecryptor = exports.blobEncryptor = exports.streamDecryptor = exports.streamEncryptor = void 0;
+exports.wrapTrie = exports.cryptoTrie = exports.cryptoCorestore = exports.blobDecryptor = exports.blobEncryptor = exports.streamDecryptor = exports.streamEncryptor = void 0;
 const certacrypt_crypto_1 = require("certacrypt-crypto");
 const CryptoCore_1 = __importDefault(require("./js/CryptoCore"));
 const mountable_hypertrie_1 = __importDefault(require("mountable-hypertrie"));
@@ -75,6 +75,11 @@ exports.cryptoCorestore = cryptoCorestore;
 async function cryptoTrie(corestore, crypto, feedKey) {
     const trie = new mountable_hypertrie_1.default(corestore, feedKey);
     await new Promise((resolve, reject) => trie.ready(err => err ? reject(err) : resolve(null)));
+    return wrapTrie(trie, crypto);
+}
+exports.cryptoTrie = cryptoTrie;
+function wrapTrie(trie, crypto) {
+    const feedKey = trie.key.toString('hex');
     if (trie.hasCertaCryptTrieWrapper) {
         // seems the corestore does some sort of deduplication, this is only a dirty fix
         return trie;
@@ -113,7 +118,7 @@ async function cryptoTrie(corestore, crypto, feedKey) {
         return tryOrError(() => oldPut.call(trie, key, value, opts, cb), cb);
     }
 }
-exports.cryptoTrie = cryptoTrie;
+exports.wrapTrie = wrapTrie;
 function mapOpts(opts) {
     if (!opts)
         return {};

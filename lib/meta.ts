@@ -1,9 +1,8 @@
-import { Hyperdrive, Stat } from './types'
+import { CB0, Hyperdrive, Stat } from './types'
 import { CertaCryptGraph } from 'certacrypt-graph'
-import { GraphObject, Vertex } from 'hyper-graphdb'
+import { Vertex } from 'hyper-graphdb'
 import { Directory, DriveGraphObject, File, GraphObjectTypeNames } from './graphObjects'
 import { FileNotFound, PathAlreadyExists } from 'hyperdrive/lib/errors'
-import unixify from 'unixify'
 import { cryptoTrie } from './crypto'
 import { Cipher, ICrypto } from 'certacrypt-crypto'
 import MountableHypertrie from 'mountable-hypertrie'
@@ -18,7 +17,6 @@ export class MetaStorage {
     private readonly root: Vertex<DriveGraphObject>
     private readonly tries: Map<string, MountableHypertrie>
     private readonly crypto: ICrypto
-    private idCtr = 0
 
     constructor(drive: Hyperdrive, graph: CertaCryptGraph, root: Vertex<DriveGraphObject>, crypto: ICrypto) {
         this.drive = drive
@@ -26,6 +24,15 @@ export class MetaStorage {
         this.root = root
         this.crypto = crypto
         this.tries = new Map<string, MountableHypertrie>()
+    }
+
+    private async getCtr() {
+        const nodes = <{seq: number, key: string, value: Buffer}[]> await new Promise((resolve, reject) => this.drive.db.list('.enc', {hidden: true}, (err, res) => err ? reject(err) : resolve(res)))
+        let idCtr = 1
+        nodes.map(node => parseInt(node.key.split('/', 2)[1]))
+             .forEach(id => idCtr = Math.max(idCtr, id+1))
+        //console.log('idCtr=' + idCtr)
+        return idCtr
     }
 
     async readableFile(filename: string, encrypted = true) {
@@ -60,7 +67,7 @@ export class MetaStorage {
         } else {
             vertex = this.graph.create<File>()
 
-            if(encrypted) fileid = '/.enc/' + this.idCtr++
+            if(encrypted) fileid = '/.enc/' + await this.getCtr()
             else fileid = filename
         }
 
@@ -80,20 +87,22 @@ export class MetaStorage {
         vertex.setContent(file)
         await this.graph.put(vertex)
 
+        console.log('writableFile ' + filename + ': ' + url)
+
         const created = await this.graph.createEdgesToPath(filename, this.root, vertex)
         for(const { path } of created) {
             const dirs = await this.graph.queryPathAtVertex(path, this.root)
                 .matches(v => v.getContent()?.typeName === GraphObjectTypeNames.DIRECTORY)
                 .generator().destruct()
             if(dirs.length === 0) {
-                await this.createDirectory(path)
+                await this.drive.promises.mkdir(path, {db:{encrypted: true}})
             }
         }
 
         return {path: fileid, fkey}
     }
 
-    public async createDirectory(name: string): Promise<Vertex<Directory>> {
+    public async createDirectory(name: string, makeStat: (name: string, cb: CB0) => void): Promise<Vertex<Directory>> {
         const dirs = <Vertex<DriveGraphObject>[]>  await this.graph.queryPathAtVertex(name, this.root).vertices()
         let target: Vertex<Directory>
         for (const vertex of dirs) {
@@ -111,13 +120,15 @@ export class MetaStorage {
         }
         const feed = this.drive.db.feed.key.toString('hex')
         const mkey = this.crypto.generateEncryptionKey(Cipher.XChaCha20_Blob)
-        const fileid = '/.enc/' + this.idCtr++
+        const fileid = '/.enc/' + await this.getCtr()
         const url = `hyper://${feed}${fileid}?mkey=${mkey.toString('hex')}`
         const dir = new Directory()
         dir.filename = url
         target.setContent(dir)
         this.crypto.registerKey(mkey, {feed, type: Cipher.XChaCha20_Blob, index: fileid})
-        await this.drive.mkdir(fileid) // without encrypted flag, therefore calls oldMkdir
+        //await this.drive.mkdir(fileid) // without encrypted flag, therefore calls oldMkdir
+        console.log('mkdir ' + name + ': ' + url)
+        await new Promise((resolve, reject) => makeStat.call(null, fileid, err => err ? reject(err) : resolve(undefined)))
         await this.graph.put(target)
         await this.graph.createEdgesToPath(name, this.root, target)
         return target
@@ -172,9 +183,10 @@ export class MetaStorage {
         })
     }
 
-    public async getTrie(feedKey: string) {
-        if (this.tries.has(feedKey)) return this.tries.get(feedKey)
-        const trie = await cryptoTrie(this.drive.corestore, this.crypto, feedKey)
+    public async getTrie(feedKey: string): Promise<MountableHypertrie> {
+        if (feedKey === this.drive.key.toString('hex')) return this.drive.db
+        if (this.tries.has(feedKey)) return <MountableHypertrie> this.tries.get(feedKey)
+        const trie = <MountableHypertrie> await cryptoTrie(this.drive.corestore, this.crypto, feedKey)
         this.tries.set(feedKey, trie)
         return trie
     }
