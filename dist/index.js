@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.CertaCrypt = exports.File = exports.Directory = void 0;
+exports.CertaCrypt = exports.enableDebugLogging = exports.File = exports.Directory = void 0;
 const certacrypt_graph_1 = require("certacrypt-graph");
 const certacrypt_graph_2 = require("certacrypt-graph");
 const graphObjects_1 = require("./lib/graphObjects");
@@ -8,6 +8,8 @@ Object.defineProperty(exports, "Directory", { enumerable: true, get: function ()
 Object.defineProperty(exports, "File", { enumerable: true, get: function () { return graphObjects_1.File; } });
 const url_1 = require("./lib/url");
 const drive_1 = require("./lib/drive");
+const debug_1 = require("./lib/debug");
+Object.defineProperty(exports, "enableDebugLogging", { enumerable: true, get: function () { return debug_1.enableDebugLogging; } });
 class CertaCrypt {
     constructor(corestore, crypto, sessionUrl) {
         this.corestore = corestore;
@@ -36,6 +38,7 @@ class CertaCrypt {
         root.addEdgeTo(contacts, 'contacts');
         root.addEdgeTo(shares, 'shares');
         await this.graph.put(root);
+        debug_1.debug(`initialized session ${url_1.createUrl(root, this.graph.getKey(root))}`);
         return root;
     }
     async getSessionUrl() {
@@ -47,6 +50,8 @@ class CertaCrypt {
             .then(res => {
             if (res.length === 1)
                 return res[0];
+            else if (res.length === 0)
+                throw new Error('path does not exist');
             else
                 throw new Error('path query requires unique results');
         });
@@ -58,6 +63,7 @@ class CertaCrypt {
         await this.graph.put(created);
         shares.addEdgeTo(created, 'url', undefined, undefined, certacrypt_graph_2.SHARE_VIEW);
         await this.graph.put(shares);
+        debug_1.debug(`created share to vertex ${vertex.getFeed()}/${vertex.getId()} at ${created.getFeed()}/${created.getId()}`);
         return created;
     }
     async mountShare(target, label, url) {
@@ -65,6 +71,7 @@ class CertaCrypt {
         const vertex = await this.graph.get(id, feed, key);
         target.addEdgeTo(vertex, label, undefined, undefined, certacrypt_graph_2.SHARE_VIEW);
         await this.graph.put(target);
+        debug_1.debug(`mounted share from URL ${url} to ${target.getFeed()}/${target.getId()}->${label}`);
     }
     async drive(rootDir) {
         return drive_1.cryptoDrive(this.corestore, this.graph, this.crypto, rootDir);

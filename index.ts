@@ -6,8 +6,9 @@ import { Directory, File} from "./lib/graphObjects";
 import { parseUrl, createUrl } from './lib/url'
 import { cryptoDrive } from './lib/drive'
 import { Hyperdrive } from "./lib/types";
+import { enableDebugLogging, debug } from './lib/debug'
 
-export {Directory, File, Hyperdrive}
+export {Directory, File, Hyperdrive, enableDebugLogging}
 
 export class CertaCrypt{
     readonly corestore: Corestore
@@ -46,6 +47,8 @@ export class CertaCrypt{
        root.addEdgeTo(shares, 'shares')
        await this.graph.put(root)
 
+       debug(`initialized session ${createUrl(root, this.graph.getKey(root))}`)
+
        return root
     }
 
@@ -58,6 +61,7 @@ export class CertaCrypt{
         return this.graph.queryPathAtVertex(path, await this.sessionRoot).vertices()
             .then(res => {
                 if(res.length === 1) return <Vertex<GraphObject>> res[0]
+                else if (res.length === 0) throw new Error('path does not exist')
                 else throw new Error('path query requires unique results')
             })
     }
@@ -71,6 +75,8 @@ export class CertaCrypt{
         shares.addEdgeTo(created, 'url', undefined, undefined, SHARE_VIEW)
         await this.graph.put(shares)
         
+        debug(`created share to vertex ${vertex.getFeed()}/${vertex.getId()} at ${created.getFeed()}/${created.getId()}`)
+
         return created
     }
 
@@ -79,6 +85,7 @@ export class CertaCrypt{
         const vertex = await this.graph.get(id, feed, key)
         target.addEdgeTo(vertex, label, undefined, undefined, SHARE_VIEW)
         await this.graph.put(target)
+        debug(`mounted share from URL ${url} to ${target.getFeed()}/${target.getId()}->${label}`)
     }
 
     public async drive(rootDir: Vertex<Directory>): Promise<Hyperdrive> {

@@ -9,6 +9,7 @@ import MountableHypertrie from 'mountable-hypertrie'
 import { Feed } from 'hyperobjects'
 import { Stat as TrieStat } from 'hyperdrive-schemas'
 import { parseUrl } from './url'
+import { debug, enableDebugLogging } from './debug'
 
 
 export class MetaStorage {
@@ -17,6 +18,7 @@ export class MetaStorage {
     private readonly root: Vertex<DriveGraphObject>
     private readonly tries: Map<string, MountableHypertrie>
     private readonly crypto: ICrypto
+    private currentIdCtr = 0
 
     constructor(drive: Hyperdrive, graph: CertaCryptGraph, root: Vertex<DriveGraphObject>, crypto: ICrypto) {
         this.drive = drive
@@ -26,13 +28,13 @@ export class MetaStorage {
         this.tries = new Map<string, MountableHypertrie>()
     }
 
-    private async getCtr() {
+    private async uniqueFileId() {
         const nodes = <{seq: number, key: string, value: Buffer}[]> await new Promise((resolve, reject) => this.drive.db.list('.enc', {hidden: true}, (err, res) => err ? reject(err) : resolve(res)))
-        let idCtr = 1
+        let idCtr = this.currentIdCtr + 1
         nodes.map(node => parseInt(node.key.split('/', 2)[1]))
              .forEach(id => idCtr = Math.max(idCtr, id+1))
-        //console.log('idCtr=' + idCtr)
-        return idCtr
+        this.currentIdCtr = idCtr
+        return '/.enc/' + idCtr
     }
 
     async readableFile(filename: string, encrypted = true) {
@@ -49,6 +51,8 @@ export class MetaStorage {
         const dataFeed = contentFeed.key.toString('hex')
         if(encrypted) this.crypto.registerKey(fkey, { feed: dataFeed, type: Cipher.ChaCha20_Stream, index: stat.offset })
         else this.crypto.registerPublic(dataFeed, stat.offset)
+
+        debug(`created readableFile ${filename} from ${encrypted ? 'encrypted' : 'public'} file hyper://${feed}${path}`)
 
         return { path, trie, stat, contentFeed }
     }
@@ -67,7 +71,7 @@ export class MetaStorage {
         } else {
             vertex = this.graph.create<File>()
 
-            if(encrypted) fileid = '/.enc/' + await this.getCtr()
+            if(encrypted) fileid = await this.uniqueFileId()
             else fileid = filename
         }
 
@@ -87,7 +91,7 @@ export class MetaStorage {
         vertex.setContent(file)
         await this.graph.put(vertex)
 
-        console.log('writableFile ' + filename + ': ' + url)
+        debug(`created writeableFile ${filename} as ${encrypted ? 'encrypted' : 'public'} file hyper://${feed}${fileid}`)
 
         const created = await this.graph.createEdgesToPath(filename, this.root, vertex)
         for(const { path } of created) {
@@ -120,17 +124,19 @@ export class MetaStorage {
         }
         const feed = this.drive.db.feed.key.toString('hex')
         const mkey = this.crypto.generateEncryptionKey(Cipher.XChaCha20_Blob)
-        const fileid = '/.enc/' + await this.getCtr()
+        const fileid = await this.uniqueFileId()
         const url = `hyper://${feed}${fileid}?mkey=${mkey.toString('hex')}`
         const dir = new Directory()
         dir.filename = url
         target.setContent(dir)
         this.crypto.registerKey(mkey, {feed, type: Cipher.XChaCha20_Blob, index: fileid})
-        //await this.drive.mkdir(fileid) // without encrypted flag, therefore calls oldMkdir
-        console.log('mkdir ' + name + ': ' + url)
+        
         await new Promise((resolve, reject) => makeStat.call(null, fileid, err => err ? reject(err) : resolve(undefined)))
         await this.graph.put(target)
         await this.graph.createEdgesToPath(name, this.root, target)
+
+        debug(`created directory ${name} at hyper://${feed}${fileid}`)
+
         return target
     }
 

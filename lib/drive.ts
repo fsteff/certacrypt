@@ -11,6 +11,7 @@ import MiniPass from 'minipass'
 import unixify from 'unixify'
 import { IVertex } from 'hyper-graphdb/lib/Vertex'
 
+
 export async function cryptoDrive(corestore: Corestore, graph: CertaCryptGraph, crypto: ICrypto, root: Vertex<Directory>): Promise<Hyperdrive> {
   corestore = cryptoCorestore(corestore.namespace('cryptoDrive'), crypto)
   const drive = <Hyperdrive><unknown>createHyperdrive(corestore) // dirty fix 

@@ -7,21 +7,23 @@ const crypto_1 = require("./crypto");
 const certacrypt_crypto_1 = require("certacrypt-crypto");
 const hyperdrive_schemas_1 = require("hyperdrive-schemas");
 const url_1 = require("./url");
+const debug_1 = require("./debug");
 class MetaStorage {
     constructor(drive, graph, root, crypto) {
+        this.currentIdCtr = 0;
         this.drive = drive;
         this.graph = graph;
         this.root = root;
         this.crypto = crypto;
         this.tries = new Map();
     }
-    async getCtr() {
+    async uniqueFileId() {
         const nodes = await new Promise((resolve, reject) => this.drive.db.list('.enc', { hidden: true }, (err, res) => err ? reject(err) : resolve(res)));
-        let idCtr = 1;
+        let idCtr = this.currentIdCtr + 1;
         nodes.map(node => parseInt(node.key.split('/', 2)[1]))
             .forEach(id => idCtr = Math.max(idCtr, id + 1));
-        //console.log('idCtr=' + idCtr)
-        return idCtr;
+        this.currentIdCtr = idCtr;
+        return '/.enc/' + idCtr;
     }
     async readableFile(filename, encrypted = true) {
         const file = await this.find(filename);
@@ -39,6 +41,7 @@ class MetaStorage {
             this.crypto.registerKey(fkey, { feed: dataFeed, type: certacrypt_crypto_1.Cipher.ChaCha20_Stream, index: stat.offset });
         else
             this.crypto.registerPublic(dataFeed, stat.offset);
+        debug_1.debug(`created readableFile ${filename} from ${encrypted ? 'encrypted' : 'public'} file hyper://${feed}${path}`);
         return { path, trie, stat, contentFeed };
     }
     async writeableFile(filename, encrypted = true) {
@@ -56,7 +59,7 @@ class MetaStorage {
         else {
             vertex = this.graph.create();
             if (encrypted)
-                fileid = '/.enc/' + await this.getCtr();
+                fileid = await this.uniqueFileId();
             else
                 fileid = filename;
         }
@@ -76,7 +79,7 @@ class MetaStorage {
         file.filename = url;
         vertex.setContent(file);
         await this.graph.put(vertex);
-        console.log('writableFile ' + filename + ': ' + url);
+        debug_1.debug(`created writeableFile ${filename} as ${encrypted ? 'encrypted' : 'public'} file hyper://${feed}${fileid}`);
         const created = await this.graph.createEdgesToPath(filename, this.root, vertex);
         for (const { path } of created) {
             const dirs = await this.graph.queryPathAtVertex(path, this.root)
@@ -105,17 +108,16 @@ class MetaStorage {
         }
         const feed = this.drive.db.feed.key.toString('hex');
         const mkey = this.crypto.generateEncryptionKey(certacrypt_crypto_1.Cipher.XChaCha20_Blob);
-        const fileid = '/.enc/' + await this.getCtr();
+        const fileid = await this.uniqueFileId();
         const url = `hyper://${feed}${fileid}?mkey=${mkey.toString('hex')}`;
         const dir = new graphObjects_1.Directory();
         dir.filename = url;
         target.setContent(dir);
         this.crypto.registerKey(mkey, { feed, type: certacrypt_crypto_1.Cipher.XChaCha20_Blob, index: fileid });
-        //await this.drive.mkdir(fileid) // without encrypted flag, therefore calls oldMkdir
-        console.log('mkdir ' + name + ': ' + url);
         await new Promise((resolve, reject) => makeStat.call(null, fileid, err => err ? reject(err) : resolve(undefined)));
         await this.graph.put(target);
         await this.graph.createEdgesToPath(name, this.root, target);
+        debug_1.debug(`created directory ${name} at hyper://${feed}${fileid}`);
         return target;
     }
     async find(path) {
