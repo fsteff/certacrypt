@@ -3,6 +3,7 @@ import { Feed } from 'hyperobjects'
 import { Corestore } from 'hyper-graphdb'
 import codecs, {CodecInput as Codec} from 'codecs'
 import { EventEmitter } from 'events'
+import { ReadStream, WriteStream } from 'fs'
 
 export interface HyperdriveError extends Error {
     errno?: number
@@ -13,7 +14,8 @@ export type CB0 = (err?: HyperdriveError) => void
 export type CB1<T> = (err?: HyperdriveError, arg1?: T) => void
 export type CB2<T, V> = (err?: HyperdriveError, arg1?: T, arg2?: V) => void
 
-export type readdirOpts = { db?: { encrypted?: boolean }, includeStats?: boolean, recursive?: boolean }
+export type encryptionOpts = {db?: {encrypted?: boolean}}
+export type readdirOpts = {includeStats?: boolean, recursive?: boolean } | encryptionOpts
 export type readdirResult = string | { name: string, path: string, stat: Stat }
 
 export interface Stat {
@@ -69,10 +71,10 @@ export interface Hyperdrive extends EventEmitter {
     open(name: string, flags: string, cb: CB1<number>): void
     read(fd: number, buf: Buffer, offset: number, len: number, pos: number, cb: CB2<number, Buffer>): void
     write(fd: number, buf: Buffer, offset: number, len: number, pos: number, cb: CB2<number, Buffer>): void
-    createReadStream(name: string, opts?: { start?: number, end?: number, length?: number, highWaterMark?: number }): ReadableStream
+    createReadStream(name: string, opts?: { start?: number, end?: number, length?: number, highWaterMark?: number } | encryptionOpts): ReadStream
     createDiffStream(other: Hyperdrive | number, prefix?: string, opts?: {}): ReadableStream
     createDirectoryStream(name: string, opts?: {includeStats?: boolean}): ReadableStream
-    createWriteStream(name: string, opts?: {}): WritableStream
+    createWriteStream(name: string, opts?: any): WriteStream
     create(name: string, opts?: {} | CBF, cb?: CBF): void
     readFile(name: string, opts?: {encoding: Codec} & any | string | CBF, cb?: CBF): void
     writeFile(name: string, buf, opts?: {encoding: Codec} & any| string | CBF, cb?: CBF): void

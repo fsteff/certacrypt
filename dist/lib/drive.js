@@ -35,7 +35,7 @@ async function cryptoDrive(corestore, graph, crypto, root) {
         const filePromise = meta.readableFile(name, encrypted);
         const out = new minipass_1.default();
         filePromise.then(prepareStream).catch(err => out.destroy(err));
-        return out; // only mimics a readable stream, so we have to cast it
+        return out;
         async function prepareStream({ stat, contentFeed }) {
             let stream;
             const length = typeof opts.end === 'number' ? 1 + opts.end - (opts.start || 0) : typeof opts.length === 'number' ? opts.length : -1;
@@ -91,7 +91,7 @@ async function cryptoDrive(corestore, graph, crypto, root) {
             const stream = oldCreateWriteStream.call(drive, state.path, opts);
             stream.on('error', (err) => input.destroy(err));
             input.on('error', (err) => stream.destroy(err));
-            return Object.assign(Object.assign({}, state), { stream: stream });
+            return Object.assign(Object.assign({}, state), { stream });
         }
     }
     function lstat(name, opts, cb) {

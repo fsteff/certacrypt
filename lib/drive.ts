@@ -9,6 +9,7 @@ import createHyperdrive from 'hyperdrive'
 import coreByteStream from 'hypercore-byte-stream'
 import MiniPass from 'minipass'
 import unixify from 'unixify'
+import { ReadStream, WriteStream } from 'fs'
 import { IVertex } from 'hyper-graphdb/lib/Vertex'
 
 
@@ -44,7 +45,7 @@ export async function cryptoDrive(corestore: Corestore, graph: CertaCryptGraph, 
     const out = new MiniPass()
 
     filePromise.then(prepareStream).catch(err => out.destroy(err))
-    return <ReadableStream<any>><unknown>out // only mimics a readable stream, so we have to cast it
+    return out 
 
 
     async function prepareStream({ stat, contentFeed }) {
@@ -69,7 +70,7 @@ export async function cryptoDrive(corestore: Corestore, graph: CertaCryptGraph, 
     }
   }
 
-  function createWriteStream(name, opts): WritableStream<any> {
+  function createWriteStream(name, opts): WriteStream {
     name = unixify(name)
     opts = fixOpts(opts)
 
@@ -106,7 +107,7 @@ export async function cryptoDrive(corestore: Corestore, graph: CertaCryptGraph, 
 
     // TODO: delete graph vertex on error
 
-    return <WritableStream<any>><unknown>input
+    return input
 
 
     function prepareStream(state: { path: string, fkey?: Buffer }) {
@@ -115,7 +116,7 @@ export async function cryptoDrive(corestore: Corestore, graph: CertaCryptGraph, 
       input.on('error', (err) => stream.destroy(err))
       return {
         ...state,
-        stream: <WritableStream<any>>stream
+        stream
       }
     }
   }
@@ -137,7 +138,7 @@ export async function cryptoDrive(corestore: Corestore, graph: CertaCryptGraph, 
     }
   }
 
-  async function readdir(name: string, opts: readdirOpts, cb: CB1<readdirResult[]>) {
+  async function readdir(name: string, opts: readdirOpts | any, cb: CB1<readdirResult[]>) {
     name = unixify(name)
     opts = fixOpts(opts)
     const encrypted = opts.db.encrypted
