@@ -181,6 +181,33 @@ class MetaStorage {
             }
         });
     }
+    async unlink(name) {
+        var _a;
+        const path = name.split('/').filter(p => p.length > 0);
+        if (path.length === 0)
+            throw new Error('cannot unlink root');
+        const parentPath = path.slice(0, path.length - 1).join('/');
+        const filename = path[path.length - 1];
+        const file = await this.find(name);
+        const db = await this.getTrie(file.feed);
+        await new Promise((resolve, reject) => db.del(file.path, err => err ? reject(err) : resolve(undefined)));
+        const thombstone = this.graph.create();
+        await this.graph.put(thombstone);
+        let results = await this.graph.queryPathAtVertex(parentPath, this.root).vertices();
+        for (const res of results) {
+            const edges = res.getEdges(filename);
+            for (let i = 0; i < edges.length; i++) {
+                const vfeed = ((_a = edges[i].feed) === null || _a === void 0 ? void 0 : _a.toString('hex')) || res.getFeed();
+                if (edges[i].ref === file.vertex.getId() && vfeed === file.vertex.getFeed()) {
+                    res.removeEdge(edges[i]);
+                    res.addEdgeTo(thombstone, filename);
+                    debug_1.debug(`unlinked edge to hyper://${file.vertex.getFeed()}/${file.vertex.getId()}`);
+                    return await this.graph.put(res);
+                }
+            }
+        }
+        debug_1.debug('UNEXPECTED: unable to find edge to vertex');
+    }
     async getTrie(feedKey) {
         if (feedKey === this.drive.key.toString('hex'))
             return this.drive.db;

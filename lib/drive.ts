@@ -3,7 +3,7 @@ import { CertaCryptGraph } from 'certacrypt-graph'
 import { Cipher, ICrypto } from 'certacrypt-crypto'
 import { cryptoCorestore, wrapTrie } from './crypto'
 import { Directory, DriveGraphObject } from './graphObjects'
-import { CBF, CB1, CB2, Hyperdrive, readdirOpts, readdirResult, Stat } from './types'
+import { CBF, CB1, CB2, Hyperdrive, readdirOpts, readdirResult, Stat, encryptionOpts, CB0 } from './types'
 import { MetaStorage } from './meta'
 import createHyperdrive from 'hyperdrive'
 import coreByteStream from 'hypercore-byte-stream'
@@ -11,6 +11,7 @@ import MiniPass from 'minipass'
 import unixify from 'unixify'
 import { ReadStream, WriteStream } from 'fs'
 import { IVertex } from 'hyper-graphdb/lib/Vertex'
+import { debug } from './debug'
 
 
 export async function cryptoDrive(corestore: Corestore, graph: CertaCryptGraph, crypto: ICrypto, root: Vertex<Directory>): Promise<Hyperdrive> {
@@ -25,12 +26,15 @@ export async function cryptoDrive(corestore: Corestore, graph: CertaCryptGraph, 
   const oldLstat = drive.lstat
   const oldReaddir = drive.readdir
   const oldMkdir = drive.mkdir
+  const oldUnlink = drive.unlink
 
   drive.createReadStream = createReadStream
   drive.createWriteStream = createWriteStream
   drive.lstat = lstat
   drive.readdir = readdir
   drive.mkdir = mkdir
+  drive.unlink = unlink
+  drive.promises.unlink = unlink
 
   return drive
 
@@ -186,6 +190,18 @@ export async function cryptoDrive(corestore: Corestore, graph: CertaCryptGraph, 
     meta.createDirectory(name, (fileid, mkdirCb) => oldMkdir.call(drive, fileid, {db:{encrypted: true}},mkdirCb))
       .then(v => cb(null, v))
       .catch(err => cb(err))
+  }
+
+  async function unlink(name: string, opts?: extendedOpts | CB0, cb?: CB0) {
+    if(typeof opts === 'function') return unlink(name, undefined, opts)
+    
+    name = unixify(name)
+    opts = fixOpts(opts)
+    const encrypted = opts.db.encrypted
+    if(!encrypted) return oldUnlink.call(drive, name, cb)
+
+    await meta.unlink(name)
+    if(cb) cb()
   }
 }
 

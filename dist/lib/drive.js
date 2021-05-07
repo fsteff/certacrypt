@@ -21,11 +21,14 @@ async function cryptoDrive(corestore, graph, crypto, root) {
     const oldLstat = drive.lstat;
     const oldReaddir = drive.readdir;
     const oldMkdir = drive.mkdir;
+    const oldUnlink = drive.unlink;
     drive.createReadStream = createReadStream;
     drive.createWriteStream = createWriteStream;
     drive.lstat = lstat;
     drive.readdir = readdir;
     drive.mkdir = mkdir;
+    drive.unlink = unlink;
+    drive.promises.unlink = unlink;
     return drive;
     function createReadStream(name, opts) {
         name = unixify_1.default(name);
@@ -160,6 +163,18 @@ async function cryptoDrive(corestore, graph, crypto, root) {
         meta.createDirectory(name, (fileid, mkdirCb) => oldMkdir.call(drive, fileid, { db: { encrypted: true } }, mkdirCb))
             .then(v => cb(null, v))
             .catch(err => cb(err));
+    }
+    async function unlink(name, opts, cb) {
+        if (typeof opts === 'function')
+            return unlink(name, undefined, opts);
+        name = unixify_1.default(name);
+        opts = fixOpts(opts);
+        const encrypted = opts.db.encrypted;
+        if (!encrypted)
+            return oldUnlink.call(drive, name, cb);
+        await meta.unlink(name);
+        if (cb)
+            cb();
     }
 }
 exports.cryptoDrive = cryptoDrive;

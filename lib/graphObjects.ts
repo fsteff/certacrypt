@@ -21,7 +21,8 @@ export abstract class DriveGraphObject extends GraphObject {
 
 export enum GraphObjectTypeNames {
     DIRECTORY = 'CertaCrypt-Directory',
-    FILE = 'CertaCrypt-File'
+    FILE = 'CertaCrypt-File',
+    THOMBSTONE = 'CertaCrypt.Thombstone'
 } 
 
 export class File extends DriveGraphObject{
@@ -34,3 +35,6 @@ export class Directory extends DriveGraphObject{
 
 }
 
+export class Thombstone extends DriveGraphObject {
+    readonly typeName = GraphObjectTypeNames.THOMBSTONE
+}

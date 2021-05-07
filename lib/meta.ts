@@ -1,7 +1,7 @@
 import { CB0, Hyperdrive, Stat } from './types'
 import { CertaCryptGraph } from 'certacrypt-graph'
 import { Vertex } from 'hyper-graphdb'
-import { Directory, DriveGraphObject, File, GraphObjectTypeNames } from './graphObjects'
+import { Directory, DriveGraphObject, File, GraphObjectTypeNames, Thombstone } from './graphObjects'
 import { FileNotFound, PathAlreadyExists } from 'hyperdrive/lib/errors'
 import { cryptoTrie } from './crypto'
 import { Cipher, ICrypto } from 'certacrypt-crypto'
@@ -191,6 +191,35 @@ export class MetaStorage {
                 onStat(null, st, trie)
             }
         })
+    }
+
+    public async unlink(name: string) {
+        const path = name.split('/').filter(p => p.length > 0)
+        if(path.length === 0) throw new Error('cannot unlink root')
+        const parentPath = path.slice(0, path.length-1).join('/')
+        const filename = path[path.length-1]
+
+        const file = await this.find(name)
+        const db = await this.getTrie(file.feed)
+        await new Promise((resolve, reject) => db.del(file.path, err => err ? reject(err) : resolve(undefined)))
+        
+        const thombstone = this.graph.create<Thombstone>()
+        await this.graph.put(thombstone)
+
+        let results = <Vertex<DriveGraphObject>[]> await this.graph.queryPathAtVertex(parentPath, this.root).vertices()
+        for(const res of results) {
+            const edges = res.getEdges(filename)
+            for (let i = 0; i < edges.length; i++) {
+                const vfeed = edges[i].feed?.toString('hex') || res.getFeed()
+                if(edges[i].ref === file.vertex.getId() && vfeed === file.vertex.getFeed()) {
+                    res.removeEdge(edges[i])
+                    res.addEdgeTo(thombstone, filename)
+                    debug(`unlinked edge to hyper://${file.vertex.getFeed()}/${file.vertex.getId()}`)
+                    return await this.graph.put(res)
+                }
+            }
+        }
+        debug('UNEXPECTED: unable to find edge to vertex')
     }
 
     public async getTrie(feedKey: string): Promise<MountableHypertrie> {

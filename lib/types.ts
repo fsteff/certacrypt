@@ -65,6 +65,7 @@ export interface Hyperdrive extends EventEmitter {
         readdir(name: string, opts?: readdirOpts): Promise<readdirResult[]>
         lstat(name: string, opts?: any): Promise<Stat>,
         stat(name: string, opts?: any): Promise<Stat>,
+        unlink(name: string, opts?: encryptionOpts): Promise<void>
     }
     ready(cb: CBF): void
     getContent(cb: CB1<Feed>): void
@@ -88,7 +89,7 @@ export interface Hyperdrive extends EventEmitter {
     access(name: string, opts, cb: CBF)
     exists(name: string, opts, cb: CBF)
     readdir(name: string, opts: readdirOpts, cb: CB1<readdirResult[]>)
-    unlink(name: string, cb: CBF)
+    unlink(name: string, opts?: encryptionOpts | CB0, cb?: CB0)
     replicate(isInitiator, opts)
     checkout(version, opts)
     close(fd, cb: CBF)

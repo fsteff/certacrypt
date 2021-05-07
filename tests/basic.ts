@@ -114,6 +114,23 @@ tape('mkdir', async t => {
     const content = await drive.promises.readFile('docs/test.txt', encryptedOpts)
     t.same(content, 'hello world')
 
-    const dir = await drive.promises.lstat('docs', {resolve: true})
+    const dir = await drive.promises.lstat('docs', {...encryptedOpts, resolve: true})
     t.ok(dir && typeof dir === 'object')
+})
+
+
+tape('unlink', async t => {
+    const {store, crypto, db} = await createDB()
+
+    const v1 = db.create<Directory>()
+    await db.put(v1)
+
+    const drive = await cryptoDrive(store, db, crypto, v1)
+    await drive.promises.mkdir('docs', encryptedOpts)
+    await drive.promises.writeFile('docs/test.txt', 'hello world', encryptedOpts)
+
+    await drive.promises.unlink('docs/test.txt', encryptedOpts)
+
+    const res = await drive.promises.readdir('docs', encryptedOpts)
+    t.ok(res.length === 0)
 })
