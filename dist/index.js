@@ -25,6 +25,7 @@ class CertaCrypt {
         }
         this.graph.codec.registerImpl(data => new graphObjects_1.File(data));
         this.graph.codec.registerImpl(data => new graphObjects_1.Directory(data));
+        this.graph.codec.registerImpl(data => new graphObjects_1.Thombstone(data));
     }
     async initSession() {
         const root = this.graph.create();

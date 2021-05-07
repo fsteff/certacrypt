@@ -26,10 +26,14 @@ class MetaStorage {
         return '/.enc/' + idCtr;
     }
     async readableFile(filename, encrypted = true) {
+        var _a;
         const file = await this.find(filename);
         if (!file)
             throw new errors_1.FileNotFound(filename);
         const { vertex, feed, path, mkey, fkey } = file;
+        if (((_a = vertex.getContent()) === null || _a === void 0 ? void 0 : _a.typeName) === graphObjects_1.GraphObjectTypeNames.THOMBSTONE) {
+            return { path: null, trie: null, stat: null, contentFeed: null };
+        }
         if (encrypted)
             this.crypto.registerKey(mkey, { feed, index: path, type: certacrypt_crypto_1.Cipher.XChaCha20_Blob });
         else
@@ -132,6 +136,8 @@ class MetaStorage {
         const file = vertex.getContent();
         if (!file)
             throw new Error('vertex is not of type file or directory, it has no content at all');
+        if (file.typeName === graphObjects_1.GraphObjectTypeNames.THOMBSTONE)
+            return { vertex, id: 0, feed: '', path: '', version: 0, mkey: null, fkey: null }; // file has been deleted
         if (!file.filename)
             throw new Error('vertex is not of type file or directory, it does not have a filename url');
         const parsed = url_1.parseUrl(file.filename);
@@ -192,6 +198,7 @@ class MetaStorage {
         const db = await this.getTrie(file.feed);
         await new Promise((resolve, reject) => db.del(file.path, err => err ? reject(err) : resolve(undefined)));
         const thombstone = this.graph.create();
+        thombstone.setContent(new graphObjects_1.Thombstone());
         await this.graph.put(thombstone);
         let results = await this.graph.queryPathAtVertex(parentPath, this.root).vertices();
         for (const res of results) {

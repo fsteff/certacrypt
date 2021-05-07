@@ -40,7 +40,11 @@ export class MetaStorage {
     async readableFile(filename: string, encrypted = true) {
         const file = await this.find(filename)
         if (!file) throw new FileNotFound(filename)
+
         const { vertex, feed, path, mkey, fkey } = file
+        if(vertex.getContent()?.typeName === GraphObjectTypeNames.THOMBSTONE) {
+            return {path: null, trie: null, stat: null, contentFeed: null}
+        }
 
         if(encrypted) this.crypto.registerKey(mkey, { feed, index: path, type: Cipher.XChaCha20_Blob })
         else this.crypto.registerPublic(feed, path)
@@ -150,6 +154,7 @@ export class MetaStorage {
 
         const file = vertex.getContent()
         if (!file) throw new Error('vertex is not of type file or directory, it has no content at all')
+        if (file.typeName === GraphObjectTypeNames.THOMBSTONE) return {vertex, id: 0, feed: '', path: '', version: 0, mkey: null, fkey: null} // file has been deleted
         if (!file.filename) throw new Error('vertex is not of type file or directory, it does not have a filename url')
         const parsed = parseUrl(file.filename)
         return {vertex, ...parsed}
@@ -204,6 +209,7 @@ export class MetaStorage {
         await new Promise((resolve, reject) => db.del(file.path, err => err ? reject(err) : resolve(undefined)))
         
         const thombstone = this.graph.create<Thombstone>()
+        thombstone.setContent(new Thombstone())
         await this.graph.put(thombstone)
 
         let results = <Vertex<DriveGraphObject>[]> await this.graph.queryPathAtVertex(parentPath, this.root).vertices()

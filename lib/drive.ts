@@ -161,6 +161,7 @@ export async function cryptoDrive(corestore: Corestore, graph: CertaCryptGraph, 
           .map(async ({ path, label }) => {
             try {
               const file = await meta.readableFile(path)
+              if(!file || !file.stat) return null // might be a thombstone
               return { label, path, stat: file.stat }
             } catch(err) {
               console.error(err)

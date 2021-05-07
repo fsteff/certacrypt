@@ -135,6 +135,8 @@ async function cryptoDrive(corestore, graph, crypto, root) {
                 .map(async ({ path, label }) => {
                 try {
                     const file = await meta.readableFile(path);
+                    if (!file || !file.stat)
+                        return null; // might be a thombstone
                     return { label, path, stat: file.stat };
                 }
                 catch (err) {
