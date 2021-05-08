@@ -8,14 +8,13 @@ import { cryptoDrive } from './lib/drive'
 import { Hyperdrive } from "./lib/types";
 import { enableDebugLogging, debug } from './lib/debug'
 
-export {Directory, File, Hyperdrive, enableDebugLogging}
+export {Directory, File, ShareGraphObject, Hyperdrive, enableDebugLogging, createUrl}
 
 export class CertaCrypt{
     readonly corestore: Corestore
     readonly crypto: ICrypto
     readonly graph: CertaCryptGraph
-    
-    private sessionRoot: Promise<Vertex<GraphObject>>
+    readonly sessionRoot: Promise<Vertex<GraphObject>>
     
     constructor(corestore: Corestore, crypto: ICrypto, sessionUrl?: string) {
         this.corestore = corestore
@@ -67,18 +66,32 @@ export class CertaCrypt{
             })
     }
 
-    public async share(vertex: Vertex<GraphObject>) {
+    public async share(vertex: Vertex<GraphObject>, reuseIfExists = true) {
         const shares = await this.path('/shares')
-        const created = this.graph.create<ShareGraphObject>()
-        created.addEdgeTo(vertex, 'share')
-        await this.graph.put(created)
 
-        shares.addEdgeTo(created, 'url', undefined, undefined, SHARE_VIEW)
-        await this.graph.put(shares)
-        
-        debug(`created share to vertex ${vertex.getFeed()}/${vertex.getId()} at ${created.getFeed()}/${created.getId()}`)
+        let shareVertex: Vertex<ShareGraphObject>
+        if(reuseIfExists) {
+            // checks if exists + loads the keys into the crypto key store
+            const existing = await this.graph.queryAtVertex(await this.sessionRoot)
+                .out('shares').out('url').matches(v => v.equals(vertex)).vertices()
+            if(existing.length > 0) {
+                const edges = shares.getEdges('url').filter(e => e.ref === vertex.getId() && (e.feed?.toString('hex') || shares.getFeed()) === vertex.getFeed())
+                if(edges.length > 0) shareVertex = <Vertex<ShareGraphObject>> await this.graph.get(edges[0].ref, edges[0].feed || shares.getFeed())
+            }
+        }
 
-        return created
+        if(!shareVertex) {
+            shareVertex = this.graph.create<ShareGraphObject>()
+            shareVertex.addEdgeTo(vertex, 'share')
+            await this.graph.put(shareVertex)
+
+            shares.addEdgeTo(shareVertex, 'url', undefined, undefined, SHARE_VIEW)
+            await this.graph.put(shares)
+            
+            debug(`created share to vertex ${vertex.getFeed()}/${vertex.getId()} at ${shareVertex.getFeed()}/${shareVertex.getId()}`)
+        }
+
+        return shareVertex
     }
 
     public async mountShare(target: Vertex<GraphObject>, label: string, url: string) {

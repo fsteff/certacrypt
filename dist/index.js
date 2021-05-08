@@ -1,12 +1,14 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.CertaCrypt = exports.enableDebugLogging = exports.File = exports.Directory = void 0;
+exports.CertaCrypt = exports.createUrl = exports.enableDebugLogging = exports.ShareGraphObject = exports.File = exports.Directory = void 0;
 const certacrypt_graph_1 = require("certacrypt-graph");
 const certacrypt_graph_2 = require("certacrypt-graph");
+Object.defineProperty(exports, "ShareGraphObject", { enumerable: true, get: function () { return certacrypt_graph_2.ShareGraphObject; } });
 const graphObjects_1 = require("./lib/graphObjects");
 Object.defineProperty(exports, "Directory", { enumerable: true, get: function () { return graphObjects_1.Directory; } });
 Object.defineProperty(exports, "File", { enumerable: true, get: function () { return graphObjects_1.File; } });
 const url_1 = require("./lib/url");
+Object.defineProperty(exports, "createUrl", { enumerable: true, get: function () { return url_1.createUrl; } });
 const drive_1 = require("./lib/drive");
 const debug_1 = require("./lib/debug");
 Object.defineProperty(exports, "enableDebugLogging", { enumerable: true, get: function () { return debug_1.enableDebugLogging; } });
@@ -57,15 +59,28 @@ class CertaCrypt {
                 throw new Error('path query requires unique results');
         });
     }
-    async share(vertex) {
+    async share(vertex, reuseIfExists = true) {
         const shares = await this.path('/shares');
-        const created = this.graph.create();
-        created.addEdgeTo(vertex, 'share');
-        await this.graph.put(created);
-        shares.addEdgeTo(created, 'url', undefined, undefined, certacrypt_graph_2.SHARE_VIEW);
-        await this.graph.put(shares);
-        debug_1.debug(`created share to vertex ${vertex.getFeed()}/${vertex.getId()} at ${created.getFeed()}/${created.getId()}`);
-        return created;
+        let shareVertex;
+        if (reuseIfExists) {
+            // checks if exists + loads the keys into the crypto key store
+            const existing = await this.graph.queryAtVertex(await this.sessionRoot)
+                .out('shares').out('url').matches(v => v.equals(vertex)).vertices();
+            if (existing.length > 0) {
+                const edges = shares.getEdges('url').filter(e => { var _a; return e.ref === vertex.getId() && (((_a = e.feed) === null || _a === void 0 ? void 0 : _a.toString('hex')) || shares.getFeed()) === vertex.getFeed(); });
+                if (edges.length > 0)
+                    shareVertex = await this.graph.get(edges[0].ref, edges[0].feed || shares.getFeed());
+            }
+        }
+        if (!shareVertex) {
+            shareVertex = this.graph.create();
+            shareVertex.addEdgeTo(vertex, 'share');
+            await this.graph.put(shareVertex);
+            shares.addEdgeTo(shareVertex, 'url', undefined, undefined, certacrypt_graph_2.SHARE_VIEW);
+            await this.graph.put(shares);
+            debug_1.debug(`created share to vertex ${vertex.getFeed()}/${vertex.getId()} at ${shareVertex.getFeed()}/${shareVertex.getId()}`);
+        }
+        return shareVertex;
     }
     async mountShare(target, label, url) {
         const { feed, id, key } = url_1.parseUrl(url);
