@@ -8,7 +8,7 @@ import { cryptoDrive } from './lib/drive'
 import { Hyperdrive } from "./lib/types";
 import { enableDebugLogging, debug } from './lib/debug'
 
-export {Directory, File, ShareGraphObject, Hyperdrive, enableDebugLogging, createUrl}
+export {Directory, File, ShareGraphObject, Hyperdrive, enableDebugLogging, createUrl, parseUrl}
 
 export class CertaCrypt{
     readonly corestore: Corestore
@@ -126,7 +126,7 @@ export class CertaCrypt{
                 const next = await this.graph.get(edge.ref, edge.feed || root.getFeed(), (<{key:Buffer}>edge.metadata).key)
                 graph += await this.debugDrawGraph(next, currentDepth + 1, edge.label, visited)
             } catch (err) {
-                graph += err + '\n----------\n'
+                graph += err + '\nat ' + edge.ref + '@' + (edge.feed?.toString('hex'))+ '\n'
             }
         }
         return graph

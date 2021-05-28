@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.CertaCrypt = exports.createUrl = exports.enableDebugLogging = exports.ShareGraphObject = exports.File = exports.Directory = void 0;
+exports.CertaCrypt = exports.parseUrl = exports.createUrl = exports.enableDebugLogging = exports.ShareGraphObject = exports.File = exports.Directory = void 0;
 const certacrypt_graph_1 = require("certacrypt-graph");
 const certacrypt_graph_2 = require("certacrypt-graph");
 Object.defineProperty(exports, "ShareGraphObject", { enumerable: true, get: function () { return certacrypt_graph_2.ShareGraphObject; } });
@@ -8,6 +8,7 @@ const graphObjects_1 = require("./lib/graphObjects");
 Object.defineProperty(exports, "Directory", { enumerable: true, get: function () { return graphObjects_1.Directory; } });
 Object.defineProperty(exports, "File", { enumerable: true, get: function () { return graphObjects_1.File; } });
 const url_1 = require("./lib/url");
+Object.defineProperty(exports, "parseUrl", { enumerable: true, get: function () { return url_1.parseUrl; } });
 Object.defineProperty(exports, "createUrl", { enumerable: true, get: function () { return url_1.createUrl; } });
 const drive_1 = require("./lib/drive");
 const debug_1 = require("./lib/debug");
@@ -97,7 +98,7 @@ class CertaCrypt {
         return drive_1.cryptoDrive(this.corestore, this.graph, this.crypto, rootDir);
     }
     async debugDrawGraph(root, currentDepth = 0, label = '/', visited = new Set()) {
-        var _a;
+        var _a, _b;
         root = root || await this.sessionRoot;
         let graph = '';
         let type = ((_a = root.getContent()) === null || _a === void 0 ? void 0 : _a.typeName) || 'GraphObject';
@@ -114,7 +115,7 @@ class CertaCrypt {
                 graph += await this.debugDrawGraph(next, currentDepth + 1, edge.label, visited);
             }
             catch (err) {
-                graph += err + '\n----------\n';
+                graph += err + '\nat ' + edge.ref + '@' + ((_b = edge.feed) === null || _b === void 0 ? void 0 : _b.toString('hex')) + '\n';
             }
         }
         return graph;
