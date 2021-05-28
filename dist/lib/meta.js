@@ -1,6 +1,7 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.MetaStorage = void 0;
+const certacrypt_graph_1 = require("certacrypt-graph");
 const graphObjects_1 = require("./graphObjects");
 const errors_1 = require("hyperdrive/lib/errors");
 const crypto_1 = require("./crypto");
@@ -194,9 +195,9 @@ class MetaStorage {
             throw new Error('cannot unlink root');
         const parentPath = path.slice(0, path.length - 1).join('/');
         const filename = path[path.length - 1];
-        const file = await this.find(name);
-        const db = await this.getTrie(file.feed);
-        await new Promise((resolve, reject) => db.del(file.path, err => err ? reject(err) : resolve(undefined)));
+        //const file = await this.find(name)
+        //const db = await this.getTrie(file.feed)
+        //await new Promise((resolve, reject) => db.del(file.path, err => err ? reject(err) : resolve(undefined)))
         const thombstone = this.graph.create();
         thombstone.setContent(new graphObjects_1.Thombstone());
         await this.graph.put(thombstone);
@@ -205,11 +206,13 @@ class MetaStorage {
             const edges = res.getEdges(filename);
             for (let i = 0; i < edges.length; i++) {
                 const vfeed = ((_a = edges[i].feed) === null || _a === void 0 ? void 0 : _a.toString('hex')) || res.getFeed();
-                if (edges[i].ref === file.vertex.getId() && vfeed === file.vertex.getFeed()) {
+                const file = await this.graph.get(edges[i].ref, vfeed, edges[i].metadata.key);
+                if (isDriveObjectOrShare(file)) {
                     res.removeEdge(edges[i]);
                     res.addEdgeTo(thombstone, filename);
-                    debug_1.debug(`unlinked edge to hyper://${file.vertex.getFeed()}/${file.vertex.getId()}`);
-                    return await this.graph.put(res);
+                    await this.graph.put(res);
+                    debug_1.debug(`unlinked edge to hyper://${file.getFeed()}/${file.getId()}`);
+                    return;
                 }
             }
         }
@@ -234,5 +237,11 @@ function latestWrite(vertices) {
         return vertices[0];
     else
         return vertices.sort((a, b) => a.getTimestamp() - b.getTimestamp())[0];
+}
+function isDriveObjectOrShare(vertex) {
+    if (!vertex.getContent())
+        return false;
+    const type = vertex.getContent().typeName;
+    return type === graphObjects_1.GraphObjectTypeNames.DIRECTORY || type === graphObjects_1.GraphObjectTypeNames.FILE || type === graphObjects_1.GraphObjectTypeNames.THOMBSTONE || type === certacrypt_graph_1.SHARE_GRAPHOBJECT;
 }
 //# sourceMappingURL=meta.js.map

@@ -22,7 +22,7 @@ export abstract class DriveGraphObject extends GraphObject {
 export enum GraphObjectTypeNames {
     DIRECTORY = 'CertaCrypt-Directory',
     FILE = 'CertaCrypt-File',
-    THOMBSTONE = 'CertaCrypt.Thombstone'
+    THOMBSTONE = 'CertaCrypt-Thombstone'
 } 
 
 export class File extends DriveGraphObject{

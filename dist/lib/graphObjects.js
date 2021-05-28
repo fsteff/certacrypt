@@ -20,7 +20,7 @@ var GraphObjectTypeNames;
 (function (GraphObjectTypeNames) {
     GraphObjectTypeNames["DIRECTORY"] = "CertaCrypt-Directory";
     GraphObjectTypeNames["FILE"] = "CertaCrypt-File";
-    GraphObjectTypeNames["THOMBSTONE"] = "CertaCrypt.Thombstone";
+    GraphObjectTypeNames["THOMBSTONE"] = "CertaCrypt-Thombstone";
 })(GraphObjectTypeNames = exports.GraphObjectTypeNames || (exports.GraphObjectTypeNames = {}));
 class File extends DriveGraphObject {
     constructor() {

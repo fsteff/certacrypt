@@ -1,6 +1,6 @@
 import { CB0, Hyperdrive, Stat } from './types'
-import { CertaCryptGraph } from 'certacrypt-graph'
-import { Vertex } from 'hyper-graphdb'
+import { CertaCryptGraph, SHARE_GRAPHOBJECT } from 'certacrypt-graph'
+import { GraphObject, Vertex } from 'hyper-graphdb'
 import { Directory, DriveGraphObject, File, GraphObjectTypeNames, Thombstone } from './graphObjects'
 import { FileNotFound, PathAlreadyExists } from 'hyperdrive/lib/errors'
 import { cryptoTrie } from './crypto'
@@ -204,9 +204,9 @@ export class MetaStorage {
         const parentPath = path.slice(0, path.length-1).join('/')
         const filename = path[path.length-1]
 
-        const file = await this.find(name)
-        const db = await this.getTrie(file.feed)
-        await new Promise((resolve, reject) => db.del(file.path, err => err ? reject(err) : resolve(undefined)))
+        //const file = await this.find(name)
+        //const db = await this.getTrie(file.feed)
+        //await new Promise((resolve, reject) => db.del(file.path, err => err ? reject(err) : resolve(undefined)))
         
         const thombstone = this.graph.create<Thombstone>()
         thombstone.setContent(new Thombstone())
@@ -217,11 +217,13 @@ export class MetaStorage {
             const edges = res.getEdges(filename)
             for (let i = 0; i < edges.length; i++) {
                 const vfeed = edges[i].feed?.toString('hex') || res.getFeed()
-                if(edges[i].ref === file.vertex.getId() && vfeed === file.vertex.getFeed()) {
+                const file = await this.graph.get(edges[i].ref, vfeed, (<{key:Buffer}>edges[i].metadata).key)
+                if (isDriveObjectOrShare(file)) {
                     res.removeEdge(edges[i])
                     res.addEdgeTo(thombstone, filename)
-                    debug(`unlinked edge to hyper://${file.vertex.getFeed()}/${file.vertex.getId()}`)
-                    return await this.graph.put(res)
+                    await this.graph.put(res)
+                    debug(`unlinked edge to hyper://${file.getFeed()}/${file.getId()}`)
+                    return
                 }
             }
         }
@@ -242,4 +244,10 @@ function latestWrite(vertices: Vertex<DriveGraphObject>[]) {
     if (!vertices || vertices.length === 0) return null
     else if (vertices.length === 1) return vertices[0]
     else return vertices.sort((a, b) => a.getTimestamp() - b.getTimestamp())[0]
+}
+
+function isDriveObjectOrShare(vertex: Vertex<GraphObject>): boolean {
+    if(!vertex.getContent()) return false
+    const type = vertex.getContent().typeName
+    return type === GraphObjectTypeNames.DIRECTORY || type === GraphObjectTypeNames.FILE || type === GraphObjectTypeNames.THOMBSTONE || type === SHARE_GRAPHOBJECT
 }
