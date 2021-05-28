@@ -121,7 +121,7 @@ async function cryptoDrive(corestore, graph, crypto, root) {
         if (!encrypted)
             return oldReaddir.call(drive, name, opts, cb);
         const results = new Array();
-        for (const vertex of await graph.queryPathAtVertex(name, root).vertices()) {
+        for (const vertex of await graph.queryPathAtVertex(name, root).generator().destruct(onError)) {
             const labels = distinct(vertex.getEdges().map(edge => edge.label));
             const children = (await Promise.all(labels
                 .map(label => {
@@ -140,7 +140,7 @@ async function cryptoDrive(corestore, graph, crypto, root) {
                     return { label, path, stat: file.stat };
                 }
                 catch (err) {
-                    console.error(err);
+                    onError(err);
                     return null;
                 }
             })))
@@ -155,6 +155,9 @@ async function cryptoDrive(corestore, graph, crypto, root) {
             }
         }
         return cb(null, results);
+        function onError(err) {
+            console.error(`Error on readdir ${name}:\n${err.name}: ${err.message}\n${err.stack ? err.stack : '(no stacktrace available)'}`);
+        }
     }
     function mkdir(name, opts, cb) {
         name = unixify_1.default(name);

@@ -149,7 +149,7 @@ export async function cryptoDrive(corestore: Corestore, graph: CertaCryptGraph, 
     if (!encrypted) return oldReaddir.call(drive, name, opts, cb)
 
     const results = new Array<readdirResult>()
-    for (const vertex of await graph.queryPathAtVertex(name, root).vertices()) {
+    for (const vertex of await graph.queryPathAtVertex(name, root).generator().destruct(onError)) {
       const labels = distinct((<IVertex<DriveGraphObject>>vertex).getEdges().map(edge => edge.label))
       const children = (await Promise.all(labels
           .map(label => {
@@ -164,7 +164,7 @@ export async function cryptoDrive(corestore: Corestore, graph: CertaCryptGraph, 
               if(!file || !file.stat) return null // might be a thombstone
               return { label, path, stat: file.stat }
             } catch(err) {
-              console.error(err)
+              onError(err)
               return null
             }
           })))
@@ -180,6 +180,10 @@ export async function cryptoDrive(corestore: Corestore, graph: CertaCryptGraph, 
     }
 
     return cb(null, results)
+
+    function onError(err: Error) {
+      console.error(`Error on readdir ${name}:\n${err.name}: ${err.message}\n${err.stack ? err.stack : '(no stacktrace available)'}`)
+    }
   }
 
   function mkdir(name: string, opts?: extendedOpts | CBF, cb?: CBF) {

@@ -74,6 +74,9 @@ class CertaCrypt {
         }
         if (!shareVertex) {
             shareVertex = this.graph.create();
+            const content = new certacrypt_graph_2.ShareGraphObject();
+            content.info = 'share by URL';
+            shareVertex.setContent(content);
             shareVertex.addEdgeTo(vertex, 'share');
             await this.graph.put(shareVertex);
             shares.addEdgeTo(shareVertex, 'url', undefined, undefined, certacrypt_graph_2.SHARE_VIEW);
@@ -88,9 +91,33 @@ class CertaCrypt {
         target.addEdgeTo(vertex, label, undefined, undefined, certacrypt_graph_2.SHARE_VIEW);
         await this.graph.put(target);
         debug_1.debug(`mounted share from URL ${url} to ${target.getFeed()}/${target.getId()}->${label}`);
+        debug_1.debug(await this.debugDrawGraph());
     }
     async drive(rootDir) {
         return drive_1.cryptoDrive(this.corestore, this.graph, this.crypto, rootDir);
+    }
+    async debugDrawGraph(root, currentDepth = 0, label = '/', visited = new Set()) {
+        var _a;
+        root = root || await this.sessionRoot;
+        let graph = '';
+        let type = ((_a = root.getContent()) === null || _a === void 0 ? void 0 : _a.typeName) || 'GraphObject';
+        for (let i = 0; i < currentDepth; i++)
+            graph += ' |';
+        graph += ` ${label} <${type}> [${root.getId()}] @ ${root.getFeed()}\n`;
+        const id = root.getId() + '@' + root.getFeed();
+        if (visited.has(id))
+            return graph;
+        visited.add(id);
+        for (const edge of root.getEdges()) {
+            try {
+                const next = await this.graph.get(edge.ref, edge.feed || root.getFeed(), edge.metadata.key);
+                graph += await this.debugDrawGraph(next, currentDepth + 1, edge.label, visited);
+            }
+            catch (err) {
+                graph += err + '\n----------\n';
+            }
+        }
+        return graph;
     }
 }
 exports.CertaCrypt = CertaCrypt;

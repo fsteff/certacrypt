@@ -82,6 +82,9 @@ export class CertaCrypt{
 
         if(!shareVertex) {
             shareVertex = this.graph.create<ShareGraphObject>()
+            const content = new ShareGraphObject()
+            content.info = 'share by URL'
+            shareVertex.setContent(content)
             shareVertex.addEdgeTo(vertex, 'share')
             await this.graph.put(shareVertex)
 
@@ -100,9 +103,32 @@ export class CertaCrypt{
         target.addEdgeTo(vertex, label, undefined, undefined, SHARE_VIEW)
         await this.graph.put(target)
         debug(`mounted share from URL ${url} to ${target.getFeed()}/${target.getId()}->${label}`)
+        debug(await this.debugDrawGraph())
     }
 
     public async drive(rootDir: Vertex<Directory>): Promise<Hyperdrive> {
         return cryptoDrive(this.corestore, this.graph, this.crypto, rootDir)
+    }
+
+    public async debugDrawGraph(root?: Vertex<GraphObject>, currentDepth = 0, label = '/', visited = new Set<string>()): Promise<string> {
+        root = root || await this.sessionRoot
+        let graph = ''
+        let type = root.getContent()?.typeName || 'GraphObject'
+        for(let i = 0; i < currentDepth; i++) graph += ' |'
+        graph += ` ${label} <${type}> [${root.getId()}] @ ${root.getFeed()}\n`
+
+        const id = root.getId() + '@' + root.getFeed()
+        if(visited.has(id)) return graph
+        visited.add(id)
+        
+        for(const edge of root.getEdges()) {
+            try {
+                const next = await this.graph.get(edge.ref, edge.feed || root.getFeed(), (<{key:Buffer}>edge.metadata).key)
+                graph += await this.debugDrawGraph(next, currentDepth + 1, edge.label, visited)
+            } catch (err) {
+                graph += err + '\n----------\n'
+            }
+        }
+        return graph
     }
 }
