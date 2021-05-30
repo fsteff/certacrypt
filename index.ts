@@ -2,11 +2,13 @@ import { Cipher, ICrypto, DefaultCrypto } from 'certacrypt-crypto'
 import { CertaCryptGraph } from 'certacrypt-graph'
 import { ShareGraphObject, SHARE_VIEW } from 'certacrypt-graph'
 import { Core, Corestore, GraphObject, SimpleGraphObject, Vertex, IVertex } from 'hyper-graphdb'
-import { Directory, File, Thombstone } from './lib/graphObjects'
+import { Directory, File, Thombstone, PreSharedGraphObject, UserKey, UserProfile } from './lib/graphObjects'
 import { parseUrl, createUrl } from './lib/url'
 import { cryptoDrive } from './lib/drive'
 import { Hyperdrive } from './lib/types'
 import { enableDebugLogging, debug } from './lib/debug'
+import { REFERRER_VIEW, ReferrerView } from './lib/referrer'
+import { CryptoCore } from 'certacrypt-graph'
 
 export { Directory, File, ShareGraphObject, Hyperdrive, enableDebugLogging, createUrl, parseUrl }
 
@@ -31,6 +33,11 @@ export class CertaCrypt {
     this.graph.codec.registerImpl((data) => new File(data))
     this.graph.codec.registerImpl((data) => new Directory(data))
     this.graph.codec.registerImpl((data) => new Thombstone(data))
+    this.graph.codec.registerImpl((data) => new PreSharedGraphObject(data))
+    this.graph.codec.registerImpl((data) => new UserKey(data))
+    this.graph.codec.registerImpl((data) => new UserProfile(data))
+
+    this.graph.factory.register(REFERRER_VIEW, (db, codec, tr) => new ReferrerView(<CryptoCore>db, codec, this.graph.factory, tr))
   }
 
   private async initSession() {

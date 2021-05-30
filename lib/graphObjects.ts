@@ -24,7 +24,8 @@ export enum GraphObjectTypeNames {
   FILE = 'CertaCrypt-File',
   THOMBSTONE = 'CertaCrypt-Thombstone',
   USERKEY = 'CertaCrypt-X25519Key',
-  USERPROFILE = 'CertaCrypt-Profile'
+  USERPROFILE = 'CertaCrypt-Profile',
+  PRESHARED = 'CertaCrypt-PreShared'
 }
 
 export class File extends DriveGraphObject {
@@ -68,6 +69,26 @@ export class UserProfile extends GraphObject {
   }
 
   serialize(): Buffer {
-    return json.encode(this)
+    return json.encode({ username: this.username, bio: this.bio, profilePicture: this.profilePicture, extensions: this.extensions })
+  }
+}
+
+export class PreSharedGraphObject extends GraphObject {
+  readonly typeName = GraphObjectTypeNames.PRESHARED
+  expiryDate: number
+
+  constructor(data?: Uint8Array) {
+    super()
+
+    if (data) {
+      const decoded = json.decode(data)
+      Object.assign(this, decoded)
+    } else {
+      this.expiryDate = new Date().getTime() + 1000 * 3600 * 24 * 30
+    }
+  }
+
+  serialize(): Buffer {
+    return json.encode({ expiryDate: this.expiryDate })
   }
 }

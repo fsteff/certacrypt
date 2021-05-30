@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.UserProfile = exports.UserKey = exports.Thombstone = exports.Directory = exports.File = exports.GraphObjectTypeNames = exports.DriveGraphObject = void 0;
+exports.PreSharedGraphObject = exports.UserProfile = exports.UserKey = exports.Thombstone = exports.Directory = exports.File = exports.GraphObjectTypeNames = exports.DriveGraphObject = void 0;
 const hyper_graphdb_1 = require("hyper-graphdb");
 const codecs_1 = require("codecs");
 class DriveGraphObject extends hyper_graphdb_1.GraphObject {
@@ -23,6 +23,7 @@ var GraphObjectTypeNames;
     GraphObjectTypeNames["THOMBSTONE"] = "CertaCrypt-Thombstone";
     GraphObjectTypeNames["USERKEY"] = "CertaCrypt-X25519Key";
     GraphObjectTypeNames["USERPROFILE"] = "CertaCrypt-Profile";
+    GraphObjectTypeNames["PRESHARED"] = "CertaCrypt-PreShared";
 })(GraphObjectTypeNames = exports.GraphObjectTypeNames || (exports.GraphObjectTypeNames = {}));
 class File extends DriveGraphObject {
     constructor() {
@@ -66,8 +67,25 @@ class UserProfile extends hyper_graphdb_1.GraphObject {
         }
     }
     serialize() {
-        return codecs_1.json.encode(this);
+        return codecs_1.json.encode({ username: this.username, bio: this.bio, profilePicture: this.profilePicture, extensions: this.extensions });
     }
 }
 exports.UserProfile = UserProfile;
+class PreSharedGraphObject extends hyper_graphdb_1.GraphObject {
+    constructor(data) {
+        super();
+        this.typeName = GraphObjectTypeNames.PRESHARED;
+        if (data) {
+            const decoded = codecs_1.json.decode(data);
+            Object.assign(this, decoded);
+        }
+        else {
+            this.expiryDate = new Date().getTime() + 1000 * 3600 * 24 * 30;
+        }
+    }
+    serialize() {
+        return codecs_1.json.encode({ expiryDate: this.expiryDate });
+    }
+}
+exports.PreSharedGraphObject = PreSharedGraphObject;
 //# sourceMappingURL=graphObjects.js.map

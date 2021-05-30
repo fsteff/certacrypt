@@ -1,17 +1,20 @@
 import { GraphObject, HyperGraphDB, SimpleGraphObject, Vertex } from 'hyper-graphdb'
 import { ICrypto, Primitives } from 'certacrypt-crypto'
-import { GraphObjectTypeNames, UserKey, UserProfile } from './graphObjects'
+import { CertaCryptGraph } from 'certacrypt-graph'
+import { GraphObjectTypeNames, PreSharedGraphObject, UserKey, UserProfile } from './graphObjects'
+import { Edge } from 'hyper-graphdb/lib/Vertex'
+import { REFERRER_VIEW } from './referrer'
 
 export class User {
   private identity: Vertex<UserKey>
 
-  constructor(readonly publicRoot: Vertex<GraphObject>, readonly graph: HyperGraphDB, private readonly identitySecret?: Vertex<UserKey>) {
+  constructor(readonly publicRoot: Vertex<GraphObject>, readonly graph: CertaCryptGraph, private readonly identitySecret?: Vertex<UserKey>) {
     graph
       .queryAtVertex(this.publicRoot)
       .out('identity')
+      .matches((v) => !!v.getContent() && v.getContent().typeName === GraphObjectTypeNames.USERKEY)
       .vertices()
       .then((results) => {
-        results = results.filter((v) => !!v.getContent() && v.getContent().typeName === GraphObjectTypeNames.USERKEY)
         if (results.length === 0) {
           throw new Error('User Root has no Identity vertex')
         } else {
@@ -20,7 +23,7 @@ export class User {
       })
   }
 
-  static async InitUser(graph: HyperGraphDB, sessionRoot: Vertex<GraphObject>, crypto: ICrypto): Promise<User> {
+  static async InitUser(graph: CertaCryptGraph, sessionRoot: Vertex<GraphObject>): Promise<User> {
     const keys = Primitives.generateUserKeyPair()
     const identity = graph.create<UserKey>()
     identity.setContent(new UserKey(keys.pubkey))
@@ -47,6 +50,8 @@ export class User {
   }
 
   async setProfile(profile: UserProfile) {
+    if (!this.publicRoot.getWriteable()) throw new Error('cannot write profile, hypercore is not writeable')
+
     let vertex = <Vertex<UserProfile>>await this.graph
       .queryAtVertex(this.publicRoot)
       .out('profile')
@@ -63,5 +68,42 @@ export class User {
     let results = <Vertex<UserProfile>[]>await this.graph.queryAtVertex(this.publicRoot).out('profile').vertices()
     results = results.filter((v) => !!v.getContent() && v.getContent().typeName === GraphObjectTypeNames.USERPROFILE)
     return results.length > 0 ? (<Vertex<UserProfile>>results[0]).getContent() : undefined
+  }
+
+  async choosePreSharedVertice(): Promise<Vertex<PreSharedGraphObject> | undefined> {
+    let vertices = <Vertex<PreSharedGraphObject>[]>await this.graph
+      .queryAtVertex(this.publicRoot)
+      .out('psv')
+      .matches((v) => !!v.getContent() && v.getContent().typeName === GraphObjectTypeNames.PRESHARED)
+      .vertices()
+    vertices.sort((v1, v2) => v2.getContent().expiryDate - v1.getContent().expiryDate)
+
+    if (vertices.length === 0) return undefined
+
+    const now = new Date().getTime()
+    if (vertices[0].getContent().expiryDate > now) {
+      vertices = vertices.filter((v) => v.getContent().expiryDate > now)
+    }
+
+    return vertices[Math.floor(Math.random() * vertices.length)]
+  }
+
+  async referToPresharedVertex(from: Vertex<GraphObject>, label: string) {
+    if (!from.getWriteable()) throw new Error('Cannot refer to preshared vertex, referring vertex is not writeable')
+
+    const target = await this.choosePreSharedVertice()
+    if (!target) throw new Error("Cannot refer to preshared vertex, user doesn't provide any")
+
+    const refKey = Primitives.generateEncryptionKey()
+    const refLabel = Primitives.generateEncryptionKey().toString('base64')
+
+    const edge: Edge = {
+      label,
+      ref: target.getId(),
+      feed: Buffer.from(target.getFeed(), 'hex'),
+      view: REFERRER_VIEW,
+      metadata: { key: this.graph.getKey(target), refKey, refLabel }
+    }
+    from.addEdge(edge)
   }
 }

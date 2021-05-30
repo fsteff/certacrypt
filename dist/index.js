@@ -13,6 +13,7 @@ Object.defineProperty(exports, "createUrl", { enumerable: true, get: function ()
 const drive_1 = require("./lib/drive");
 const debug_1 = require("./lib/debug");
 Object.defineProperty(exports, "enableDebugLogging", { enumerable: true, get: function () { return debug_1.enableDebugLogging; } });
+const referrer_1 = require("./lib/referrer");
 class CertaCrypt {
     constructor(corestore, crypto, sessionUrl) {
         this.corestore = corestore;
@@ -29,6 +30,10 @@ class CertaCrypt {
         this.graph.codec.registerImpl((data) => new graphObjects_1.File(data));
         this.graph.codec.registerImpl((data) => new graphObjects_1.Directory(data));
         this.graph.codec.registerImpl((data) => new graphObjects_1.Thombstone(data));
+        this.graph.codec.registerImpl((data) => new graphObjects_1.PreSharedGraphObject(data));
+        this.graph.codec.registerImpl((data) => new graphObjects_1.UserKey(data));
+        this.graph.codec.registerImpl((data) => new graphObjects_1.UserProfile(data));
+        this.graph.factory.register(referrer_1.REFERRER_VIEW, (db, codec, tr) => new referrer_1.ReferrerView(db, codec, this.graph.factory, tr));
     }
     async initSession() {
         const root = this.graph.create();
