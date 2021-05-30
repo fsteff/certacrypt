@@ -22,7 +22,9 @@ export abstract class DriveGraphObject extends GraphObject {
 export enum GraphObjectTypeNames {
   DIRECTORY = 'CertaCrypt-Directory',
   FILE = 'CertaCrypt-File',
-  THOMBSTONE = 'CertaCrypt-Thombstone'
+  THOMBSTONE = 'CertaCrypt-Thombstone',
+  USERKEY = 'CertaCrypt-X25519Key',
+  USERPROFILE = 'CertaCrypt-Profile'
 }
 
 export class File extends DriveGraphObject {
@@ -35,4 +37,37 @@ export class Directory extends DriveGraphObject {
 
 export class Thombstone extends DriveGraphObject {
   readonly typeName = GraphObjectTypeNames.THOMBSTONE
+}
+
+export class UserKey extends GraphObject {
+  readonly typeName = GraphObjectTypeNames.USERKEY
+
+  constructor(readonly key: Uint8Array) {
+    super()
+  }
+
+  serialize(): Buffer {
+    return Buffer.from(this.key)
+  }
+}
+
+export class UserProfile extends GraphObject {
+  readonly typeName = GraphObjectTypeNames.USERPROFILE
+  username?: string
+  bio?: string
+  profilePicture?: string
+  extensions?: []
+
+  constructor(data?: Uint8Array) {
+    super()
+
+    if (data) {
+      const decoded = json.decode(data)
+      Object.assign(this, decoded)
+    }
+  }
+
+  serialize(): Buffer {
+    return json.encode(this)
+  }
 }

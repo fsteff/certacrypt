@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.Thombstone = exports.Directory = exports.File = exports.GraphObjectTypeNames = exports.DriveGraphObject = void 0;
+exports.UserProfile = exports.UserKey = exports.Thombstone = exports.Directory = exports.File = exports.GraphObjectTypeNames = exports.DriveGraphObject = void 0;
 const hyper_graphdb_1 = require("hyper-graphdb");
 const codecs_1 = require("codecs");
 class DriveGraphObject extends hyper_graphdb_1.GraphObject {
@@ -21,6 +21,8 @@ var GraphObjectTypeNames;
     GraphObjectTypeNames["DIRECTORY"] = "CertaCrypt-Directory";
     GraphObjectTypeNames["FILE"] = "CertaCrypt-File";
     GraphObjectTypeNames["THOMBSTONE"] = "CertaCrypt-Thombstone";
+    GraphObjectTypeNames["USERKEY"] = "CertaCrypt-X25519Key";
+    GraphObjectTypeNames["USERPROFILE"] = "CertaCrypt-Profile";
 })(GraphObjectTypeNames = exports.GraphObjectTypeNames || (exports.GraphObjectTypeNames = {}));
 class File extends DriveGraphObject {
     constructor() {
@@ -43,4 +45,29 @@ class Thombstone extends DriveGraphObject {
     }
 }
 exports.Thombstone = Thombstone;
+class UserKey extends hyper_graphdb_1.GraphObject {
+    constructor(key) {
+        super();
+        this.key = key;
+        this.typeName = GraphObjectTypeNames.USERKEY;
+    }
+    serialize() {
+        return Buffer.from(this.key);
+    }
+}
+exports.UserKey = UserKey;
+class UserProfile extends hyper_graphdb_1.GraphObject {
+    constructor(data) {
+        super();
+        this.typeName = GraphObjectTypeNames.USERPROFILE;
+        if (data) {
+            const decoded = codecs_1.json.decode(data);
+            Object.assign(this, decoded);
+        }
+    }
+    serialize() {
+        return codecs_1.json.encode(this);
+    }
+}
+exports.UserProfile = UserProfile;
 //# sourceMappingURL=graphObjects.js.map

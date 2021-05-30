@@ -5,7 +5,6 @@
   "main": "index.js",
   "scripts": {
     "test": "tape ./dist/tests/*.js",
-    "generate_protobuf": "protocol-buffers -o ./modules/graph/schema.js ./modules/graph/schema.proto",
     "build": "npm run format && tsc && npm run copy-files && npm run test",
     "copy-files": "copyfiles ./lib/js/*.js dist",
     "format": " prettier --config .prettierrc **.ts --write"
@@ -17,7 +16,8 @@
   "keywords": [
     "P2P",
     "Dat",
-    "Hyperdrive"
+    "Hyperdrive",
+    "Hypercore"
   ],
   "author": "Stefan Fixl (Fsteff)",
   "license": "MIT",
@@ -43,7 +43,6 @@
     "@hyperspace/client": "^1.18.0",
     "copyfiles": "^2.4.1",
     "hyperspace": "^3.19.0",
-    "protocol-buffers": "^4.2.0",
     "random-access-memory": "^3.1.2",
     "tape": "^5.2.2",
     "prettier": "2.3.0"
