@@ -105,5 +105,6 @@ export class User {
       metadata: { key: this.graph.getKey(target), refKey, refLabel }
     }
     from.addEdge(edge)
+    await this.graph.put(from)
   }
 }
