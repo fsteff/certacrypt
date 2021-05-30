@@ -1,5 +1,5 @@
 import { cryptoDrive } from '../lib/drive'
-import { Directory, File } from '../lib/graphObjects'
+import { Directory, File, Thombstone } from '../lib/graphObjects'
 
 import RAM from 'random-access-memory'
 import Corestore from 'corestore'
@@ -17,6 +17,7 @@ async function createDB() {
   const db = new CertaCryptGraph(store, null, crypto)
   db.codec.registerImpl((data) => new File(data))
   db.codec.registerImpl((data) => new Directory(data))
+  db.codec.registerImpl((data) => new Thombstone(data))
   return { store, crypto, db }
 }
 

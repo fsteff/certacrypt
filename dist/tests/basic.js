@@ -18,6 +18,7 @@ async function createDB() {
     const db = new certacrypt_graph_1.CertaCryptGraph(store, null, crypto);
     db.codec.registerImpl((data) => new graphObjects_1.File(data));
     db.codec.registerImpl((data) => new graphObjects_1.Directory(data));
+    db.codec.registerImpl((data) => new graphObjects_1.Thombstone(data));
     return { store, crypto, db };
 }
 tape_1.default('write and read', async (t) => {

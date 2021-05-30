@@ -6,7 +6,7 @@
   "scripts": {
     "test": "tape ./dist/tests/*.js",
     "generate_protobuf": "protocol-buffers -o ./modules/graph/schema.js ./modules/graph/schema.proto",
-    "build": "npm run format && tsc && npm run copy-files",
+    "build": "npm run format && tsc && npm run copy-files && npm run test",
     "copy-files": "copyfiles ./lib/js/*.js dist",
     "format": " prettier --config .prettierrc **.ts --write"
   },
