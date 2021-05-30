@@ -19,10 +19,9 @@ class MetaStorage {
         this.tries = new Map();
     }
     async uniqueFileId() {
-        const nodes = await new Promise((resolve, reject) => this.drive.db.list('.enc', { hidden: true }, (err, res) => err ? reject(err) : resolve(res)));
+        const nodes = (await new Promise((resolve, reject) => this.drive.db.list('.enc', { hidden: true }, (err, res) => (err ? reject(err) : resolve(res)))));
         let idCtr = this.currentIdCtr + 1;
-        nodes.map(node => parseInt(node.key.split('/', 2)[1]))
-            .forEach(id => idCtr = Math.max(idCtr, id + 1));
+        nodes.map((node) => parseInt(node.key.split('/', 2)[1])).forEach((id) => (idCtr = Math.max(idCtr, id + 1)));
         this.currentIdCtr = idCtr;
         return '/.enc/' + idCtr;
     }
@@ -92,9 +91,11 @@ class MetaStorage {
         debug_1.debug(`created writeableFile ${filename} as ${encrypted ? 'encrypted' : 'public'} file hyper://${feed}${fileid}`);
         const created = await this.graph.createEdgesToPath(filename, this.root, vertex);
         for (const { path } of created) {
-            const dirs = await this.graph.queryPathAtVertex(path, this.root)
-                .matches(v => { var _a; return ((_a = v.getContent()) === null || _a === void 0 ? void 0 : _a.typeName) === graphObjects_1.GraphObjectTypeNames.DIRECTORY; })
-                .generator().destruct();
+            const dirs = await this.graph
+                .queryPathAtVertex(path, this.root)
+                .matches((v) => { var _a; return ((_a = v.getContent()) === null || _a === void 0 ? void 0 : _a.typeName) === graphObjects_1.GraphObjectTypeNames.DIRECTORY; })
+                .generator()
+                .destruct();
             if (dirs.length === 0) {
                 await this.drive.promises.mkdir(path, { db: { encrypted: true } });
             }
@@ -124,7 +125,7 @@ class MetaStorage {
         dir.filename = url;
         target.setContent(dir);
         this.crypto.registerKey(mkey, { feed, type: certacrypt_crypto_1.Cipher.XChaCha20_Blob, index: fileid });
-        await new Promise((resolve, reject) => makeStat.call(null, fileid, err => err ? reject(err) : resolve(undefined)));
+        await new Promise((resolve, reject) => makeStat.call(null, fileid, (err) => (err ? reject(err) : resolve(undefined))));
         await this.graph.put(target);
         await this.graph.createEdgesToPath(name, this.root, target);
         debug_1.debug(`created directory ${name} at hyper://${feed}${fileid}`);
@@ -190,7 +191,7 @@ class MetaStorage {
     }
     async unlink(name) {
         var _a;
-        const path = name.split('/').filter(p => p.length > 0);
+        const path = name.split('/').filter((p) => p.length > 0);
         if (path.length === 0)
             throw new Error('cannot unlink root');
         const parentPath = path.slice(0, path.length - 1).join('/');

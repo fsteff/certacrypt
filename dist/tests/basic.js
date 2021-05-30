@@ -16,8 +16,8 @@ async function createDB() {
     await store.ready();
     const crypto = new certacrypt_crypto_1.DefaultCrypto();
     const db = new certacrypt_graph_1.CertaCryptGraph(store, null, crypto);
-    db.codec.registerImpl(data => new graphObjects_1.File(data));
-    db.codec.registerImpl(data => new graphObjects_1.Directory(data));
+    db.codec.registerImpl((data) => new graphObjects_1.File(data));
+    db.codec.registerImpl((data) => new graphObjects_1.Directory(data));
     return { store, crypto, db };
 }
 tape_1.default('write and read', async (t) => {
@@ -48,10 +48,10 @@ tape_1.default('2 DBs', async (t) => {
     const crypto2 = new certacrypt_crypto_1.DefaultCrypto();
     const db = new certacrypt_graph_1.CertaCryptGraph(store.namespace('1'), null, crypto);
     const db2 = new certacrypt_graph_1.CertaCryptGraph(store.namespace('2'), null, crypto2);
-    db.codec.registerImpl(data => new graphObjects_1.File(data));
-    db.codec.registerImpl(data => new graphObjects_1.Directory(data));
-    db2.codec.registerImpl(data => new graphObjects_1.File(data));
-    db2.codec.registerImpl(data => new graphObjects_1.Directory(data));
+    db.codec.registerImpl((data) => new graphObjects_1.File(data));
+    db.codec.registerImpl((data) => new graphObjects_1.Directory(data));
+    db2.codec.registerImpl((data) => new graphObjects_1.File(data));
+    db2.codec.registerImpl((data) => new graphObjects_1.Directory(data));
     const v1 = db.create();
     await db.put(v1);
     const v2 = db2.create();

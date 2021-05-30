@@ -16,7 +16,7 @@ startHyperspace()
     .then(startCertaCrypt)
     .then(runApp)
     .then(() => close())
-    .catch(err => console.error(err));
+    .catch((err) => console.error(err));
 async function runApp(app) {
     switch (process.argv[2]) {
         case 'start':
@@ -35,7 +35,7 @@ async function open(app) {
     if (!target)
         throw new Error('no target file specified');
     await app.mountShare(await app.path('/apps'), 'shared', url);
-    const dir = (await app.path('/apps/shared'));
+    const dir = await app.path('/apps/shared');
     const drive = await app.drive(dir);
     const files = await drive.promises.readdir('/', { db: { encrypted: true } });
     console.log('found files: ' + files);

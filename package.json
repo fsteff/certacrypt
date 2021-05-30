@@ -6,8 +6,9 @@
   "scripts": {
     "test": "tape ./dist/tests/*.js",
     "generate_protobuf": "protocol-buffers -o ./modules/graph/schema.js ./modules/graph/schema.proto",
-    "build": "tsc && npm run copy-files",
-    "copy-files": "copyfiles ./lib/js/*.js dist"
+    "build": "npm run format && tsc && npm run copy-files",
+    "copy-files": "copyfiles ./lib/js/*.js dist",
+    "format": " prettier --config .prettierrc **.ts --write"
   },
   "repository": {
     "type": "git",
@@ -44,14 +45,7 @@
     "hyperspace": "^3.19.0",
     "protocol-buffers": "^4.2.0",
     "random-access-memory": "^3.1.2",
-    "standard": "^14.3.4",
-    "tape": "^5.2.2"
-  },
-  "standard": {
-    "ignore": [
-      "/node_modules/",
-      "/modules/*/schema.js",
-      "index.js"
-    ]
+    "tape": "^5.2.2",
+    "prettier": "2.3.0"
   }
 }

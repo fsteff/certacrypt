@@ -13,7 +13,7 @@ const minipass_1 = __importDefault(require("minipass"));
 const unixify_1 = __importDefault(require("unixify"));
 async function cryptoDrive(corestore, graph, crypto, root) {
     corestore = crypto_1.cryptoCorestore(corestore.namespace('cryptoDrive'), crypto);
-    const drive = hyperdrive_1.default(corestore); // dirty fix 
+    const drive = hyperdrive_1.default(corestore); // dirty fix
     await drive.promises.ready();
     const meta = new meta_1.MetaStorage(drive, graph, root, crypto);
     drive.db = crypto_1.wrapTrie(drive.db, crypto);
@@ -37,7 +37,7 @@ async function cryptoDrive(corestore, graph, crypto, root) {
         const encrypted = !!opts.db.encrypted;
         const filePromise = meta.readableFile(name, encrypted);
         const out = new minipass_1.default();
-        filePromise.then(prepareStream).catch(err => out.destroy(err));
+        filePromise.then(prepareStream).catch((err) => out.destroy(err));
         return out;
         async function prepareStream({ stat, contentFeed }) {
             let stream;
@@ -49,7 +49,7 @@ async function cryptoDrive(corestore, graph, crypto, root) {
                 feed: contentFeed,
                 blockOffset: stat.offset,
                 blockLength: stat.blocks,
-                byteOffset: opts.start ? stat.byteOffset + opts.start : (length === -1 ? -1 : stat.byteOffset),
+                byteOffset: opts.start ? stat.byteOffset + opts.start : length === -1 ? -1 : stat.byteOffset,
                 byteLength: Math.min(length, stat.size)
             });
             return stream;
@@ -63,16 +63,17 @@ async function cryptoDrive(corestore, graph, crypto, root) {
         const dbOpts = encrypted ? { encrypted: true, hidden: true } : undefined;
         opts.db = dbOpts;
         const input = new minipass_1.default();
-        const state = meta.writeableFile(name, encrypted)
+        const state = meta
+            .writeableFile(name, encrypted)
             .then(prepareStream)
-            .catch(err => input.destroy(err));
+            .catch((err) => input.destroy(err));
         drive.once('appending', async (filename) => {
             const { path, fkey, stream } = await state;
             if (filename !== path)
                 throw new Error('appending name !== filename');
             const passedOpts = { trie: true, db: dbOpts };
             drive.stat(path, passedOpts, async (err, stat, trie) => {
-                if (err && (err.errno !== 2))
+                if (err && err.errno !== 2)
                     return input.destroy(err);
                 drive._getContent(trie.feed, async (err, contentState) => {
                     if (err)
@@ -104,14 +105,15 @@ async function cryptoDrive(corestore, graph, crypto, root) {
             return oldLstat.call(drive, name, opts, cb);
         }
         else {
-            return meta.find(name)
+            return meta
+                .find(name)
                 .then(async ({ path, feed }) => {
                 const feedTrie = await meta.getTrie(feed);
                 const { stat, trie } = await meta.lstat(path, !!opts.db.encrypted, feedTrie, !!opts.file);
                 cb(null, stat, trie);
                 return stat;
             })
-                .catch(err => cb(err));
+                .catch((err) => cb(err));
         }
     }
     async function readdir(name, opts, cb) {
@@ -122,9 +124,9 @@ async function cryptoDrive(corestore, graph, crypto, root) {
             return oldReaddir.call(drive, name, opts, cb);
         const results = new Array();
         for (const vertex of await graph.queryPathAtVertex(name, root).generator().destruct(onError)) {
-            const labels = distinct(vertex.getEdges().map(edge => edge.label));
+            const labels = distinct(vertex.getEdges().map((edge) => edge.label));
             const children = (await Promise.all(labels
-                .map(label => {
+                .map((label) => {
                 let path;
                 if (name.endsWith('/'))
                     path = name + label;
@@ -143,8 +145,7 @@ async function cryptoDrive(corestore, graph, crypto, root) {
                     onError(err);
                     return null;
                 }
-            })))
-                .filter(child => child !== null);
+            }))).filter((child) => child !== null);
             for (const child of children) {
                 if (opts.includeStats) {
                     results.push({ name: child.label, path: child.path, stat: child.stat });
@@ -165,9 +166,10 @@ async function cryptoDrive(corestore, graph, crypto, root) {
         const encrypted = opts.db.encrypted;
         if (!encrypted)
             return oldMkdir.call(drive, name, opts, cb);
-        meta.createDirectory(name, (fileid, mkdirCb) => oldMkdir.call(drive, fileid, { db: { encrypted: true } }, mkdirCb))
-            .then(v => cb(null, v))
-            .catch(err => cb(err));
+        meta
+            .createDirectory(name, (fileid, mkdirCb) => oldMkdir.call(drive, fileid, { db: { encrypted: true } }, mkdirCb))
+            .then((v) => cb(null, v))
+            .catch((err) => cb(err));
     }
     async function unlink(name, opts, cb) {
         if (typeof opts === 'function')
@@ -190,6 +192,6 @@ function fixOpts(opts) {
     return opts;
 }
 function distinct(arr) {
-    return [...(new Set(arr).values())];
+    return [...new Set(arr).values()];
 }
 //# sourceMappingURL=drive.js.map

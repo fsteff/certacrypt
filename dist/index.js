@@ -26,9 +26,9 @@ class CertaCrypt {
             this.graph = new certacrypt_graph_1.CertaCryptGraph(corestore, undefined, crypto);
             this.sessionRoot = this.initSession();
         }
-        this.graph.codec.registerImpl(data => new graphObjects_1.File(data));
-        this.graph.codec.registerImpl(data => new graphObjects_1.Directory(data));
-        this.graph.codec.registerImpl(data => new graphObjects_1.Thombstone(data));
+        this.graph.codec.registerImpl((data) => new graphObjects_1.File(data));
+        this.graph.codec.registerImpl((data) => new graphObjects_1.Directory(data));
+        this.graph.codec.registerImpl((data) => new graphObjects_1.Thombstone(data));
     }
     async initSession() {
         const root = this.graph.create();
@@ -50,8 +50,10 @@ class CertaCrypt {
         return url_1.createUrl(root, this.graph.getKey(root));
     }
     async path(path) {
-        return this.graph.queryPathAtVertex(path, await this.sessionRoot).vertices()
-            .then(res => {
+        return this.graph
+            .queryPathAtVertex(path, await this.sessionRoot)
+            .vertices()
+            .then((res) => {
             if (res.length === 1)
                 return res[0];
             else if (res.length === 0)
@@ -65,10 +67,14 @@ class CertaCrypt {
         let shareVertex;
         if (reuseIfExists) {
             // checks if exists + loads the keys into the crypto key store
-            const existing = await this.graph.queryAtVertex(await this.sessionRoot)
-                .out('shares').out('url').matches(v => v.equals(vertex)).vertices();
+            const existing = await this.graph
+                .queryAtVertex(await this.sessionRoot)
+                .out('shares')
+                .out('url')
+                .matches((v) => v.equals(vertex))
+                .vertices();
             if (existing.length > 0) {
-                const edges = shares.getEdges('url').filter(e => { var _a; return e.ref === vertex.getId() && (((_a = e.feed) === null || _a === void 0 ? void 0 : _a.toString('hex')) || shares.getFeed()) === vertex.getFeed(); });
+                const edges = shares.getEdges('url').filter((e) => { var _a; return e.ref === vertex.getId() && (((_a = e.feed) === null || _a === void 0 ? void 0 : _a.toString('hex')) || shares.getFeed()) === vertex.getFeed(); });
                 if (edges.length > 0)
                     shareVertex = await this.graph.get(edges[0].ref, edges[0].feed || shares.getFeed());
             }
@@ -99,7 +105,7 @@ class CertaCrypt {
     }
     async debugDrawGraph(root, currentDepth = 0, label = '/', visited = new Set()) {
         var _a, _b;
-        root = root || await this.sessionRoot;
+        root = root || (await this.sessionRoot);
         let graph = '';
         let type = ((_a = root.getContent()) === null || _a === void 0 ? void 0 : _a.typeName) || 'GraphObject';
         for (let i = 0; i < currentDepth; i++)
