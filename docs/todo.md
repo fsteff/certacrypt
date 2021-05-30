@@ -98,11 +98,11 @@
 
 - [ ]  **Basic Hierachies**
   Internal graph structures that persists and organizes data - the *glue* between the features
-  - [ ]  public data (shareable by id+key link)
+  - [x]  public data (shareable by id+key link)
   - [ ]  track access permissions & collaboration spaces
   - [ ]  contacts & friends
 - [ ] **Session Management**
-  - [ ] encrypted, private DB for storing the application state
+  - [x] encrypted, private DB for storing the application state
   - [ ] utility functions that use the DB if possible or else re-compute the state from the graph
     - application state can be re-computed even if the DB is deleted (but might be slow)
     - a lot of caching on that layer
@@ -115,14 +115,14 @@
 
 ## Certacrypt Filemanager
 
-- [ ] *explorer-like* view
+- [x] *explorer-like* view
   - [ ] simple view
   - [ ] previews*
     - [ ] images
     - [ ] videos
     - [ ] markdown
   - [ ] show permissions
-- [ ] sharing files & directories per URL
+- [x] sharing files & directories per URL
 - [ ] contacts
   - [ ] public profile
   - [ ] friends & friend lists
