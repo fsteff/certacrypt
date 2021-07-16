@@ -1,14 +1,15 @@
 import { GraphObject, HyperGraphDB, SimpleGraphObject, Vertex } from 'hyper-graphdb'
-import { ICrypto, Primitives } from 'certacrypt-crypto'
-import { CertaCryptGraph } from 'certacrypt-graph'
+import { Cipher, ICrypto, Primitives } from 'certacrypt-crypto'
+import { CertaCryptGraph, CryptoCore } from 'certacrypt-graph'
 import { GraphObjectTypeNames, PreSharedGraphObject, UserKey, UserProfile } from './graphObjects'
-import { Edge } from 'hyper-graphdb/lib/Vertex'
-import { REFERRER_VIEW } from './referrer'
+import { ReferrerEdge, REFERRER_VIEW } from './referrer'
 
 export class User {
   private identity: Vertex<UserKey>
+  private crypto: ICrypto
 
   constructor(readonly publicRoot: Vertex<GraphObject>, readonly graph: CertaCryptGraph, private readonly identitySecret?: Vertex<UserKey>) {
+    this.crypto = (<CryptoCore>this.graph.core).crypto
     graph
       .queryAtVertex(this.publicRoot)
       .out('identity')
@@ -97,7 +98,7 @@ export class User {
     const refKey = Primitives.generateEncryptionKey()
     const refLabel = Primitives.generateEncryptionKey().toString('base64')
 
-    const edge: Edge = {
+    const edge: ReferrerEdge = {
       label,
       ref: target.getId(),
       feed: Buffer.from(target.getFeed(), 'hex'),
@@ -106,5 +107,30 @@ export class User {
     }
     from.addEdge(edge)
     await this.graph.put(from)
+  }
+
+  async writeToPresharedVertex(referrer: ReferrerEdge): Promise<Vertex<GraphObject>> {
+    const refData = referrer.metadata
+    if (!refData || !refData.key || !refData.refKey || !refData.refLabel) {
+      throw new Error('ReferrerEdge does not contain required properties: ' + JSON.stringify(referrer))
+    }
+    const psv = await this.graph.get(referrer.ref, referrer.feed, refData.key)
+    if (!psv.getWriteable()) {
+      throw new Error('Cannot write to preshared vertex, it is not writeable')
+    }
+
+    const target = this.graph.create<GraphObject>()
+    await this.graph.put(target)
+    this.crypto.registerKey(refData.refKey, { feed: target.getFeed(), index: target.getId(), type: Cipher.ChaCha20_Stream })
+
+    const edge = {
+      ref: target.getId(),
+      feed: Buffer.from(target.getFeed(), 'hex'),
+      label: refData.refLabel
+    }
+    psv.addEdge(edge)
+    await this.graph.put([target, psv])
+
+    return target
   }
 }

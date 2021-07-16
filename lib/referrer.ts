@@ -1,9 +1,18 @@
 import { Cipher, ICrypto } from 'certacrypt-crypto'
 import { CryptoCore } from 'certacrypt-graph'
-import { Core, Generator, GraphObject, GRAPH_VIEW, IVertex, Vertex, VertexQueries, View } from 'hyper-graphdb'
+import { Edge, Generator, GraphObject, GRAPH_VIEW, IVertex, Vertex, VertexQueries, View } from 'hyper-graphdb'
 import { PreSharedGraphObject } from './graphObjects'
 
 export const REFERRER_VIEW = 'ReferrerView'
+
+export interface ReferrerEdge extends Edge {
+  view: string
+  metadata: {
+    key: Buffer
+    refKey: Buffer
+    refLabel: string
+  }
+}
 
 export class ReferrerView extends View<GraphObject> {
   public viewName = REFERRER_VIEW
