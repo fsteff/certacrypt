@@ -10,7 +10,7 @@ export interface ReferrerEdge extends Edge {
   metadata: {
     key: Buffer
     refKey: Buffer
-    refLabel: string
+    refLabel: Buffer
   }
 }
 
@@ -31,7 +31,7 @@ export class ReferrerView extends View<GraphObject> {
     const vertices = new Array<Promise<IVertex<GraphObject>>>()
     for (const edge of edges) {
       const feed = edge.feed?.toString('hex') || <string>vertex.getFeed()
-      const meta = <{ refKey: Buffer; refLabel: string }>edge.metadata
+      const meta = <{ refKey: Buffer; refLabel: Buffer }>edge.metadata
       if (meta.refKey && meta.refLabel) {
         vertices.push(this.get(feed, edge.ref, undefined, edge.view, meta))
       }
@@ -46,26 +46,27 @@ export class ReferrerView extends View<GraphObject> {
     id: number,
     version?: number,
     _?: string,
-    metadata?: { refKey: Buffer; refLabel: string }
+    metadata?: { refKey: Buffer; refLabel: Buffer }
   ): Promise<IVertex<GraphObject>> {
     feed = Buffer.isBuffer(feed) ? feed.toString('hex') : feed
 
-    if (!metadata || !Buffer.isBuffer(metadata.refKey) || typeof metadata.refLabel !== 'string' || metadata.refLabel.length === 0) {
+    if (!metadata || !Buffer.isBuffer(metadata.refKey) || !Buffer.isBuffer(metadata.refLabel) || metadata.refLabel.length === 0) {
       throw new Error('PreSharedVertexView.get requires metadata.refKey and .refLabel to be set')
     }
 
     const tr = await this.getTransaction(feed, version)
     const vertex = await this.db.getInTransaction<GraphObject>(id, this.codec, tr, feed)
-    const edges = vertex.getEdges(metadata.refLabel)
-    if (edges.length === 0) return Promise.reject() // empty pre-shared vertex
+    const edges = vertex.getEdges(metadata.refLabel.toString('base64'))
+    if (edges.length === 0) return Promise.reject('empty pre-shared vertex')
 
     const ref = {
       feed: edges[0].feed?.toString('hex') || feed,
       version: edges[0].version,
       view: edges[0].view || GRAPH_VIEW,
       id: edges[0].ref,
-      label: metadata.refLabel
+      label: metadata.refLabel.toString('base64')
     }
+
     this.crypto.registerKey(metadata.refKey, { feed: ref.feed, index: ref.id, type: Cipher.ChaCha20_Stream })
 
     const view = this.getView(ref.view)

@@ -27,6 +27,7 @@
   "homepage": "https://github.com/fsteff/certacrypt#readme",
   "dependencies": {
     "@types/codecs": "^2.2.2",
+    "@types/tape": "^4.13.1",
     "@types/unixify": "^1.0.0",
     "bulk-write-stream": "^2.0.1",
     "certacrypt-graph": "git+https://github.com/fsteff/certacrypt-graph.git",

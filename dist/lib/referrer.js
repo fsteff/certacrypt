@@ -31,20 +31,20 @@ class ReferrerView extends hyper_graphdb_1.View {
     async get(feed, id, version, _, metadata) {
         var _a;
         feed = Buffer.isBuffer(feed) ? feed.toString('hex') : feed;
-        if (!metadata || !Buffer.isBuffer(metadata.refKey) || typeof metadata.refLabel !== 'string' || metadata.refLabel.length === 0) {
+        if (!metadata || !Buffer.isBuffer(metadata.refKey) || !Buffer.isBuffer(metadata.refLabel) || metadata.refLabel.length === 0) {
             throw new Error('PreSharedVertexView.get requires metadata.refKey and .refLabel to be set');
         }
         const tr = await this.getTransaction(feed, version);
         const vertex = await this.db.getInTransaction(id, this.codec, tr, feed);
-        const edges = vertex.getEdges(metadata.refLabel);
+        const edges = vertex.getEdges(metadata.refLabel.toString('base64'));
         if (edges.length === 0)
-            return Promise.reject(); // empty pre-shared vertex
+            return Promise.reject('empty pre-shared vertex');
         const ref = {
             feed: ((_a = edges[0].feed) === null || _a === void 0 ? void 0 : _a.toString('hex')) || feed,
             version: edges[0].version,
             view: edges[0].view || hyper_graphdb_1.GRAPH_VIEW,
             id: edges[0].ref,
-            label: metadata.refLabel
+            label: metadata.refLabel.toString('base64')
         };
         this.crypto.registerKey(metadata.refKey, { feed: ref.feed, index: ref.id, type: certacrypt_crypto_1.Cipher.ChaCha20_Stream });
         const view = this.getView(ref.view);

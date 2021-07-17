@@ -6,7 +6,6 @@ import Corestore from 'corestore'
 import tape from 'tape'
 import { CertaCryptGraph } from 'certacrypt-graph'
 import { Cipher, DefaultCrypto } from 'certacrypt-crypto'
-import { readdirResult } from '../lib/types'
 
 const encryptedOpts = { db: { encrypted: true }, encoding: 'utf-8' }
 

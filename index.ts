@@ -9,6 +9,7 @@ import { Hyperdrive } from './lib/types'
 import { enableDebugLogging, debug } from './lib/debug'
 import { REFERRER_VIEW, ReferrerView } from './lib/referrer'
 import { CryptoCore } from 'certacrypt-graph'
+import { User, USER_PATHS } from './lib/user'
 
 export { Directory, File, ShareGraphObject, Hyperdrive, enableDebugLogging, createUrl, parseUrl }
 
@@ -17,19 +18,37 @@ export class CertaCrypt {
   readonly crypto: ICrypto
   readonly graph: CertaCryptGraph
   readonly sessionRoot: Promise<Vertex<GraphObject>>
+  readonly user: Promise<User>
 
   constructor(corestore: Corestore, crypto: ICrypto, sessionUrl?: string) {
     this.corestore = corestore
     this.crypto = crypto
 
+    let resolveRoot, resolveUser
+    this.sessionRoot = new Promise((resolve, _) => {
+      resolveRoot = resolve
+    })
+    this.user = new Promise((resolve, _) => {
+      resolveUser = resolve
+    })
+
     if (sessionUrl) {
       const { feed, id, key } = parseUrl(sessionUrl)
       this.graph = new CertaCryptGraph(corestore, feed, crypto)
-      this.sessionRoot = this.graph.get(id, feed, key)
+      this.graph.get(id, feed, key).then(resolveRoot)
+      this.sessionRoot.then(async (root) => {
+        const secret = <Vertex<UserKey>>await this.path(USER_PATHS.IDENTITY_SECRET)
+        const user = new User(root, this.graph, secret)
+        resolveUser(user)
+      })
     } else {
       this.graph = new CertaCryptGraph(corestore, undefined, crypto)
-      this.sessionRoot = this.initSession()
+      this.initSession().then(({ root, user }) => {
+        resolveRoot(root)
+        resolveUser(user)
+      })
     }
+
     this.graph.codec.registerImpl((data) => new File(data))
     this.graph.codec.registerImpl((data) => new Directory(data))
     this.graph.codec.registerImpl((data) => new Thombstone(data))
@@ -42,21 +61,21 @@ export class CertaCrypt {
 
   private async initSession() {
     const root = this.graph.create<SimpleGraphObject>()
-    const pub = this.graph.create<SimpleGraphObject>()
     const apps = this.graph.create<SimpleGraphObject>()
     const contacts = this.graph.create<SimpleGraphObject>()
     const shares = this.graph.create<SimpleGraphObject>()
-    await this.graph.put([root, pub, apps, contacts, shares])
+    await this.graph.put([root, apps, contacts, shares])
 
-    root.addEdgeTo(pub, 'public')
     root.addEdgeTo(apps, 'apps')
     root.addEdgeTo(contacts, 'contacts')
     root.addEdgeTo(shares, 'shares')
     await this.graph.put(root)
 
+    const user = await User.InitUser(this.graph, root)
+
     debug(`initialized session ${createUrl(root, this.graph.getKey(root))}`)
 
-    return root
+    return { root, user }
   }
 
   public async getSessionUrl() {
@@ -121,6 +140,12 @@ export class CertaCrypt {
 
   public async drive(rootDir: Vertex<Directory>): Promise<Hyperdrive> {
     return cryptoDrive(this.corestore, this.graph, this.crypto, rootDir)
+  }
+
+  public async getUserByUrl(url: string) {
+    const { feed, id, key } = parseUrl(url)
+    const root = await this.graph.get(id, feed, key)
+    return new User(root, this.graph)
   }
 
   public async debugDrawGraph(root?: Vertex<GraphObject>, currentDepth = 0, label = '/', visited = new Set<string>()): Promise<string> {

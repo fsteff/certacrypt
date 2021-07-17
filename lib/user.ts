@@ -3,6 +3,16 @@ import { Cipher, ICrypto, Primitives } from 'certacrypt-crypto'
 import { CertaCryptGraph, CryptoCore } from 'certacrypt-graph'
 import { GraphObjectTypeNames, PreSharedGraphObject, UserKey, UserProfile } from './graphObjects'
 import { ReferrerEdge, REFERRER_VIEW } from './referrer'
+import { createUrl } from './url'
+
+export const USER_PATHS = {
+  PUBLIC: 'public', // /public              <GraphObject>
+  IDENTITY_SECRET: 'identity_secret', // /identity_secret     <UserKey>
+  PUBLIC_TO_IDENTITY: 'identity', // /public/identity     <UserKey>
+  IDENTITY_SECRET_TO_PUB: 'pub', // /identity_secret/pub <UserKey>
+  PUBLIC_TO_PSV: 'psv', // /public/psv          <PreSharedGraphObject>
+  PUBLIC_TO_PROFILE: 'profile' // /public/profile      <UserProfile>
+}
 
 export class User {
   private identity: Vertex<UserKey>
@@ -28,26 +38,55 @@ export class User {
     const keys = Primitives.generateUserKeyPair()
     const identity = graph.create<UserKey>()
     identity.setContent(new UserKey(keys.pubkey))
+    await graph.put(identity)
 
     const identitySecret = graph.create<UserKey>()
     identitySecret.setContent(new UserKey(keys.secretkey))
 
     const publicRoot = graph.create<GraphObject>()
-    // TODO: profile, PSV
 
-    publicRoot.addEdgeTo(identity, 'identity')
-    identitySecret.addEdgeTo(identity, 'pub')
+    publicRoot.addEdgeTo(identity, USER_PATHS.PUBLIC_TO_IDENTITY)
+    identitySecret.addEdgeTo(identity, USER_PATHS.IDENTITY_SECRET_TO_PUB)
     await graph.put([publicRoot, identitySecret])
 
-    sessionRoot.addEdgeTo(publicRoot, 'public')
-    sessionRoot.addEdgeTo(identitySecret, 'identity_secret')
+    sessionRoot.addEdgeTo(publicRoot, USER_PATHS.PUBLIC)
+    sessionRoot.addEdgeTo(identitySecret, USER_PATHS.IDENTITY_SECRET)
     await graph.put(sessionRoot)
 
-    return new User(publicRoot, graph, identitySecret)
+    const user = new User(publicRoot, graph, identitySecret)
+    await user.updatePresharedVertices()
+
+    return user
+  }
+
+  getPublicUrl() {
+    return createUrl(this.publicRoot, this.graph.getKey(this.publicRoot))
   }
 
   isWriteable() {
     return this.publicRoot.getWriteable()
+  }
+
+  async updatePresharedVertices() {
+    let vertices = await this.queryPresharedVertices()
+    // TODO: remove (but persist elsewhere) outdated psv
+    if (!Array.isArray(vertices) || vertices.length === 0 || vertices[0].getContent()?.expiryDate < new Date().getUTCSeconds()) {
+      const psv1 = this.graph.create<PreSharedGraphObject>()
+      const psv2 = this.graph.create<PreSharedGraphObject>()
+      const psv3 = this.graph.create<PreSharedGraphObject>()
+
+      psv1.setContent(new PreSharedGraphObject())
+      psv2.setContent(new PreSharedGraphObject())
+      psv3.setContent(new PreSharedGraphObject())
+      await this.graph.put([psv1, psv2, psv3])
+
+      this.publicRoot.addEdgeTo(psv1, USER_PATHS.PUBLIC_TO_PSV)
+      this.publicRoot.addEdgeTo(psv2, USER_PATHS.PUBLIC_TO_PSV)
+      this.publicRoot.addEdgeTo(psv3, USER_PATHS.PUBLIC_TO_PSV)
+      await this.graph.put(this.publicRoot)
+      vertices = [psv1, psv2, psv3]
+    }
+    return vertices
   }
 
   async setProfile(profile: UserProfile) {
@@ -55,7 +94,7 @@ export class User {
 
     let vertex = <Vertex<UserProfile>>await this.graph
       .queryAtVertex(this.publicRoot)
-      .out('profile')
+      .out(USER_PATHS.PUBLIC_TO_PROFILE)
       .vertices()
       .then((results) => (results.length > 0 ? results[0] : undefined))
     if (!vertex) {
@@ -71,15 +110,20 @@ export class User {
     return results.length > 0 ? (<Vertex<UserProfile>>results[0]).getContent() : undefined
   }
 
-  async choosePreSharedVertice(): Promise<Vertex<PreSharedGraphObject> | undefined> {
+  private async queryPresharedVertices() {
     let vertices = <Vertex<PreSharedGraphObject>[]>await this.graph
       .queryAtVertex(this.publicRoot)
-      .out('psv')
+      .out(USER_PATHS.PUBLIC_TO_PSV)
       .matches((v) => !!v.getContent() && v.getContent().typeName === GraphObjectTypeNames.PRESHARED)
       .vertices()
     vertices.sort((v1, v2) => v2.getContent().expiryDate - v1.getContent().expiryDate)
-
     if (vertices.length === 0) return undefined
+    return vertices
+  }
+
+  async choosePreSharedVertice(): Promise<Vertex<PreSharedGraphObject> | undefined> {
+    let vertices = await this.queryPresharedVertices()
+    if (!vertices || vertices.length === 0) return undefined
 
     const now = new Date().getTime()
     if (vertices[0].getContent().expiryDate > now) {
@@ -96,8 +140,7 @@ export class User {
     if (!target) throw new Error("Cannot refer to preshared vertex, user doesn't provide any")
 
     const refKey = Primitives.generateEncryptionKey()
-    const refLabel = Primitives.generateEncryptionKey().toString('base64')
-
+    const refLabel = Primitives.generateEncryptionKey()
     const edge: ReferrerEdge = {
       label,
       ref: target.getId(),
@@ -126,7 +169,7 @@ export class User {
     const edge = {
       ref: target.getId(),
       feed: Buffer.from(target.getFeed(), 'hex'),
-      label: refData.refLabel
+      label: refData.refLabel.toString('base64')
     }
     psv.addEdge(edge)
     await this.graph.put([target, psv])
