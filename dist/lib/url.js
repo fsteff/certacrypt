@@ -3,8 +3,14 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.createUrl = exports.parseUrl = void 0;
+exports.createUrl = exports.parseUrl = exports.URL_TYPES = void 0;
 const unixify_1 = __importDefault(require("unixify"));
+exports.URL_TYPES = {
+    USER: 'user',
+    SHARE: 'share',
+    SPACE: 'space',
+    COMMUNICATION: 'com'
+};
 function parseUrl(url) {
     const parsed = new URL(url);
     const [feed, versionStr] = parsed.host.split('+', 2);
@@ -12,6 +18,7 @@ function parseUrl(url) {
     const metaKey = parsed.searchParams.get('mkey');
     const fileKey = parsed.searchParams.get('fkey');
     const singleKey = parsed.searchParams.get('key');
+    const type = parsed.searchParams.get('type');
     let mkey, fkey, key;
     let id, version;
     if (metaKey)
@@ -24,12 +31,13 @@ function parseUrl(url) {
         id = parseInt(path.substr(1));
     if (versionStr && /^\d+$/.test(versionStr))
         version = parseInt(versionStr);
-    return { feed, path, id, mkey, fkey, key, version };
+    return { feed, path, id, mkey, fkey, key, version, type };
 }
 exports.parseUrl = parseUrl;
-function createUrl(vertex, key, version) {
+function createUrl(vertex, key, version, type) {
     let versionStr = version ? '+' + version : '';
-    return `hyper://${vertex.getFeed()}${versionStr}/${vertex.getId()}?key=${key.toString('hex')}`;
+    let typeStr = type ? '&type=' + type : '';
+    return `hyper://${vertex.getFeed()}${versionStr}/${vertex.getId()}?key=${key.toString('hex')}${typeStr}`;
 }
 exports.createUrl = createUrl;
 //# sourceMappingURL=url.js.map

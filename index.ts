@@ -2,16 +2,17 @@ import { Cipher, ICrypto, DefaultCrypto } from 'certacrypt-crypto'
 import { CertaCryptGraph } from 'certacrypt-graph'
 import { ShareGraphObject, SHARE_VIEW } from 'certacrypt-graph'
 import { Core, Corestore, GraphObject, SimpleGraphObject, Vertex, IVertex } from 'hyper-graphdb'
-import { Directory, File, Thombstone, PreSharedGraphObject, UserKey, UserProfile } from './lib/graphObjects'
-import { parseUrl, createUrl } from './lib/url'
+import { Directory, File, Thombstone, PreSharedGraphObject, UserKey, UserProfile, UserRoot } from './lib/graphObjects'
+import { parseUrl, createUrl, URL_TYPES } from './lib/url'
 import { cryptoDrive } from './lib/drive'
 import { Hyperdrive } from './lib/types'
 import { enableDebugLogging, debug } from './lib/debug'
 import { REFERRER_VIEW, ReferrerView } from './lib/referrer'
 import { CryptoCore } from 'certacrypt-graph'
 import { User, USER_PATHS } from './lib/user'
+import { Inbox } from './lib/inbox'
 
-export { Directory, File, ShareGraphObject, Hyperdrive, enableDebugLogging, createUrl, parseUrl }
+export { Directory, File, ShareGraphObject, Hyperdrive, enableDebugLogging, createUrl, parseUrl, URL_TYPES, User, Inbox }
 
 export class CertaCrypt {
   readonly corestore: Corestore
@@ -38,7 +39,8 @@ export class CertaCrypt {
       this.graph.get(id, feed, key).then(resolveRoot)
       this.sessionRoot.then(async (root) => {
         const secret = <Vertex<UserKey>>await this.path(USER_PATHS.IDENTITY_SECRET)
-        const user = new User(root, this.graph, secret)
+        const publicRoot = <Vertex<UserRoot>>await this.path(USER_PATHS.PUBLIC)
+        const user = new User(publicRoot, this.graph, secret)
         resolveUser(user)
       })
     } else {
@@ -55,6 +57,7 @@ export class CertaCrypt {
     this.graph.codec.registerImpl((data) => new PreSharedGraphObject(data))
     this.graph.codec.registerImpl((data) => new UserKey(data))
     this.graph.codec.registerImpl((data) => new UserProfile(data))
+    this.graph.codec.registerImpl((data) => new UserRoot(data))
 
     this.graph.factory.register(REFERRER_VIEW, (db, codec, tr) => new ReferrerView(<CryptoCore>db, codec, this.graph.factory, tr))
   }
@@ -144,7 +147,7 @@ export class CertaCrypt {
 
   public async getUserByUrl(url: string) {
     const { feed, id, key } = parseUrl(url)
-    const root = await this.graph.get(id, feed, key)
+    const root = <Vertex<UserRoot>>await this.graph.get(id, feed, key)
     return new User(root, this.graph)
   }
 

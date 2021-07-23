@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.CertaCrypt = exports.parseUrl = exports.createUrl = exports.enableDebugLogging = exports.ShareGraphObject = exports.File = exports.Directory = void 0;
+exports.CertaCrypt = exports.Inbox = exports.User = exports.URL_TYPES = exports.parseUrl = exports.createUrl = exports.enableDebugLogging = exports.ShareGraphObject = exports.File = exports.Directory = void 0;
 const certacrypt_graph_1 = require("certacrypt-graph");
 const certacrypt_graph_2 = require("certacrypt-graph");
 Object.defineProperty(exports, "ShareGraphObject", { enumerable: true, get: function () { return certacrypt_graph_2.ShareGraphObject; } });
@@ -10,11 +10,15 @@ Object.defineProperty(exports, "File", { enumerable: true, get: function () { re
 const url_1 = require("./lib/url");
 Object.defineProperty(exports, "parseUrl", { enumerable: true, get: function () { return url_1.parseUrl; } });
 Object.defineProperty(exports, "createUrl", { enumerable: true, get: function () { return url_1.createUrl; } });
+Object.defineProperty(exports, "URL_TYPES", { enumerable: true, get: function () { return url_1.URL_TYPES; } });
 const drive_1 = require("./lib/drive");
 const debug_1 = require("./lib/debug");
 Object.defineProperty(exports, "enableDebugLogging", { enumerable: true, get: function () { return debug_1.enableDebugLogging; } });
 const referrer_1 = require("./lib/referrer");
 const user_1 = require("./lib/user");
+Object.defineProperty(exports, "User", { enumerable: true, get: function () { return user_1.User; } });
+const inbox_1 = require("./lib/inbox");
+Object.defineProperty(exports, "Inbox", { enumerable: true, get: function () { return inbox_1.Inbox; } });
 class CertaCrypt {
     constructor(corestore, crypto, sessionUrl) {
         this.corestore = corestore;
@@ -32,7 +36,8 @@ class CertaCrypt {
             this.graph.get(id, feed, key).then(resolveRoot);
             this.sessionRoot.then(async (root) => {
                 const secret = await this.path(user_1.USER_PATHS.IDENTITY_SECRET);
-                const user = new user_1.User(root, this.graph, secret);
+                const publicRoot = await this.path(user_1.USER_PATHS.PUBLIC);
+                const user = new user_1.User(publicRoot, this.graph, secret);
                 resolveUser(user);
             });
         }
@@ -49,6 +54,7 @@ class CertaCrypt {
         this.graph.codec.registerImpl((data) => new graphObjects_1.PreSharedGraphObject(data));
         this.graph.codec.registerImpl((data) => new graphObjects_1.UserKey(data));
         this.graph.codec.registerImpl((data) => new graphObjects_1.UserProfile(data));
+        this.graph.codec.registerImpl((data) => new graphObjects_1.UserRoot(data));
         this.graph.factory.register(referrer_1.REFERRER_VIEW, (db, codec, tr) => new referrer_1.ReferrerView(db, codec, this.graph.factory, tr));
     }
     async initSession() {

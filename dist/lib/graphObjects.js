@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.PreSharedGraphObject = exports.UserProfile = exports.UserKey = exports.Thombstone = exports.Directory = exports.File = exports.GraphObjectTypeNames = exports.DriveGraphObject = void 0;
+exports.PreSharedGraphObject = exports.UserProfile = exports.UserKey = exports.UserRoot = exports.Thombstone = exports.Directory = exports.File = exports.GraphObjectTypeNames = exports.DriveGraphObject = void 0;
 const hyper_graphdb_1 = require("hyper-graphdb");
 const codecs_1 = require("codecs");
 class DriveGraphObject extends hyper_graphdb_1.GraphObject {
@@ -21,6 +21,7 @@ var GraphObjectTypeNames;
     GraphObjectTypeNames["DIRECTORY"] = "CertaCrypt-Directory";
     GraphObjectTypeNames["FILE"] = "CertaCrypt-File";
     GraphObjectTypeNames["THOMBSTONE"] = "CertaCrypt-Thombstone";
+    GraphObjectTypeNames["USERROOT"] = "CertaCrypt-UserRoot";
     GraphObjectTypeNames["USERKEY"] = "CertaCrypt-X25519Key";
     GraphObjectTypeNames["USERPROFILE"] = "CertaCrypt-Profile";
     GraphObjectTypeNames["PRESHARED"] = "CertaCrypt-PreShared";
@@ -46,6 +47,13 @@ class Thombstone extends DriveGraphObject {
     }
 }
 exports.Thombstone = Thombstone;
+class UserRoot extends hyper_graphdb_1.GraphObject {
+    constructor() {
+        super(...arguments);
+        this.typeName = GraphObjectTypeNames.USERROOT;
+    }
+}
+exports.UserRoot = UserRoot;
 class UserKey extends hyper_graphdb_1.GraphObject {
     constructor(key) {
         super();

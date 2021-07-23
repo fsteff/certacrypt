@@ -23,6 +23,7 @@ export enum GraphObjectTypeNames {
   DIRECTORY = 'CertaCrypt-Directory',
   FILE = 'CertaCrypt-File',
   THOMBSTONE = 'CertaCrypt-Thombstone',
+  USERROOT = 'CertaCrypt-UserRoot',
   USERKEY = 'CertaCrypt-X25519Key',
   USERPROFILE = 'CertaCrypt-Profile',
   PRESHARED = 'CertaCrypt-PreShared'
@@ -38,6 +39,10 @@ export class Directory extends DriveGraphObject {
 
 export class Thombstone extends DriveGraphObject {
   readonly typeName = GraphObjectTypeNames.THOMBSTONE
+}
+
+export class UserRoot extends GraphObject {
+  readonly typeName = GraphObjectTypeNames.USERROOT
 }
 
 export class UserKey extends GraphObject {

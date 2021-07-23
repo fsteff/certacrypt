@@ -17,10 +17,14 @@ exports.USER_PATHS = {
 };
 class User {
     constructor(publicRoot, graph, identitySecret) {
+        var _a;
         this.publicRoot = publicRoot;
         this.graph = graph;
         this.identitySecret = identitySecret;
         this.crypto = this.graph.core.crypto;
+        if (((_a = publicRoot.getContent()) === null || _a === void 0 ? void 0 : _a.typeName) !== graphObjects_1.GraphObjectTypeNames.USERROOT) {
+            throw new Error('passed vertex is not of type UserRoot');
+        }
         graph
             .queryAtVertex(this.publicRoot)
             .out(exports.USER_PATHS.PUBLIC_TO_IDENTITY)
@@ -49,6 +53,7 @@ class User {
         const identitySecret = graph.create();
         identitySecret.setContent(new graphObjects_1.UserKey(keys.secretkey));
         const publicRoot = graph.create();
+        publicRoot.setContent(new graphObjects_1.UserRoot());
         publicRoot.addEdgeTo(inboxVertex, exports.USER_PATHS.PUBLIC_TO_INBOX);
         publicRoot.addEdgeTo(identity, exports.USER_PATHS.PUBLIC_TO_IDENTITY);
         identitySecret.addEdgeTo(identity, exports.USER_PATHS.IDENTITY_SECRET_TO_PUB);
@@ -80,7 +85,7 @@ class User {
         return Buffer.from(this.identity.getContent().key);
     }
     getPublicUrl() {
-        return url_1.createUrl(this.publicRoot, this.graph.getKey(this.publicRoot));
+        return url_1.createUrl(this.publicRoot, this.graph.getKey(this.publicRoot), undefined, url_1.URL_TYPES.USER);
     }
     isWriteable() {
         return this.publicRoot.getWriteable();

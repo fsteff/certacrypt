@@ -1,10 +1,10 @@
 import { GraphObject, HyperGraphDB, SimpleGraphObject, Vertex } from 'hyper-graphdb'
 import { Cipher, ICrypto, Primitives } from 'certacrypt-crypto'
 import { CertaCryptGraph, CryptoCore } from 'certacrypt-graph'
-import { GraphObjectTypeNames, PreSharedGraphObject, UserKey, UserProfile } from './graphObjects'
+import { GraphObjectTypeNames, PreSharedGraphObject, UserKey, UserProfile, UserRoot } from './graphObjects'
 import { ReferrerEdge, REFERRER_VIEW } from './referrer'
 import { Inbox } from './inbox'
-import { createUrl } from './url'
+import { createUrl, URL_TYPES } from './url'
 
 export const USER_PATHS = {
   PUBLIC: 'public', // /public              <GraphObject>
@@ -21,8 +21,13 @@ export class User {
   private crypto: ICrypto
   private inbox: Inbox
 
-  constructor(readonly publicRoot: Vertex<GraphObject>, readonly graph: CertaCryptGraph, private readonly identitySecret?: Vertex<UserKey>) {
+  constructor(readonly publicRoot: Vertex<UserRoot>, readonly graph: CertaCryptGraph, private readonly identitySecret?: Vertex<UserKey>) {
     this.crypto = (<CryptoCore>this.graph.core).crypto
+
+    if (publicRoot.getContent()?.typeName !== GraphObjectTypeNames.USERROOT) {
+      throw new Error('passed vertex is not of type UserRoot')
+    }
+
     graph
       .queryAtVertex(this.publicRoot)
       .out(USER_PATHS.PUBLIC_TO_IDENTITY)
@@ -53,7 +58,8 @@ export class User {
     const identitySecret = graph.create<UserKey>()
     identitySecret.setContent(new UserKey(keys.secretkey))
 
-    const publicRoot = graph.create<GraphObject>()
+    const publicRoot = graph.create<UserRoot>()
+    publicRoot.setContent(new UserRoot())
 
     publicRoot.addEdgeTo(inboxVertex, USER_PATHS.PUBLIC_TO_INBOX)
     publicRoot.addEdgeTo(identity, USER_PATHS.PUBLIC_TO_IDENTITY)
@@ -92,7 +98,7 @@ export class User {
   }
 
   getPublicUrl() {
-    return createUrl(this.publicRoot, this.graph.getKey(this.publicRoot))
+    return createUrl(this.publicRoot, this.graph.getKey(this.publicRoot), undefined, URL_TYPES.USER)
   }
 
   isWriteable() {
