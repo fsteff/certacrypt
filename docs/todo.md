@@ -48,7 +48,7 @@
 - [x] **Read Access**
   - [x] reading and writing encrypted nodes
   - [x] automatic extraction of encryption keys
-- [ ] referrer nodes
+- [x] referrer nodes
 - [ ] **Collaboration Spaces** (write access)
   - [ ] ACL datatype definition / space referrer nodes
   - [ ] write access

@@ -1,0 +1,1 @@
+{"version":3,"file":"Errors.js","sourceRoot":"","sources":["../../../../hyper-graphdb/lib/Errors.ts"],"names":[],"mappings":";;;AAAA,MAAa,mBAAoB,SAAQ,KAAK;IAI1C,YAAY,EAAU,EAAE,KAAY;QAChC,KAAK,CAAC,wBAAwB,GAAG,EAAE,CAAC,CAAA;QACpC,IAAI,CAAC,KAAK,GAAG,KAAK,CAAA;QAClB,IAAI,CAAC,EAAE,GAAG,EAAE,CAAA;IAChB,CAAC;CACJ;AATD,kDASC"}

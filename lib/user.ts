@@ -3,6 +3,7 @@ import { Cipher, ICrypto, Primitives } from 'certacrypt-crypto'
 import { CertaCryptGraph, CryptoCore } from 'certacrypt-graph'
 import { GraphObjectTypeNames, PreSharedGraphObject, UserKey, UserProfile } from './graphObjects'
 import { ReferrerEdge, REFERRER_VIEW } from './referrer'
+import { Inbox } from './inbox'
 import { createUrl } from './url'
 
 export const USER_PATHS = {
@@ -11,18 +12,20 @@ export const USER_PATHS = {
   PUBLIC_TO_IDENTITY: 'identity', // /public/identity     <UserKey>
   IDENTITY_SECRET_TO_PUB: 'pub', // /identity_secret/pub <UserKey>
   PUBLIC_TO_PSV: 'psv', // /public/psv          <PreSharedGraphObject>
-  PUBLIC_TO_PROFILE: 'profile' // /public/profile      <UserProfile>
+  PUBLIC_TO_PROFILE: 'profile', // /public/profile      <UserProfile>,
+  PUBLIC_TO_INBOX: 'inbox'
 }
 
 export class User {
   private identity: Vertex<UserKey>
   private crypto: ICrypto
+  private inbox: Inbox
 
   constructor(readonly publicRoot: Vertex<GraphObject>, readonly graph: CertaCryptGraph, private readonly identitySecret?: Vertex<UserKey>) {
     this.crypto = (<CryptoCore>this.graph.core).crypto
     graph
       .queryAtVertex(this.publicRoot)
-      .out('identity')
+      .out(USER_PATHS.PUBLIC_TO_IDENTITY)
       .matches((v) => !!v.getContent() && v.getContent().typeName === GraphObjectTypeNames.USERKEY)
       .vertices()
       .then((results) => {
@@ -30,21 +33,29 @@ export class User {
           throw new Error('User Root has no Identity vertex')
         } else {
           this.identity = <Vertex<UserKey>>results[0]
+          if (identitySecret) {
+            const secret = Buffer.from(this.identitySecret.getContent().key)
+            const pub = Buffer.from(this.identity.getContent().key)
+            this.crypto.registerUserKeyPair(pub, secret)
+          }
         }
       })
   }
 
   static async InitUser(graph: CertaCryptGraph, sessionRoot: Vertex<GraphObject>): Promise<User> {
+    const inboxVertex = graph.create<GraphObject>()
+
     const keys = Primitives.generateUserKeyPair()
     const identity = graph.create<UserKey>()
     identity.setContent(new UserKey(keys.pubkey))
-    await graph.put(identity)
+    await graph.put([identity, inboxVertex])
 
     const identitySecret = graph.create<UserKey>()
     identitySecret.setContent(new UserKey(keys.secretkey))
 
     const publicRoot = graph.create<GraphObject>()
 
+    publicRoot.addEdgeTo(inboxVertex, USER_PATHS.PUBLIC_TO_INBOX)
     publicRoot.addEdgeTo(identity, USER_PATHS.PUBLIC_TO_IDENTITY)
     identitySecret.addEdgeTo(identity, USER_PATHS.IDENTITY_SECRET_TO_PUB)
     await graph.put([publicRoot, identitySecret])
@@ -57,6 +68,27 @@ export class User {
     await user.updatePresharedVertices()
 
     return user
+  }
+
+  async getInbox() {
+    if (!this.inbox) {
+      const inboxVertex = await this.graph
+        .queryAtVertex(this.publicRoot)
+        .out(USER_PATHS.PUBLIC_TO_INBOX)
+        .vertices()
+        .then((results) => {
+          if (results.length === 0) {
+            throw new Error('User Root has no Inbox vertex')
+          }
+          return <Vertex<GraphObject>>results[0]
+        })
+      this.inbox = new Inbox(this.crypto, this.graph, inboxVertex)
+    }
+    return this.inbox
+  }
+
+  getPublicKey() {
+    return Buffer.from(this.identity.getContent().key)
   }
 
   getPublicUrl() {
