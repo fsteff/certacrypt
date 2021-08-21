@@ -11,7 +11,8 @@ import { REFERRER_VIEW, ReferrerView } from './lib/referrer'
 import { CryptoCore } from 'certacrypt-graph'
 import { User, USER_PATHS } from './lib/user'
 import { Inbox } from './lib/inbox'
-import {CacheDB} from './lib/CacheDB'
+import { CacheDB } from './lib/cacheDB'
+import { CONTACTS_VIEW, ContactsView } from './lib/contacts'
 
 export { Directory, File, ShareGraphObject, Hyperdrive, enableDebugLogging, createUrl, parseUrl, URL_TYPES, User, Inbox }
 
@@ -53,8 +54,12 @@ export class CertaCrypt {
       })
     }
 
-    this.cacheDb = new Promise(async resolve => {
-      resolve(new CacheDB(this.corestore, this.graph, await this.sessionRoot))
+    this.cacheDb = new Promise(async (resolve) => {
+      const root = await this.sessionRoot
+      const cache = new CacheDB(this.corestore, this.graph, root)
+      const user = await this.user
+      this.graph.factory.register(CONTACTS_VIEW, (_, codec, tr) => new ContactsView(cache, this.graph, user, codec, this.graph.factory, tr))
+      resolve(cache)
     })
 
     this.graph.codec.registerImpl((data) => new File(data))

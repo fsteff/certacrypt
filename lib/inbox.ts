@@ -20,7 +20,7 @@ export class Inbox {
   async checkEnvelopes(onlyAfter?: number) {
     if (!onlyAfter) onlyAfter = 0
 
-    return Promise.all(
+    return <Promise<Vertex<GraphObject>[]>> Promise.all(
       this.inbox
         .getEdges(ENVELOPE_EDGE)
         .filter((edge) => edge.version > onlyAfter)

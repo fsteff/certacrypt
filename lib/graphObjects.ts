@@ -26,7 +26,8 @@ export enum GraphObjectTypeNames {
   USERROOT = 'CertaCrypt-UserRoot',
   USERKEY = 'CertaCrypt-X25519Key',
   USERPROFILE = 'CertaCrypt-Profile',
-  PRESHARED = 'CertaCrypt-PreShared'
+  PRESHARED = 'CertaCrypt-PreShared',
+  JSON = 'CertaCrypt-Json'
 }
 
 export class File extends DriveGraphObject {
@@ -97,3 +98,29 @@ export class PreSharedGraphObject extends GraphObject {
     return json.encode({ expiryDate: this.expiryDate })
   }
 }
+
+export class JsonGraphObject<T extends object> extends GraphObject {
+  readonly typeName = GraphObjectTypeNames.JSON
+
+  constructor(data?: Uint8Array | T) {
+    super()
+
+    if (data) {
+      const decoded = data instanceof Uint8Array ? json.decode(data) : data
+      Object.assign(this, decoded)
+    } 
+  }
+
+  serialize(): Buffer {
+    const clone: any = {}
+    for(const key of Object.keys(this)) {
+      if(key !== 'typeName') clone[key] = this[key]
+    }
+    return json.encode(clone)
+  }
+}
+
+export type MessageType<T extends string> = {readonly type: T}
+export type GraphMessage<I extends object, T extends string> = JsonGraphObject<I> & I & MessageType<T>
+
+
