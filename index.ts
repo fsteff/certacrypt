@@ -11,6 +11,7 @@ import { REFERRER_VIEW, ReferrerView } from './lib/referrer'
 import { CryptoCore } from 'certacrypt-graph'
 import { User, USER_PATHS } from './lib/user'
 import { Inbox } from './lib/inbox'
+import {CacheDB} from './lib/CacheDB'
 
 export { Directory, File, ShareGraphObject, Hyperdrive, enableDebugLogging, createUrl, parseUrl, URL_TYPES, User, Inbox }
 
@@ -20,6 +21,7 @@ export class CertaCrypt {
   readonly graph: CertaCryptGraph
   readonly sessionRoot: Promise<Vertex<GraphObject>>
   readonly user: Promise<User>
+  readonly cacheDb: Promise<CacheDB>
 
   constructor(corestore: Corestore, crypto: ICrypto, sessionUrl?: string) {
     this.corestore = corestore
@@ -50,6 +52,10 @@ export class CertaCrypt {
         resolveUser(user)
       })
     }
+
+    this.cacheDb = new Promise(async resolve => {
+      resolve(new CacheDB(this.corestore, this.graph, await this.sessionRoot))
+    })
 
     this.graph.codec.registerImpl((data) => new File(data))
     this.graph.codec.registerImpl((data) => new Directory(data))

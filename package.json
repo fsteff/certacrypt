@@ -33,6 +33,7 @@
     "certacrypt-graph": "git+https://github.com/fsteff/certacrypt-graph.git",
     "codecs": "^2.2.0",
     "hyper-graphdb": "git+https://github.com/fsteff/hyper-graphdb.git",
+    "hyperbee": "^1.6.2",
     "hyperdrive": "git+https://github.com/fsteff/hyperdrive.git",
     "hypertrie": "^5.1.1",
     "minipass": "^3.1.3",
