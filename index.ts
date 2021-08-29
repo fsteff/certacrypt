@@ -13,6 +13,7 @@ import { User, USER_PATHS } from './lib/user'
 import { Inbox } from './lib/inbox'
 import { CacheDB } from './lib/cacheDB'
 import { CONTACTS_VIEW, ContactsView } from './lib/contacts'
+import { COMM_ROOT } from './lib/communication'
 
 export { Directory, File, ShareGraphObject, Hyperdrive, enableDebugLogging, createUrl, parseUrl, URL_TYPES, User, Inbox }
 
@@ -23,18 +24,22 @@ export class CertaCrypt {
   readonly sessionRoot: Promise<Vertex<GraphObject>>
   readonly user: Promise<User>
   readonly cacheDb: Promise<CacheDB>
+  readonly commRoot: Promise<Vertex<GraphObject>>
 
   constructor(corestore: Corestore, crypto: ICrypto, sessionUrl?: string) {
     this.corestore = corestore
     this.crypto = crypto
 
-    let resolveRoot, resolveUser
+    let resolveRoot, resolveUser, resolveCommRoot
     this.sessionRoot = new Promise((resolve, _) => {
       resolveRoot = resolve
     })
     this.user = new Promise((resolve, _) => {
       resolveUser = resolve
     })
+    this.commRoot = new Promise((resolve, _) => {
+      resolveCommRoot  = resolve
+    }) 
 
     if (sessionUrl) {
       const { feed, id, key } = parseUrl(sessionUrl)
@@ -45,12 +50,17 @@ export class CertaCrypt {
         const publicRoot = <Vertex<UserRoot>>await this.path(USER_PATHS.PUBLIC)
         const user = new User(publicRoot, this.graph, secret)
         resolveUser(user)
+
+        const commRoot = <Vertex<GraphObject>> await this.path(COMM_ROOT)
+        resolveCommRoot(commRoot)
       })
+      
     } else {
       this.graph = new CertaCryptGraph(corestore, undefined, crypto)
-      this.initSession().then(({ root, user }) => {
+      this.initSession().then(({ root, user, commRoot }) => {
         resolveRoot(root)
         resolveUser(user)
+        resolveCommRoot(commRoot)
       })
     }
 
@@ -78,18 +88,20 @@ export class CertaCrypt {
     const apps = this.graph.create<SimpleGraphObject>()
     const contacts = this.graph.create<SimpleGraphObject>()
     const shares = this.graph.create<SimpleGraphObject>()
-    await this.graph.put([root, apps, contacts, shares])
+    const commRoot = this.graph.create<SimpleGraphObject>()
+    await this.graph.put([root, apps, contacts, shares, commRoot])
 
     root.addEdgeTo(apps, 'apps')
     root.addEdgeTo(contacts, 'contacts')
     root.addEdgeTo(shares, 'shares')
+    root.addEdgeTo(commRoot, COMM_ROOT)
     await this.graph.put(root)
 
     const user = await User.InitUser(this.graph, root)
 
     debug(`initialized session ${createUrl(root, this.graph.getKey(root))}`)
 
-    return { root, user }
+    return { root, user, commRoot }
   }
 
   public async getSessionUrl() {

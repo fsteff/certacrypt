@@ -5,7 +5,8 @@ export const URL_TYPES = {
   USER: 'user',
   SHARE: 'share',
   SPACE: 'space',
-  COMMUNICATION: 'com'
+  COMMUNICATION: 'com',
+  CONTACTS: 'contacts'
 }
 
 export function parseUrl(url: string) {
