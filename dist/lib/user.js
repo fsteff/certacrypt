@@ -66,20 +66,17 @@ class User {
         return user;
     }
     async getInbox() {
-        if (!this.inbox) {
-            const inboxVertex = await this.graph
-                .queryAtVertex(this.publicRoot)
-                .out(exports.USER_PATHS.PUBLIC_TO_INBOX)
-                .vertices()
-                .then((results) => {
-                if (results.length === 0) {
-                    throw new Error('User Root has no Inbox vertex');
-                }
-                return results[0];
-            });
-            this.inbox = new inbox_1.Inbox(this.crypto, this.graph, inboxVertex);
-        }
-        return this.inbox;
+        const inboxVertex = await this.graph
+            .queryAtVertex(this.publicRoot)
+            .out(exports.USER_PATHS.PUBLIC_TO_INBOX)
+            .vertices()
+            .then((results) => {
+            if (results.length === 0) {
+                throw new Error('User Root has no Inbox vertex');
+            }
+            return results[0];
+        });
+        return new inbox_1.Inbox(this.crypto, this.graph, inboxVertex);
     }
     getPublicKey() {
         return Buffer.from(this.identity.getContent().key);

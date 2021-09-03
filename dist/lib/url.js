@@ -9,7 +9,8 @@ exports.URL_TYPES = {
     USER: 'user',
     SHARE: 'share',
     SPACE: 'space',
-    COMMUNICATION: 'com'
+    COMMUNICATION: 'com',
+    CONTACTS: 'contacts'
 };
 function parseUrl(url) {
     const parsed = new URL(url);

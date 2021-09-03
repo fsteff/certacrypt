@@ -10,8 +10,7 @@ export const CONTACTS_PATHS = {
 }
 
 class Contacts {
-
-  constructor(readonly graph: CertaCryptGraph, readonly root: Vertex<GraphObject>){}
+  constructor(readonly graph: CertaCryptGraph, readonly root: Vertex<GraphObject>) {}
 
   async addContact(user: User) {
     this.root.addEdgeTo(user.publicRoot, CONTACTS_PATHS.FRIENDS)

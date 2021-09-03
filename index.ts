@@ -38,8 +38,8 @@ export class CertaCrypt {
       resolveUser = resolve
     })
     this.commRoot = new Promise((resolve, _) => {
-      resolveCommRoot  = resolve
-    }) 
+      resolveCommRoot = resolve
+    })
 
     if (sessionUrl) {
       const { feed, id, key } = parseUrl(sessionUrl)
@@ -51,10 +51,9 @@ export class CertaCrypt {
         const user = new User(publicRoot, this.graph, secret)
         resolveUser(user)
 
-        const commRoot = <Vertex<GraphObject>> await this.path(COMM_ROOT)
+        const commRoot = <Vertex<GraphObject>>await this.path(COMM_ROOT)
         resolveCommRoot(commRoot)
       })
-      
     } else {
       this.graph = new CertaCryptGraph(corestore, undefined, crypto)
       this.initSession().then(({ root, user, commRoot }) => {

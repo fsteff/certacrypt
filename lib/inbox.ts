@@ -20,7 +20,10 @@ export class Inbox {
   async checkEnvelopes(onlyAfter?: number) {
     if (!onlyAfter) onlyAfter = 0
 
-    return <Promise<Vertex<GraphObject>[]>> Promise.all(
+    const feed = await this.graph.core.getStore(this.inbox.getFeed())
+    await feed.feed.update(onlyAfter, 5000).catch((err: Error) => console.log(err.message))
+
+    return <Promise<Vertex<GraphObject>[]>>Promise.all(
       this.inbox
         .getEdges(ENVELOPE_EDGE)
         .filter((edge) => edge.version > onlyAfter)
@@ -56,5 +59,9 @@ export class Inbox {
     }
     this.inbox.addEdge(edge)
     await this.graph.put(this.inbox)
+  }
+
+  getVersion() {
+    return this.inbox.getVersion()
   }
 }

@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.PreSharedGraphObject = exports.UserProfile = exports.UserKey = exports.UserRoot = exports.Thombstone = exports.Directory = exports.File = exports.GraphObjectTypeNames = exports.DriveGraphObject = void 0;
+exports.JsonGraphObject = exports.PreSharedGraphObject = exports.UserProfile = exports.UserKey = exports.UserRoot = exports.Thombstone = exports.Directory = exports.File = exports.GraphObjectTypeNames = exports.DriveGraphObject = void 0;
 const hyper_graphdb_1 = require("hyper-graphdb");
 const codecs_1 = require("codecs");
 class DriveGraphObject extends hyper_graphdb_1.GraphObject {
@@ -25,6 +25,7 @@ var GraphObjectTypeNames;
     GraphObjectTypeNames["USERKEY"] = "CertaCrypt-X25519Key";
     GraphObjectTypeNames["USERPROFILE"] = "CertaCrypt-Profile";
     GraphObjectTypeNames["PRESHARED"] = "CertaCrypt-PreShared";
+    GraphObjectTypeNames["JSON"] = "CertaCrypt-Json";
 })(GraphObjectTypeNames = exports.GraphObjectTypeNames || (exports.GraphObjectTypeNames = {}));
 class File extends DriveGraphObject {
     constructor() {
@@ -96,4 +97,23 @@ class PreSharedGraphObject extends hyper_graphdb_1.GraphObject {
     }
 }
 exports.PreSharedGraphObject = PreSharedGraphObject;
+class JsonGraphObject extends hyper_graphdb_1.GraphObject {
+    constructor(data) {
+        super();
+        this.typeName = GraphObjectTypeNames.JSON;
+        if (data) {
+            const decoded = data instanceof Uint8Array ? codecs_1.json.decode(data) : data;
+            Object.assign(this, decoded);
+        }
+    }
+    serialize() {
+        const clone = {};
+        for (const key of Object.keys(this)) {
+            if (key !== 'typeName')
+                clone[key] = this[key];
+        }
+        return codecs_1.json.encode(clone);
+    }
+}
+exports.JsonGraphObject = JsonGraphObject;
 //# sourceMappingURL=graphObjects.js.map

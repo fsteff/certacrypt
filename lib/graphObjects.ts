@@ -108,19 +108,17 @@ export class JsonGraphObject<T extends object> extends GraphObject {
     if (data) {
       const decoded = data instanceof Uint8Array ? json.decode(data) : data
       Object.assign(this, decoded)
-    } 
+    }
   }
 
   serialize(): Buffer {
     const clone: any = {}
-    for(const key of Object.keys(this)) {
-      if(key !== 'typeName') clone[key] = this[key]
+    for (const key of Object.keys(this)) {
+      if (key !== 'typeName') clone[key] = this[key]
     }
     return json.encode(clone)
   }
 }
 
-export type MessageType<T extends string> = {readonly type: T}
+export type MessageType<T extends string> = { readonly type: T }
 export type GraphMessage<I extends object, T extends string> = JsonGraphObject<I> & I & MessageType<T>
-
-

@@ -61,9 +61,9 @@
   - [ ] revoking write permissions
     - [ ] removing edges to the nodes
     - [ ] pinning vertex versions
-- [ ] **Inbox**
-  - [ ] sealed box *envelopes*
-  - [ ] implement using referrer nodes
+- [x] **Inbox**
+  - [x] sealed box *envelopes*
+  - [x] implement using referrer nodes
   - [ ] notify others by using [hyperpubsub](https://github.com/fsteff/hyperpubsub)
     - [ ] sketch out how pinning of friend's messages could work*
     - [ ] implement pinning of friend's messages (see hyperpubsub history)*

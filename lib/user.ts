@@ -19,7 +19,6 @@ export const USER_PATHS = {
 export class User {
   private identity: Vertex<UserKey>
   private crypto: ICrypto
-  private inbox: Inbox
 
   constructor(readonly publicRoot: Vertex<UserRoot>, readonly graph: CertaCryptGraph, private readonly identitySecret?: Vertex<UserKey>) {
     this.crypto = (<CryptoCore>this.graph.core).crypto
@@ -77,7 +76,6 @@ export class User {
   }
 
   async getInbox() {
-    if (!this.inbox) {
       const inboxVertex = await this.graph
         .queryAtVertex(this.publicRoot)
         .out(USER_PATHS.PUBLIC_TO_INBOX)
@@ -88,9 +86,7 @@ export class User {
           }
           return <Vertex<GraphObject>>results[0]
         })
-      this.inbox = new Inbox(this.crypto, this.graph, inboxVertex)
-    }
-    return this.inbox
+      return new Inbox(this.crypto, this.graph, inboxVertex)
   }
 
   getPublicKey() {
