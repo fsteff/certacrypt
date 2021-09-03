@@ -5,7 +5,7 @@
   "main": "index.js",
   "scripts": {
     "test": "tape ./dist/tests/*.js",
-    "build": "npm run format && tsc && npm run copy-files && npm run test",
+    "build": "npm run format && tsc && npm run copy-files",
     "copy-files": "copyfiles ./lib/js/*.js dist",
     "format": " prettier --config .prettierrc **.ts --write"
   },
@@ -26,15 +26,16 @@
   },
   "homepage": "https://github.com/fsteff/certacrypt#readme",
   "dependencies": {
-    "@types/codecs": "^2.2.2",
-    "@types/tape": "^4.13.1",
+    "@types/codecs": "^2.2.3",
+    "@types/tape": "^4.13.2",
     "@types/unixify": "^1.0.0",
     "bulk-write-stream": "^2.0.1",
-    "certacrypt-graph": "git+https://github.com/fsteff/certacrypt-graph.git",
     "certacrypt-crypto": "git+https://github.com/fsteff/certacrypt-crypto.git",
+    "certacrypt-graph": "git+https://github.com/fsteff/certacrypt-graph.git",
     "codecs": "^2.2.0",
     "hyper-graphdb": "git+https://github.com/fsteff/hyper-graphdb.git",
     "hyperdrive": "git+https://github.com/fsteff/hyperdrive.git",
+    "hyperobjects": "^0.2.9",
     "hypertrie": "^5.1.1",
     "minipass": "^3.1.3",
     "mountable-hypertrie": "git+https://github.com/fsteff/mountable-hypertrie.git",
@@ -45,8 +46,8 @@
     "@hyperspace/client": "^1.18.0",
     "copyfiles": "^2.4.1",
     "hyperspace": "^3.19.0",
+    "prettier": "2.3.0",
     "random-access-memory": "^3.1.2",
-    "tape": "^5.2.2",
-    "prettier": "2.3.0"
+    "tape": "^5.3.1"
   }
 }
