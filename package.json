@@ -31,6 +31,7 @@
     "@types/unixify": "^1.0.0",
     "bulk-write-stream": "^2.0.1",
     "certacrypt-graph": "git+https://github.com/fsteff/certacrypt-graph.git",
+    "certacrypt-crypto": "git+https://github.com/fsteff/certacrypt-crypto.git",
     "codecs": "^2.2.0",
     "hyper-graphdb": "git+https://github.com/fsteff/hyper-graphdb.git",
     "hyperdrive": "git+https://github.com/fsteff/hyperdrive.git",
