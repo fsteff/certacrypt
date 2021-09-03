@@ -22,13 +22,13 @@ class CacheDB {
         }
     }
     get(key) {
-        return new Promise((resolve, reject) => this.db.get(key, (err, result) => err ? reject(err) : resolve(result)));
+        return new Promise((resolve, reject) => this.db.get(key, (err, result) => (err ? reject(err) : resolve(result === null || result === void 0 ? void 0 : result.value))));
     }
     put(key, value) {
-        return new Promise((resolve, reject) => this.db.put(key, value, (err, result) => err ? reject(err) : resolve(result)));
+        return new Promise((resolve, reject) => this.db.put(key, value, (err, result) => (err ? reject(err) : resolve(result))));
     }
     del(key) {
-        return new Promise((resolve, reject) => this.db.get(key, (err, result) => err ? reject(err) : resolve(result)));
+        return new Promise((resolve, reject) => this.db.get(key, (err, result) => (err ? reject(err) : resolve(result))));
     }
 }
 exports.CacheDB = CacheDB;

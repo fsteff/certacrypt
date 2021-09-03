@@ -75,6 +75,7 @@ tape_1.default('communication', async (t) => {
     const bobSeenFromAlice = await alice.certacrypt.getUserByUrl(bobUser.getPublicUrl());
     const aliceComm = await communication_1.Communication.InitUserCommunication(alice.certacrypt.graph, await alice.certacrypt.commRoot, await alice.certacrypt.cacheDb, aliceUser, bobSeenFromAlice);
     const bobComm = await communication_1.Communication.InitUserCommunication(bob.certacrypt.graph, await bob.certacrypt.commRoot, await bob.certacrypt.cacheDb, bobUser, aliceSeenFromBob);
+    // ------------ check if communication setup works ----------------------
     const aliceInbox = await aliceSeenFromBob.getInbox();
     const bobInbox = await bobSeenFromAlice.getInbox();
     const aliceSent = await aliceInbox.checkEnvelopes();
@@ -83,8 +84,15 @@ tape_1.default('communication', async (t) => {
     t.equals(bobSent.length, 1);
     const aliceInit = await aliceComm.checkInbox(bobSeenFromAlice);
     const bobInit = await bobComm.checkInbox(aliceSeenFromBob);
+    t.equals(aliceInit.length, 1);
+    t.equals(bobInit.length, 0); // already got that in InitUserCommunication
     const aliceParticipants = await aliceComm.getParticipants();
     const bobParticipants = await bobComm.getParticipants();
+    t.equals(aliceParticipants.length, 1);
+    t.equals(bobParticipants.length, 1);
+    // -------------- check actual communication -----------------------------
+    // TODO: implement and test contacts
+    //aliceComm.sendFriendRequest()
     cleanup();
     t.end();
 });

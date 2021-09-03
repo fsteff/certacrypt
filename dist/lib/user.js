@@ -65,7 +65,11 @@ class User {
         await user.updatePresharedVertices();
         return user;
     }
-    async getInbox() {
+    async getInbox(update = false) {
+        if (update) {
+            const feed = await this.graph.core.getStore(this.publicRoot.getFeed());
+            await feed.feed.update(this.publicRoot.getVersion(), 500).catch((err) => console.log(err.message));
+        }
         const inboxVertex = await this.graph
             .queryAtVertex(this.publicRoot)
             .out(exports.USER_PATHS.PUBLIC_TO_INBOX)

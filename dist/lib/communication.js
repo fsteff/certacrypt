@@ -49,7 +49,7 @@ class Communication {
         return this.graph.queryPathAtVertex(exports.COMM_PATHS.PARTICIPANTS, this.userInit).vertices();
     }
     async checkInbox(participant) {
-        const mail = await participant.getInbox();
+        const mail = await participant.getInbox(true);
         const cachePath = `communication/user/${encodeURIComponent(participant.getPublicUrl())}/inboxLastCheckedVersion}`;
         const lastChecked = await this.cache.get(cachePath);
         const envelopes = await mail.checkEnvelopes(lastChecked);

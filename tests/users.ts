@@ -101,6 +101,7 @@ tape('communication', async (t) => {
     aliceSeenFromBob
   )
 
+  // ------------ check if communication setup works ----------------------
   const aliceInbox = await aliceSeenFromBob.getInbox()
   const bobInbox = await bobSeenFromAlice.getInbox()
   const aliceSent = await aliceInbox.checkEnvelopes()
@@ -110,9 +111,18 @@ tape('communication', async (t) => {
 
   const aliceInit = await aliceComm.checkInbox(bobSeenFromAlice)
   const bobInit = await bobComm.checkInbox(aliceSeenFromBob)
+  t.equals(aliceInit.length, 1)
+  t.equals(bobInit.length, 0) // already got that in InitUserCommunication
 
   const aliceParticipants = await aliceComm.getParticipants()
   const bobParticipants = await bobComm.getParticipants()
+  t.equals(aliceParticipants.length, 1)
+  t.equals(bobParticipants.length, 1)
+
+  // -------------- check actual communication -----------------------------
+
+  // TODO: implement and test contacts
+  //aliceComm.sendFriendRequest()
 
   cleanup()
   t.end()

@@ -75,18 +75,23 @@ export class User {
     return user
   }
 
-  async getInbox() {
-      const inboxVertex = await this.graph
-        .queryAtVertex(this.publicRoot)
-        .out(USER_PATHS.PUBLIC_TO_INBOX)
-        .vertices()
-        .then((results) => {
-          if (results.length === 0) {
-            throw new Error('User Root has no Inbox vertex')
-          }
-          return <Vertex<GraphObject>>results[0]
-        })
-      return new Inbox(this.crypto, this.graph, inboxVertex)
+  async getInbox(update = false) {
+    if (update) {
+      const feed = await this.graph.core.getStore(this.publicRoot.getFeed())
+      await feed.feed.update(this.publicRoot.getVersion(), 500).catch((err: Error) => console.log(err.message))
+    }
+
+    const inboxVertex = await this.graph
+      .queryAtVertex(this.publicRoot)
+      .out(USER_PATHS.PUBLIC_TO_INBOX)
+      .vertices()
+      .then((results) => {
+        if (results.length === 0) {
+          throw new Error('User Root has no Inbox vertex')
+        }
+        return <Vertex<GraphObject>>results[0]
+      })
+    return new Inbox(this.crypto, this.graph, inboxVertex)
   }
 
   getPublicKey() {

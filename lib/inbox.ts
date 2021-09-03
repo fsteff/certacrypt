@@ -20,9 +20,6 @@ export class Inbox {
   async checkEnvelopes(onlyAfter?: number) {
     if (!onlyAfter) onlyAfter = 0
 
-    const feed = await this.graph.core.getStore(this.inbox.getFeed())
-    await feed.feed.update(onlyAfter, 5000).catch((err: Error) => console.log(err.message))
-
     return <Promise<Vertex<GraphObject>[]>>Promise.all(
       this.inbox
         .getEdges(ENVELOPE_EDGE)

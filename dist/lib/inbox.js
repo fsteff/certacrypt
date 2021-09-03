@@ -13,8 +13,6 @@ class Inbox {
     async checkEnvelopes(onlyAfter) {
         if (!onlyAfter)
             onlyAfter = 0;
-        const feed = await this.graph.core.getStore(this.inbox.getFeed());
-        await feed.feed.update(onlyAfter, 5000).catch((err) => console.log(err.message));
         return Promise.all(this.inbox
             .getEdges(exports.ENVELOPE_EDGE)
             .filter((edge) => edge.version > onlyAfter)

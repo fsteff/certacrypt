@@ -53,7 +53,7 @@ export class Communication {
   }
 
   async checkInbox(participant: User) {
-    const mail = await participant.getInbox()
+    const mail = await participant.getInbox(true)
     const cachePath = `communication/user/${encodeURIComponent(participant.getPublicUrl())}/inboxLastCheckedVersion}`
     const lastChecked = await this.cache.get<number>(cachePath)
     const envelopes = <Vertex<MsgTypeInit>[]>await mail.checkEnvelopes(lastChecked)
