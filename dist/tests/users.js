@@ -9,6 +9,7 @@ const certacrypt_crypto_1 = require("certacrypt-crypto");
 const __1 = require("..");
 const hyper_graphdb_1 = require("hyper-graphdb");
 const communication_1 = require("../lib/communication");
+const contacts_1 = require("../lib/contacts");
 async function createCertaCrypt(client) {
     const store = client.corestore();
     await store.ready();
@@ -73,8 +74,8 @@ tape_1.default('communication', async (t) => {
     const bobUser = await bob.certacrypt.user;
     const aliceSeenFromBob = await bob.certacrypt.getUserByUrl(aliceUser.getPublicUrl());
     const bobSeenFromAlice = await alice.certacrypt.getUserByUrl(bobUser.getPublicUrl());
-    const aliceComm = await communication_1.Communication.InitUserCommunication(alice.certacrypt.graph, await alice.certacrypt.commRoot, await alice.certacrypt.cacheDb, aliceUser, bobSeenFromAlice);
-    const bobComm = await communication_1.Communication.InitUserCommunication(bob.certacrypt.graph, await bob.certacrypt.commRoot, await bob.certacrypt.cacheDb, bobUser, aliceSeenFromBob);
+    const aliceComm = await communication_1.Communication.InitUserCommunication(alice.certacrypt.graph, await alice.certacrypt.socialRoot, await alice.certacrypt.cacheDb, aliceUser, bobSeenFromAlice);
+    const bobComm = await communication_1.Communication.InitUserCommunication(bob.certacrypt.graph, await bob.certacrypt.socialRoot, await bob.certacrypt.cacheDb, bobUser, aliceSeenFromBob);
     // ------------ check if communication setup works ----------------------
     const aliceInbox = await aliceSeenFromBob.getInbox();
     const bobInbox = await bobSeenFromAlice.getInbox();
@@ -91,8 +92,14 @@ tape_1.default('communication', async (t) => {
     t.equals(aliceParticipants.length, 1);
     t.equals(bobParticipants.length, 1);
     // -------------- check actual communication -----------------------------
-    // TODO: implement and test contacts
-    //aliceComm.sendFriendRequest()
+    const aliceContacts = await alice.certacrypt.contacts;
+    await aliceContacts.addFriend(bobSeenFromAlice);
+    t.equals(await aliceContacts.getFriendState(bobSeenFromAlice), contacts_1.FriendState.REQUEST_SENT);
+    const bobContacts = await bob.certacrypt.contacts;
+    t.equals(await bobContacts.getFriendState(aliceSeenFromBob), contacts_1.FriendState.REQUEST_RECEIVED);
+    await bobContacts.addFriend(aliceSeenFromBob);
+    t.equals(await aliceContacts.getFriendState(bobSeenFromAlice), contacts_1.FriendState.FRIENDS);
+    t.equals(await bobContacts.getFriendState(aliceSeenFromBob), contacts_1.FriendState.FRIENDS);
     cleanup();
     t.end();
 });

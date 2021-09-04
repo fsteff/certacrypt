@@ -12,8 +12,8 @@ import { CryptoCore } from 'certacrypt-graph'
 import { User, USER_PATHS } from './lib/user'
 import { Inbox } from './lib/inbox'
 import { CacheDB } from './lib/cacheDB'
-import { CONTACTS_VIEW, ContactsView } from './lib/contacts'
-import { COMM_ROOT } from './lib/communication'
+import { CONTACTS_VIEW, ContactsView, Contacts } from './lib/contacts'
+import { SOCIAL_ROOT } from './lib/communication'
 
 export { Directory, File, ShareGraphObject, Hyperdrive, enableDebugLogging, createUrl, parseUrl, URL_TYPES, User, Inbox }
 
@@ -24,21 +24,22 @@ export class CertaCrypt {
   readonly sessionRoot: Promise<Vertex<GraphObject>>
   readonly user: Promise<User>
   readonly cacheDb: Promise<CacheDB>
-  readonly commRoot: Promise<Vertex<GraphObject>>
+  readonly socialRoot: Promise<Vertex<GraphObject>>
+  readonly contacts: Promise<Contacts>
 
   constructor(corestore: Corestore, crypto: ICrypto, sessionUrl?: string) {
     this.corestore = corestore
     this.crypto = crypto
 
-    let resolveRoot, resolveUser, resolveCommRoot
+    let resolveRoot, resolveUser, resolveSocialRoot
     this.sessionRoot = new Promise((resolve, _) => {
       resolveRoot = resolve
     })
     this.user = new Promise((resolve, _) => {
       resolveUser = resolve
     })
-    this.commRoot = new Promise((resolve, _) => {
-      resolveCommRoot = resolve
+    this.socialRoot = new Promise((resolve, _) => {
+      resolveSocialRoot = resolve
     })
 
     if (sessionUrl) {
@@ -51,15 +52,15 @@ export class CertaCrypt {
         const user = new User(publicRoot, this.graph, secret)
         resolveUser(user)
 
-        const commRoot = <Vertex<GraphObject>>await this.path(COMM_ROOT)
-        resolveCommRoot(commRoot)
+        const socialRoot = <Vertex<GraphObject>>await this.path(SOCIAL_ROOT)
+        resolveSocialRoot(socialRoot)
       })
     } else {
       this.graph = new CertaCryptGraph(corestore, undefined, crypto)
-      this.initSession().then(({ root, user, commRoot }) => {
+      this.initSession().then(({ root, user, commRoot: socialRoot }) => {
         resolveRoot(root)
         resolveUser(user)
-        resolveCommRoot(commRoot)
+        resolveSocialRoot(socialRoot)
       })
     }
 
@@ -70,6 +71,9 @@ export class CertaCrypt {
       this.graph.factory.register(CONTACTS_VIEW, (_, codec, tr) => new ContactsView(cache, this.graph, user, codec, this.graph.factory, tr))
       resolve(cache)
     })
+    this.contacts = Promise.all([this.socialRoot, this.user, this.cacheDb]).then(
+      ([socialRoot, user, cacheDb]) => new Contacts(this.graph, socialRoot, user, cacheDb)
+    )
 
     this.graph.codec.registerImpl((data) => new File(data))
     this.graph.codec.registerImpl((data) => new Directory(data))
@@ -93,7 +97,7 @@ export class CertaCrypt {
     root.addEdgeTo(apps, 'apps')
     root.addEdgeTo(contacts, 'contacts')
     root.addEdgeTo(shares, 'shares')
-    root.addEdgeTo(commRoot, COMM_ROOT)
+    root.addEdgeTo(commRoot, SOCIAL_ROOT)
     await this.graph.put(root)
 
     const user = await User.InitUser(this.graph, root)

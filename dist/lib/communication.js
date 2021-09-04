@@ -7,12 +7,12 @@ var __asyncValues = (this && this.__asyncValues) || function (o) {
     function settle(resolve, reject, d, v) { Promise.resolve(v).then(function(v) { resolve({ value: v, done: d }); }, reject); }
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.Communication = exports.COMM_PATHS = exports.COMM_ROOT = void 0;
+exports.Communication = exports.COMM_PATHS = exports.SOCIAL_ROOT = void 0;
 const graphObjects_1 = require("./graphObjects");
 const url_1 = require("./url");
-exports.COMM_ROOT = '/social';
+exports.SOCIAL_ROOT = '/social';
 exports.COMM_PATHS = {
-    COMM_ROOT_TO_USERS: 'users',
+    SOCIAL_ROOT_TO_CHANNELS: 'channels',
     MSG_REQUESTS: 'requests',
     MSG_PROVISION: 'provision',
     PARTICIPANTS: 'participants'
@@ -23,21 +23,21 @@ class Communication {
         this.userInit = userInit;
         this.cache = cache;
     }
-    static async InitUserCommunication(graph, commRoot, cache, user, addressant) {
+    static async InitUserCommunication(graph, socialRoot, cache, user, addressant) {
         const comm = new Communication(graph, message(graph, { userUrl: user.getPublicUrl(), type: 'Init' }), cache);
         await graph.put(comm.userInit);
         let userComm;
-        const results = await graph.queryPathAtVertex(exports.COMM_PATHS.COMM_ROOT_TO_USERS, commRoot).vertices();
+        const results = await graph.queryPathAtVertex(exports.COMM_PATHS.SOCIAL_ROOT_TO_CHANNELS, socialRoot).vertices();
         if (results.length > 0) {
             userComm = results[0];
         }
         else {
             userComm = graph.create();
             await graph.put(userComm);
-            commRoot.addEdgeTo(userComm, exports.COMM_PATHS.COMM_ROOT_TO_USERS);
-            await graph.put(commRoot);
+            socialRoot.addEdgeTo(userComm, exports.COMM_PATHS.SOCIAL_ROOT_TO_CHANNELS);
+            await graph.put(socialRoot);
         }
-        const label = addressant.getPublicUrl();
+        const label = this.getUserLabel(addressant);
         userComm.addEdgeTo(comm.userInit, label);
         await graph.put(userComm);
         const mail = await user.getInbox();
@@ -45,12 +45,29 @@ class Communication {
         await comm.checkInbox(addressant);
         return comm;
     }
+    static async GetOrInitUserCommunication(graph, socialRoot, cache, user, addressant) {
+        const existing = await graph
+            .queryPathAtVertex(exports.COMM_PATHS.SOCIAL_ROOT_TO_CHANNELS + '/' + Communication.getUserLabel(addressant), socialRoot)
+            .generator()
+            .destruct();
+        if (existing.length > 0) {
+            const comm = new Communication(graph, existing[0], cache);
+            await comm.checkInbox(addressant);
+            return comm;
+        }
+        else {
+            return Communication.InitUserCommunication(graph, socialRoot, cache, user, addressant);
+        }
+    }
+    static getUserLabel(user) {
+        return 'hyper://' + user.publicRoot.getFeed() + '/' + user.publicRoot.getId();
+    }
     async getParticipants() {
         return this.graph.queryPathAtVertex(exports.COMM_PATHS.PARTICIPANTS, this.userInit).vertices();
     }
     async checkInbox(participant) {
         const mail = await participant.getInbox(true);
-        const cachePath = `communication/user/${encodeURIComponent(participant.getPublicUrl())}/inboxLastCheckedVersion}`;
+        const cachePath = `communication/user/${encodeURIComponent(Communication.getUserLabel(participant))}/inboxLastCheckedVersion}`;
         const lastChecked = await this.cache.get(cachePath);
         const envelopes = await mail.checkEnvelopes(lastChecked);
         await this.cache.put(cachePath, mail.getVersion());
@@ -87,7 +104,7 @@ class Communication {
     }
     async getRequests() {
         var e_1, _a;
-        const iter = await this.graph
+        const iter = this.graph
             .queryPathAtVertex(exports.COMM_PATHS.PARTICIPANTS + '/' + exports.COMM_PATHS.MSG_REQUESTS, this.userInit)
             .values((v) => v.getContent());
         const results = new Array();
@@ -109,18 +126,17 @@ class Communication {
         }
         return results;
     }
-    async getProvisions() {
+    async getSentRequests() {
         var e_2, _a;
-        const iter = await this.graph
-            .queryPathAtVertex(exports.COMM_PATHS.PARTICIPANTS + '/' + exports.COMM_PATHS.MSG_PROVISION, this.userInit)
-            .values((v) => v.getContent());
+        const iter = this.graph.queryPathAtVertex(exports.COMM_PATHS.MSG_REQUESTS, this.userInit).values((v) => v.getContent());
         const results = new Array();
         try {
             for (var iter_2 = __asyncValues(iter), iter_2_1; iter_2_1 = await iter_2.next(), !iter_2_1.done;) {
                 const msg = iter_2_1.value;
-                if (!['Share'].includes(msg.type)) {
-                    throw new Error('Message is not a provision: ' + msg.type);
+                if (!['FriendRequest'].includes(msg.type)) {
+                    throw new Error('Message is not a request: ' + msg.type);
                 }
+                results.push(msg);
             }
         }
         catch (e_2_1) { e_2 = { error: e_2_1 }; }
@@ -129,6 +145,50 @@ class Communication {
                 if (iter_2_1 && !iter_2_1.done && (_a = iter_2.return)) await _a.call(iter_2);
             }
             finally { if (e_2) throw e_2.error; }
+        }
+        return results;
+    }
+    async getProvisions() {
+        var e_3, _a;
+        const iter = this.graph
+            .queryPathAtVertex(exports.COMM_PATHS.PARTICIPANTS + '/' + exports.COMM_PATHS.MSG_PROVISION, this.userInit)
+            .values((v) => v.getContent());
+        const results = new Array();
+        try {
+            for (var iter_3 = __asyncValues(iter), iter_3_1; iter_3_1 = await iter_3.next(), !iter_3_1.done;) {
+                const msg = iter_3_1.value;
+                if (!['Share'].includes(msg.type)) {
+                    throw new Error('Message is not a provision: ' + msg.type);
+                }
+            }
+        }
+        catch (e_3_1) { e_3 = { error: e_3_1 }; }
+        finally {
+            try {
+                if (iter_3_1 && !iter_3_1.done && (_a = iter_3.return)) await _a.call(iter_3);
+            }
+            finally { if (e_3) throw e_3.error; }
+        }
+        return results;
+    }
+    async getSentProvisions() {
+        var e_4, _a;
+        const iter = this.graph.queryPathAtVertex(exports.COMM_PATHS.MSG_PROVISION, this.userInit).values((v) => v.getContent());
+        const results = new Array();
+        try {
+            for (var iter_4 = __asyncValues(iter), iter_4_1; iter_4_1 = await iter_4.next(), !iter_4_1.done;) {
+                const msg = iter_4_1.value;
+                if (!['Share'].includes(msg.type)) {
+                    throw new Error('Message is not a provision: ' + msg.type);
+                }
+            }
+        }
+        catch (e_4_1) { e_4 = { error: e_4_1 }; }
+        finally {
+            try {
+                if (iter_4_1 && !iter_4_1.done && (_a = iter_4.return)) await _a.call(iter_4);
+            }
+            finally { if (e_4) throw e_4.error; }
         }
         return results;
     }

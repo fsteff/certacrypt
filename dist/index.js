@@ -26,15 +26,15 @@ class CertaCrypt {
     constructor(corestore, crypto, sessionUrl) {
         this.corestore = corestore;
         this.crypto = crypto;
-        let resolveRoot, resolveUser, resolveCommRoot;
+        let resolveRoot, resolveUser, resolveSocialRoot;
         this.sessionRoot = new Promise((resolve, _) => {
             resolveRoot = resolve;
         });
         this.user = new Promise((resolve, _) => {
             resolveUser = resolve;
         });
-        this.commRoot = new Promise((resolve, _) => {
-            resolveCommRoot = resolve;
+        this.socialRoot = new Promise((resolve, _) => {
+            resolveSocialRoot = resolve;
         });
         if (sessionUrl) {
             const { feed, id, key } = url_1.parseUrl(sessionUrl);
@@ -45,16 +45,16 @@ class CertaCrypt {
                 const publicRoot = await this.path(user_1.USER_PATHS.PUBLIC);
                 const user = new user_1.User(publicRoot, this.graph, secret);
                 resolveUser(user);
-                const commRoot = await this.path(communication_1.COMM_ROOT);
-                resolveCommRoot(commRoot);
+                const socialRoot = await this.path(communication_1.SOCIAL_ROOT);
+                resolveSocialRoot(socialRoot);
             });
         }
         else {
             this.graph = new certacrypt_graph_1.CertaCryptGraph(corestore, undefined, crypto);
-            this.initSession().then(({ root, user, commRoot }) => {
+            this.initSession().then(({ root, user, commRoot: socialRoot }) => {
                 resolveRoot(root);
                 resolveUser(user);
-                resolveCommRoot(commRoot);
+                resolveSocialRoot(socialRoot);
             });
         }
         this.cacheDb = new Promise(async (resolve) => {
@@ -64,6 +64,7 @@ class CertaCrypt {
             this.graph.factory.register(contacts_1.CONTACTS_VIEW, (_, codec, tr) => new contacts_1.ContactsView(cache, this.graph, user, codec, this.graph.factory, tr));
             resolve(cache);
         });
+        this.contacts = Promise.all([this.socialRoot, this.user, this.cacheDb]).then(([socialRoot, user, cacheDb]) => new contacts_1.Contacts(this.graph, socialRoot, user, cacheDb));
         this.graph.codec.registerImpl((data) => new graphObjects_1.File(data));
         this.graph.codec.registerImpl((data) => new graphObjects_1.Directory(data));
         this.graph.codec.registerImpl((data) => new graphObjects_1.Thombstone(data));
@@ -83,7 +84,7 @@ class CertaCrypt {
         root.addEdgeTo(apps, 'apps');
         root.addEdgeTo(contacts, 'contacts');
         root.addEdgeTo(shares, 'shares');
-        root.addEdgeTo(commRoot, communication_1.COMM_ROOT);
+        root.addEdgeTo(commRoot, communication_1.SOCIAL_ROOT);
         await this.graph.put(root);
         const user = await user_1.User.InitUser(this.graph, root);
         debug_1.debug(`initialized session ${url_1.createUrl(root, this.graph.getKey(root))}`);

@@ -5,6 +5,7 @@ import { CertaCrypt } from '..'
 import { ReferrerEdge } from '../lib/referrer'
 import { SimpleGraphObject, Vertex } from 'hyper-graphdb'
 import { Communication } from '../lib/communication'
+import { FriendState } from '../lib/contacts'
 
 async function createCertaCrypt(client) {
   const store = client.corestore()
@@ -88,14 +89,14 @@ tape('communication', async (t) => {
 
   const aliceComm = await Communication.InitUserCommunication(
     alice.certacrypt.graph,
-    await alice.certacrypt.commRoot,
+    await alice.certacrypt.socialRoot,
     await alice.certacrypt.cacheDb,
     aliceUser,
     bobSeenFromAlice
   )
   const bobComm = await Communication.InitUserCommunication(
     bob.certacrypt.graph,
-    await bob.certacrypt.commRoot,
+    await bob.certacrypt.socialRoot,
     await bob.certacrypt.cacheDb,
     bobUser,
     aliceSeenFromBob
@@ -121,8 +122,16 @@ tape('communication', async (t) => {
 
   // -------------- check actual communication -----------------------------
 
-  // TODO: implement and test contacts
-  //aliceComm.sendFriendRequest()
+  const aliceContacts = await alice.certacrypt.contacts
+  await aliceContacts.addFriend(bobSeenFromAlice)
+  t.equals(await aliceContacts.getFriendState(bobSeenFromAlice), FriendState.REQUEST_SENT)
+
+  const bobContacts = await bob.certacrypt.contacts
+  t.equals(await bobContacts.getFriendState(aliceSeenFromBob), FriendState.REQUEST_RECEIVED)
+  await bobContacts.addFriend(aliceSeenFromBob)
+
+  t.equals(await aliceContacts.getFriendState(bobSeenFromAlice), FriendState.FRIENDS)
+  t.equals(await bobContacts.getFriendState(aliceSeenFromBob), FriendState.FRIENDS)
 
   cleanup()
   t.end()

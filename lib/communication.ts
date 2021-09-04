@@ -12,9 +12,9 @@ export type MsgTypeShare = GraphMessage<{ shareUrl: string }, 'Share'>
 export type MessageTypes = MsgTypeInit | MsgTypeFriendRequest | MsgTypeShare
 export type MessageVertex = Vertex<MessageTypes>
 
-export const COMM_ROOT = '/social'
+export const SOCIAL_ROOT = '/social'
 export const COMM_PATHS = {
-  COMM_ROOT_TO_CHANNELS: 'channels',
+  SOCIAL_ROOT_TO_CHANNELS: 'channels',
   MSG_REQUESTS: 'requests',
   MSG_PROVISION: 'provision',
   PARTICIPANTS: 'participants'
@@ -23,21 +23,21 @@ export const COMM_PATHS = {
 export class Communication {
   constructor(readonly graph: CertaCryptGraph, readonly userInit: Vertex<MsgTypeInit>, readonly cache: CacheDB) {}
 
-  static async InitUserCommunication(graph: CertaCryptGraph, commRoot: Vertex<GraphObject>, cache: CacheDB, user: User, addressant: User) {
+  static async InitUserCommunication(graph: CertaCryptGraph, socialRoot: Vertex<GraphObject>, cache: CacheDB, user: User, addressant: User) {
     const comm = new Communication(graph, message(graph, { userUrl: user.getPublicUrl(), type: 'Init' }), cache)
     await graph.put(comm.userInit)
 
     let userComm: Vertex<GraphObject>
-    const results = await graph.queryPathAtVertex(COMM_PATHS.COMM_ROOT_TO_CHANNELS, commRoot).vertices()
+    const results = await graph.queryPathAtVertex(COMM_PATHS.SOCIAL_ROOT_TO_CHANNELS, socialRoot).vertices()
     if (results.length > 0) {
       userComm = <Vertex<GraphObject>>results[0]
     } else {
       userComm = graph.create<GraphObject>()
       await graph.put(userComm)
-      commRoot.addEdgeTo(userComm, COMM_PATHS.COMM_ROOT_TO_CHANNELS)
-      await graph.put(commRoot)
+      socialRoot.addEdgeTo(userComm, COMM_PATHS.SOCIAL_ROOT_TO_CHANNELS)
+      await graph.put(socialRoot)
     }
-    const label = addressant.getPublicUrl()
+    const label = this.getUserLabel(addressant)
     userComm.addEdgeTo(comm.userInit, label)
     await graph.put(userComm)
 
@@ -48,13 +48,31 @@ export class Communication {
     return comm
   }
 
+  static async GetOrInitUserCommunication(graph: CertaCryptGraph, socialRoot: Vertex<GraphObject>, cache: CacheDB, user: User, addressant: User) {
+    const existing = await graph
+      .queryPathAtVertex(COMM_PATHS.SOCIAL_ROOT_TO_CHANNELS + '/' + Communication.getUserLabel(addressant), socialRoot)
+      .generator()
+      .destruct()
+    if (existing.length > 0) {
+      const comm = new Communication(graph, <Vertex<MsgTypeInit>>existing[0], cache)
+      await comm.checkInbox(addressant)
+      return comm
+    } else {
+      return Communication.InitUserCommunication(graph, socialRoot, cache, user, addressant)
+    }
+  }
+
+  static getUserLabel(user: User) {
+    return 'hyper://' + user.publicRoot.getFeed() + '/' + user.publicRoot.getId()
+  }
+
   async getParticipants() {
     return <Promise<Vertex<MsgTypeInit>[]>>this.graph.queryPathAtVertex(COMM_PATHS.PARTICIPANTS, this.userInit).vertices()
   }
 
   async checkInbox(participant: User) {
     const mail = await participant.getInbox(true)
-    const cachePath = `communication/user/${encodeURIComponent(participant.getPublicUrl())}/inboxLastCheckedVersion}`
+    const cachePath = `communication/user/${encodeURIComponent(Communication.getUserLabel(participant))}/inboxLastCheckedVersion}`
     const lastChecked = await this.cache.get<number>(cachePath)
     const envelopes = <Vertex<MsgTypeInit>[]>await mail.checkEnvelopes(lastChecked)
     await this.cache.put(cachePath, mail.getVersion())
@@ -96,7 +114,7 @@ export class Communication {
   }
 
   async getRequests() {
-    const iter = await this.graph
+    const iter = this.graph
       .queryPathAtVertex(COMM_PATHS.PARTICIPANTS + '/' + COMM_PATHS.MSG_REQUESTS, this.userInit)
       .values((v) => <MessageTypes>v.getContent())
     const results = new Array<MsgTypeFriendRequest>()
@@ -109,11 +127,34 @@ export class Communication {
     return results
   }
 
+  async getSentRequests() {
+    const iter = this.graph.queryPathAtVertex(COMM_PATHS.MSG_REQUESTS, this.userInit).values((v) => <MessageTypes>v.getContent())
+    const results = new Array<MsgTypeFriendRequest>()
+    for await (const msg of iter) {
+      if (!['FriendRequest'].includes(msg.type)) {
+        throw new Error('Message is not a request: ' + msg.type)
+      }
+      results.push(<MsgTypeFriendRequest>msg)
+    }
+    return results
+  }
+
   async getProvisions() {
-    const iter = await this.graph
+    const iter = this.graph
       .queryPathAtVertex(COMM_PATHS.PARTICIPANTS + '/' + COMM_PATHS.MSG_PROVISION, this.userInit)
       .values((v) => <MessageTypes>v.getContent())
-    const results = new Array<MsgTypeFriendRequest>()
+    const results = new Array<MsgTypeShare>()
+    for await (const msg of iter) {
+      if (!['Share'].includes(msg.type)) {
+        throw new Error('Message is not a provision: ' + msg.type)
+      }
+    }
+    return results
+  }
+
+  async getSentProvisions() {
+    const iter = this.graph.queryPathAtVertex(COMM_PATHS.MSG_PROVISION, this.userInit).values((v) => <MessageTypes>v.getContent())
+    const results = new Array<MsgTypeShare>()
     for await (const msg of iter) {
       if (!['Share'].includes(msg.type)) {
         throw new Error('Message is not a provision: ' + msg.type)
