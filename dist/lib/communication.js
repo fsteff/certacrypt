@@ -10,7 +10,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.Communication = exports.COMM_PATHS = exports.COMM_ROOT = void 0;
 const graphObjects_1 = require("./graphObjects");
 const url_1 = require("./url");
-exports.COMM_ROOT = '/communication';
+exports.COMM_ROOT = '/social';
 exports.COMM_PATHS = {
     COMM_ROOT_TO_USERS: 'users',
     MSG_REQUESTS: 'requests',

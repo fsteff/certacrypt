@@ -12,9 +12,9 @@ export type MsgTypeShare = GraphMessage<{ shareUrl: string }, 'Share'>
 export type MessageTypes = MsgTypeInit | MsgTypeFriendRequest | MsgTypeShare
 export type MessageVertex = Vertex<MessageTypes>
 
-export const COMM_ROOT = '/communication'
+export const COMM_ROOT = '/social'
 export const COMM_PATHS = {
-  COMM_ROOT_TO_USERS: 'users',
+  COMM_ROOT_TO_CHANNELS: 'channels',
   MSG_REQUESTS: 'requests',
   MSG_PROVISION: 'provision',
   PARTICIPANTS: 'participants'
@@ -28,13 +28,13 @@ export class Communication {
     await graph.put(comm.userInit)
 
     let userComm: Vertex<GraphObject>
-    const results = await graph.queryPathAtVertex(COMM_PATHS.COMM_ROOT_TO_USERS, commRoot).vertices()
+    const results = await graph.queryPathAtVertex(COMM_PATHS.COMM_ROOT_TO_CHANNELS, commRoot).vertices()
     if (results.length > 0) {
       userComm = <Vertex<GraphObject>>results[0]
     } else {
       userComm = graph.create<GraphObject>()
       await graph.put(userComm)
-      commRoot.addEdgeTo(userComm, COMM_PATHS.COMM_ROOT_TO_USERS)
+      commRoot.addEdgeTo(userComm, COMM_PATHS.COMM_ROOT_TO_CHANNELS)
       await graph.put(commRoot)
     }
     const label = addressant.getPublicUrl()
