@@ -11,7 +11,7 @@ The root vertex referts to various strictly defined vertices:
   - `profile` links to a vertex containing a user profile (JSON).
   - `identity` contains the user identity public key (X25519).
 - `identity_secret` contains the user identity private key (X25519) and itself refers to the public key.
-- `contacts` is an index of all data about other users known to the application. *Might* be implemented as a view.
+- `contacts` is an index of all data about other users known to the application, implemented as a View (see [Contacts](https://github.com/fsteff/certacrypt/blob/master/docs/session.md))
 - `app` is an index of all application-specific data (which might be in a custom format). *Might* be implemented as a view.
 
 Additionaly, there are views that simplify the development and *might* increase performance in case of materialized views:
