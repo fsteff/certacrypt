@@ -84,12 +84,13 @@ class Contacts {
         const view = this.graph.factory.get(exports.CONTACTS_VIEW);
         const contacts = await this.graph
             .queryPathAtVertex(exports.CONTACTS_PATHS.CONTACTS_TO_PROFILES, this.socialRoot, view)
-            .out(user_1.USER_PATHS.PUBLIC_TO_PROFILE)
+            //.out(USER_PATHS.PUBLIC_TO_PROFILE)
             .generator()
             .map((profile) => profile.getContent())
             .destruct(onError);
         const map = new Map();
         contacts.forEach((profile) => map.set(profile.publicUrl, profile));
+        map.delete(this.user.getPublicUrl());
         return [...map.values()];
         function onError(err) {
             console.error('failed to load contact profile: ' + err);
@@ -117,6 +118,12 @@ class ContactsView extends hyper_graphdb_1.View {
         }
         else {
             vertices = [];
+            //    if(!label) {
+            //      const contacts = (await this.getAllContacts(vertex)).values()
+            //      for await (const contact of contacts) {
+            //        vertices.push(Promise.resolve(contact))
+            //      }
+            //    }
             for (const edge of edges) {
                 const feed = ((_a = edge.feed) === null || _a === void 0 ? void 0 : _a.toString('hex')) || vertex.getFeed();
                 // TODO: version pinning does not work yet
@@ -125,10 +132,11 @@ class ContactsView extends hyper_graphdb_1.View {
         }
         return hyper_graphdb_1.Generator.from(vertices);
     }
-    async getAllContacts(socialRoot) {
+    async getAllContacts(userFriendsRoot) {
         const friends = await this.graph
-            .queryAtVertex(socialRoot)
-            .out()
+            .queryAtVertex(userFriendsRoot)
+            .out(exports.CONTACTS_PATHS.SOCIAL_TO_FRIENDS)
+            .out() // each <vertexId>@<feed>
             .generator()
             .map((v) => new user_1.User(v, this.graph))
             .destruct(onError);
@@ -138,10 +146,9 @@ class ContactsView extends hyper_graphdb_1.View {
         for (const friend of friends) {
             promises.push(
             // get all friends
-            communication_1.Communication.GetOrInitUserCommunication(this.graph, socialRoot, this.cacheDb, this.user, friend)
-                //this.graph.queryPathAtVertex(COMM_PATHS.SOCIAL_ROOT_TO_CHANNELS + '/' + Communication.getUserLabel(friend), socialRoot).generator().destruct(onError)
+            communication_1.Communication.GetOrInitUserCommunication(this.graph, userFriendsRoot, this.cacheDb, this.user, friend)
                 .then(async (channel) => {
-                const contacts = new Array();
+                const contacts = new Array(hyper_graphdb_1.Generator.from([friend]));
                 // get all friend requests (containing urls to their friend list)
                 for (const request of await channel.getRequests()) {
                     // parse url to the friend list
@@ -157,7 +164,7 @@ class ContactsView extends hyper_graphdb_1.View {
                         .queryAtVertex(userFriendsRoot, this)
                         .out()
                         .generator()
-                        .map(async (vertex) => new user_1.User(await vertex, this.graph));
+                        .map((vertex) => new user_1.User(vertex, this.graph));
                     contacts.push(userFriends);
                 }
                 return hyper_graphdb_1.Generator.from(contacts).flatMap(async (gen) => await gen.destruct(onError));
@@ -167,7 +174,7 @@ class ContactsView extends hyper_graphdb_1.View {
             return gen.map(async (user) => {
                 const profile = await user.getProfile();
                 const url = user.getPublicUrl();
-                debug_1.debug('loaded user profile for ' + profile.username + ' (' + url + ')');
+                debug_1.debug('loaded user profile for ' + (profile === null || profile === void 0 ? void 0 : profile.username) + ' (' + url + ')');
                 return new VirtualContactVertex(url, profile);
             });
         });

@@ -114,21 +114,34 @@ class User {
     async setProfile(profile) {
         if (!this.publicRoot.getWriteable())
             throw new Error('cannot write profile, hypercore is not writeable');
+        if (!(profile instanceof graphObjects_1.UserProfile))
+            throw new Error('profile has to be of type UserProfile');
         let vertex = await this.graph
             .queryAtVertex(this.publicRoot)
             .out(exports.USER_PATHS.PUBLIC_TO_PROFILE)
             .vertices()
             .then((results) => (results.length > 0 ? results[0] : undefined));
+        if (vertex) {
+            vertex.setContent(profile);
+            await this.graph.put(vertex);
+        }
         if (!vertex) {
             vertex = this.graph.create();
+            vertex.setContent(profile);
+            await this.graph.put(vertex);
+            this.publicRoot.addEdgeTo(vertex, exports.USER_PATHS.PUBLIC_TO_PROFILE);
+            await this.graph.put(this.publicRoot);
         }
-        vertex.setContent(profile);
-        await this.graph.put(vertex);
     }
     async getProfile() {
-        let results = await this.graph.queryAtVertex(this.publicRoot).out('profile').vertices();
-        results = results.filter((v) => !!v.getContent() && v.getContent().typeName === graphObjects_1.GraphObjectTypeNames.USERPROFILE);
-        return results.length > 0 ? results[0].getContent() : undefined;
+        //await this.graph.updateVertex(this.publicRoot)
+        let results = await this.graph.queryAtVertex(this.publicRoot).out(exports.USER_PATHS.PUBLIC_TO_PROFILE).vertices();
+        for (const profileVertex of results) {
+            const profile = profileVertex.getContent();
+            if ((profile === null || profile === void 0 ? void 0 : profile.typeName) === graphObjects_1.GraphObjectTypeNames.USERPROFILE) {
+                return profile;
+            }
+        }
     }
     async queryPresharedVertices() {
         let vertices = await this.graph

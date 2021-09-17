@@ -10,6 +10,8 @@ const __1 = require("..");
 const hyper_graphdb_1 = require("hyper-graphdb");
 const communication_1 = require("../lib/communication");
 const contacts_1 = require("../lib/contacts");
+const graphObjects_1 = require("../lib/graphObjects");
+//enableDebugLogging()
 async function createCertaCrypt(client) {
     const store = client.corestore();
     await store.ready();
@@ -100,6 +102,53 @@ tape_1.default('communication', async (t) => {
     await bobContacts.addFriend(aliceSeenFromBob);
     t.equals(await aliceContacts.getFriendState(bobSeenFromAlice), contacts_1.FriendState.FRIENDS);
     t.equals(await bobContacts.getFriendState(aliceSeenFromBob), contacts_1.FriendState.FRIENDS);
+    cleanup();
+    t.end();
+});
+tape_1.default('contacts', async (t) => {
+    var _a, _b, _c, _d, _e, _f, _g, _h, _j, _k;
+    const { client, server, cleanup } = await simulator_1.default();
+    await client.ready();
+    // init users
+    const alice = await createCertaCrypt(client);
+    const bob = await createCertaCrypt(client);
+    const caesar = await createCertaCrypt(client);
+    const aliceUser = await alice.certacrypt.user;
+    const bobUser = await bob.certacrypt.user;
+    const caesarUser = await caesar.certacrypt.user;
+    const aliceProfile = new graphObjects_1.UserProfile();
+    aliceProfile.username = 'Alice';
+    await aliceUser.setProfile(aliceProfile);
+    t.equals((_a = (await aliceUser.getProfile())) === null || _a === void 0 ? void 0 : _a.username, 'Alice');
+    const bobProfile = new graphObjects_1.UserProfile();
+    bobProfile.username = 'Bob';
+    await bobUser.setProfile(bobProfile);
+    t.equals((_b = (await bobUser.getProfile())) === null || _b === void 0 ? void 0 : _b.username, 'Bob');
+    const caesarProfile = new graphObjects_1.UserProfile();
+    caesarProfile.username = 'Caesar';
+    await caesarUser.setProfile(caesarProfile);
+    t.equals((_c = (await caesarUser.getProfile())) === null || _c === void 0 ? void 0 : _c.username, 'Caesar');
+    const aliceSeenFromBob = await bob.certacrypt.getUserByUrl(aliceUser.getPublicUrl());
+    t.equals((_d = (await aliceSeenFromBob.getProfile())) === null || _d === void 0 ? void 0 : _d.username, 'Alice');
+    const bobSeenFromAlice = await alice.certacrypt.getUserByUrl(bobUser.getPublicUrl());
+    t.equals((_e = (await bobSeenFromAlice.getProfile())) === null || _e === void 0 ? void 0 : _e.username, 'Bob');
+    const caesarSeenFromAlice = await alice.certacrypt.getUserByUrl(caesarUser.getPublicUrl());
+    t.equals((_f = (await caesarSeenFromAlice.getProfile())) === null || _f === void 0 ? void 0 : _f.username, 'Caesar');
+    const caesarSeenFromBob = await bob.certacrypt.getUserByUrl(caesarUser.getPublicUrl());
+    t.equals((_g = (await caesarSeenFromBob.getProfile())) === null || _g === void 0 ? void 0 : _g.username, 'Caesar');
+    // -------------- check actual communication -----------------------------
+    const aliceContacts = await alice.certacrypt.contacts;
+    t.equals((_h = (await aliceSeenFromBob.getProfile())) === null || _h === void 0 ? void 0 : _h.username, 'Alice');
+    await aliceContacts.addFriend(caesarSeenFromAlice);
+    t.equals((_j = (await aliceSeenFromBob.getProfile())) === null || _j === void 0 ? void 0 : _j.username, 'Alice');
+    await aliceContacts.addFriend(bobSeenFromAlice);
+    t.equals((_k = (await aliceSeenFromBob.getProfile())) === null || _k === void 0 ? void 0 : _k.username, 'Alice');
+    const bobContacts = await bob.certacrypt.contacts;
+    await bobContacts.addFriend(aliceSeenFromBob);
+    t.equals(await bobContacts.getFriendState(aliceSeenFromBob), contacts_1.FriendState.FRIENDS);
+    const contacts = await bobContacts.getAllContacts();
+    t.equals(contacts.length, 2);
+    t.equals(contacts.map(c => c.username).join(', '), ['Alice', 'Caesar'].join(', '));
     cleanup();
     t.end();
 });

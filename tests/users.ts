@@ -6,6 +6,10 @@ import { ReferrerEdge } from '../lib/referrer'
 import { SimpleGraphObject, Vertex } from 'hyper-graphdb'
 import { Communication } from '../lib/communication'
 import { FriendState } from '../lib/contacts'
+import { UserProfile } from '../lib/graphObjects'
+import { enableDebugLogging } from '../lib/debug'
+
+//enableDebugLogging()
 
 async function createCertaCrypt(client) {
   const store = client.corestore()
@@ -132,6 +136,64 @@ tape('communication', async (t) => {
 
   t.equals(await aliceContacts.getFriendState(bobSeenFromAlice), FriendState.FRIENDS)
   t.equals(await bobContacts.getFriendState(aliceSeenFromBob), FriendState.FRIENDS)
+
+  cleanup()
+  t.end()
+})
+
+tape('contacts', async (t) => {
+  const { client, server, cleanup } = await simulator()
+  await client.ready()
+
+  // init users
+  const alice = await createCertaCrypt(client)
+  const bob = await createCertaCrypt(client)
+  const caesar = await createCertaCrypt(client)
+
+  const aliceUser = await alice.certacrypt.user
+  const bobUser = await bob.certacrypt.user
+  const caesarUser = await caesar.certacrypt.user
+
+  const aliceProfile = new UserProfile()
+  aliceProfile.username = 'Alice'
+  await aliceUser.setProfile(aliceProfile)
+  t.equals((await aliceUser.getProfile())?.username, 'Alice')
+
+  const bobProfile = new UserProfile()
+  bobProfile.username = 'Bob'
+  await bobUser.setProfile(bobProfile)
+  t.equals((await bobUser.getProfile())?.username, 'Bob')
+
+  const caesarProfile = new UserProfile()
+  caesarProfile.username = 'Caesar'
+  await caesarUser.setProfile(caesarProfile)
+  t.equals((await caesarUser.getProfile())?.username, 'Caesar')
+
+  const aliceSeenFromBob = await bob.certacrypt.getUserByUrl(aliceUser.getPublicUrl())
+  t.equals((await aliceSeenFromBob.getProfile())?.username, 'Alice')
+  const bobSeenFromAlice = await alice.certacrypt.getUserByUrl(bobUser.getPublicUrl())
+  t.equals((await bobSeenFromAlice.getProfile())?.username, 'Bob')
+  const caesarSeenFromAlice = await alice.certacrypt.getUserByUrl(caesarUser.getPublicUrl())
+  t.equals((await caesarSeenFromAlice.getProfile())?.username, 'Caesar')
+  const caesarSeenFromBob = await bob.certacrypt.getUserByUrl(caesarUser.getPublicUrl())
+  t.equals((await caesarSeenFromBob.getProfile())?.username, 'Caesar')
+  
+  // -------------- check actual communication -----------------------------
+
+  const aliceContacts = await alice.certacrypt.contacts
+  t.equals((await aliceSeenFromBob.getProfile())?.username, 'Alice')
+  await aliceContacts.addFriend(caesarSeenFromAlice)
+  t.equals((await aliceSeenFromBob.getProfile())?.username, 'Alice')
+  await aliceContacts.addFriend(bobSeenFromAlice)
+  t.equals((await aliceSeenFromBob.getProfile())?.username, 'Alice')
+  
+  const bobContacts = await bob.certacrypt.contacts
+  await bobContacts.addFriend(aliceSeenFromBob)
+  t.equals(await bobContacts.getFriendState(aliceSeenFromBob), FriendState.FRIENDS)
+
+  const contacts = await bobContacts.getAllContacts()
+  t.equals(contacts.length, 2)
+  t.equals(contacts.map(c => c.username).join(', '), ['Alice', 'Caesar'].join(', '))
 
   cleanup()
   t.end()

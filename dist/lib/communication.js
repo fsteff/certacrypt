@@ -7,11 +7,12 @@ var __asyncValues = (this && this.__asyncValues) || function (o) {
     function settle(resolve, reject, d, v) { Promise.resolve(v).then(function(v) { resolve({ value: v, done: d }); }, reject); }
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.Communication = exports.COMM_PATHS = exports.SOCIAL_ROOT = void 0;
+exports.Communication = exports.COMM_PATHS = void 0;
 const graphObjects_1 = require("./graphObjects");
 const url_1 = require("./url");
-exports.SOCIAL_ROOT = '/social';
+const debug_1 = require("./debug");
 exports.COMM_PATHS = {
+    SOCIAL: 'social',
     SOCIAL_ROOT_TO_CHANNELS: 'channels',
     MSG_REQUESTS: 'requests',
     MSG_PROVISION: 'provision',
@@ -24,6 +25,7 @@ class Communication {
         this.cache = cache;
     }
     static async InitUserCommunication(graph, socialRoot, cache, user, addressant) {
+        var _a, _b;
         const comm = new Communication(graph, message(graph, { userUrl: user.getPublicUrl(), type: 'Init' }), cache);
         await graph.put(comm.userInit);
         let channels;
@@ -43,6 +45,7 @@ class Communication {
         const mail = await user.getInbox();
         await mail.postEnvelope(comm.userInit, addressant);
         await comm.checkInbox(addressant);
+        debug_1.debug('Initialized Communication between ' + (((_a = (await user.getProfile())) === null || _a === void 0 ? void 0 : _a.username) || user.getPublicUrl()) + ' (current user) and ' + (((_b = (await addressant.getProfile())) === null || _b === void 0 ? void 0 : _b.username) || addressant.getPublicUrl()));
         return comm;
     }
     static async GetOrInitUserCommunication(graph, socialRoot, cache, user, addressant) {

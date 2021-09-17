@@ -4,6 +4,7 @@ import { GraphMessage, JsonGraphObject, MessageType } from './graphObjects'
 import { User } from './user'
 import { createUrl, URL_TYPES } from './url'
 import { CacheDB } from './cacheDB'
+import { debug } from './debug'
 
 export type MsgTypeInit = GraphMessage<{ userUrl: string }, 'Init'>
 export type MsgTypeFriendRequest = GraphMessage<{ contactsUrl: string }, 'FriendRequest'>
@@ -12,8 +13,8 @@ export type MsgTypeShare = GraphMessage<{ shareUrl: string }, 'Share'>
 export type MessageTypes = MsgTypeInit | MsgTypeFriendRequest | MsgTypeShare
 export type MessageVertex = Vertex<MessageTypes>
 
-export const SOCIAL_ROOT = '/social'
 export const COMM_PATHS = {
+  SOCIAL: 'social',
   SOCIAL_ROOT_TO_CHANNELS: 'channels',
   MSG_REQUESTS: 'requests',
   MSG_PROVISION: 'provision',
@@ -44,6 +45,8 @@ export class Communication {
     const mail = await user.getInbox()
     await mail.postEnvelope(comm.userInit, addressant)
     await comm.checkInbox(addressant)
+
+    debug('Initialized Communication between ' + ((await user.getProfile())?.username || user.getPublicUrl()) + ' (current user) and ' + ((await addressant.getProfile())?.username || addressant.getPublicUrl()))
 
     return comm
   }

@@ -45,7 +45,7 @@ class CertaCrypt {
                 const publicRoot = await this.path(user_1.USER_PATHS.PUBLIC);
                 const user = new user_1.User(publicRoot, this.graph, secret);
                 resolveUser(user);
-                const socialRoot = await this.path(communication_1.SOCIAL_ROOT);
+                const socialRoot = await this.path(communication_1.COMM_PATHS.SOCIAL);
                 resolveSocialRoot(socialRoot);
             });
         }
@@ -64,7 +64,12 @@ class CertaCrypt {
             this.graph.factory.register(contacts_1.CONTACTS_VIEW, (_, codec, tr) => new contacts_1.ContactsView(cache, this.graph, user, codec, this.graph.factory, tr));
             resolve(cache);
         });
-        this.contacts = Promise.all([this.socialRoot, this.user, this.cacheDb]).then(([socialRoot, user, cacheDb]) => new contacts_1.Contacts(this.graph, socialRoot, user, cacheDb));
+        this.contacts = Promise.all([this.socialRoot, this.user, this.cacheDb])
+            .then(async ([socialRoot, user, cacheDb]) => {
+            const contacts = new contacts_1.Contacts(this.graph, socialRoot, user, cacheDb);
+            await contacts.friends;
+            return contacts;
+        });
         this.graph.codec.registerImpl((data) => new graphObjects_1.File(data));
         this.graph.codec.registerImpl((data) => new graphObjects_1.Directory(data));
         this.graph.codec.registerImpl((data) => new graphObjects_1.Thombstone(data));
@@ -78,14 +83,15 @@ class CertaCrypt {
     async initSession() {
         const root = this.graph.create();
         const apps = this.graph.create();
-        const contacts = this.graph.create();
+        //const contacts = this.graph.create<SimpleGraphObject>()
         const shares = this.graph.create();
         const commRoot = this.graph.create();
-        await this.graph.put([root, apps, contacts, shares, commRoot]);
+        await this.graph.put([root, apps, shares, commRoot]);
         root.addEdgeTo(apps, 'apps');
-        root.addEdgeTo(contacts, 'contacts');
+        //root.addEdgeTo(contacts, 'contacts')
         root.addEdgeTo(shares, 'shares');
-        root.addEdgeTo(commRoot, communication_1.SOCIAL_ROOT);
+        root.addEdgeTo(commRoot, communication_1.COMM_PATHS.SOCIAL);
+        root.addEdgeTo(commRoot, 'contacts', undefined, undefined, contacts_1.CONTACTS_VIEW);
         await this.graph.put(root);
         const user = await user_1.User.InitUser(this.graph, root);
         debug_1.debug(`initialized session ${url_1.createUrl(root, this.graph.getKey(root))}`);

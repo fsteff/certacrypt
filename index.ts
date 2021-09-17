@@ -12,8 +12,8 @@ import { CryptoCore } from 'certacrypt-graph'
 import { User, USER_PATHS } from './lib/user'
 import { Inbox } from './lib/inbox'
 import { CacheDB } from './lib/cacheDB'
-import { CONTACTS_VIEW, ContactsView, Contacts } from './lib/contacts'
-import { SOCIAL_ROOT } from './lib/communication'
+import { CONTACTS_VIEW, ContactsView, Contacts, CONTACTS_PATHS } from './lib/contacts'
+import { COMM_PATHS } from './lib/communication'
 
 export { Directory, File, ShareGraphObject, Hyperdrive, enableDebugLogging, createUrl, parseUrl, URL_TYPES, User, Inbox }
 
@@ -52,7 +52,7 @@ export class CertaCrypt {
         const user = new User(publicRoot, this.graph, secret)
         resolveUser(user)
 
-        const socialRoot = <Vertex<GraphObject>>await this.path(SOCIAL_ROOT)
+        const socialRoot = <Vertex<GraphObject>>await this.path(COMM_PATHS.SOCIAL)
         resolveSocialRoot(socialRoot)
       })
     } else {
@@ -71,9 +71,12 @@ export class CertaCrypt {
       this.graph.factory.register(CONTACTS_VIEW, (_, codec, tr) => new ContactsView(cache, this.graph, user, codec, this.graph.factory, tr))
       resolve(cache)
     })
-    this.contacts = Promise.all([this.socialRoot, this.user, this.cacheDb]).then(
-      ([socialRoot, user, cacheDb]) => new Contacts(this.graph, socialRoot, user, cacheDb)
-    )
+    this.contacts = Promise.all([this.socialRoot, this.user, this.cacheDb])
+    .then(async ([socialRoot, user, cacheDb]) => {
+      const contacts = new Contacts(this.graph, socialRoot, user, cacheDb)
+      await contacts.friends
+      return contacts
+    })
 
     this.graph.codec.registerImpl((data) => new File(data))
     this.graph.codec.registerImpl((data) => new Directory(data))
@@ -90,15 +93,16 @@ export class CertaCrypt {
   private async initSession() {
     const root = this.graph.create<SimpleGraphObject>()
     const apps = this.graph.create<SimpleGraphObject>()
-    const contacts = this.graph.create<SimpleGraphObject>()
+    //const contacts = this.graph.create<SimpleGraphObject>()
     const shares = this.graph.create<SimpleGraphObject>()
     const commRoot = this.graph.create<SimpleGraphObject>()
-    await this.graph.put([root, apps, contacts, shares, commRoot])
+    await this.graph.put([root, apps, shares, commRoot])
 
     root.addEdgeTo(apps, 'apps')
-    root.addEdgeTo(contacts, 'contacts')
+    //root.addEdgeTo(contacts, 'contacts')
     root.addEdgeTo(shares, 'shares')
-    root.addEdgeTo(commRoot, SOCIAL_ROOT)
+    root.addEdgeTo(commRoot, COMM_PATHS.SOCIAL)
+    root.addEdgeTo(commRoot, 'contacts', undefined, undefined, CONTACTS_VIEW)
     await this.graph.put(root)
 
     const user = await User.InitUser(this.graph, root)

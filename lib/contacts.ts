@@ -84,12 +84,13 @@ export class Contacts {
     const view = this.graph.factory.get(CONTACTS_VIEW)
     const contacts = await this.graph
       .queryPathAtVertex(CONTACTS_PATHS.CONTACTS_TO_PROFILES, this.socialRoot, view)
-      .out(USER_PATHS.PUBLIC_TO_PROFILE)
+      //.out(USER_PATHS.PUBLIC_TO_PROFILE)
       .generator()
       .map((profile: VirtualContactVertex) => profile.getContent())
       .destruct(onError)
     const map = new Map<String, ContactProfile>()
     contacts.forEach((profile) => map.set(profile.publicUrl, profile))
+    map.delete(this.user.getPublicUrl())
     return [...map.values()]
 
     function onError(err: Error) {
@@ -115,6 +116,12 @@ export class ContactsView extends View<GraphObject> {
       return this.getAllContacts(vertex)
     } else {
       vertices = []
+  //    if(!label) {
+  //      const contacts = (await this.getAllContacts(vertex)).values()
+  //      for await (const contact of contacts) {
+  //        vertices.push(Promise.resolve(contact))
+  //      }
+  //    }
       for (const edge of edges) {
         const feed = edge.feed?.toString('hex') || <string>vertex.getFeed()
         // TODO: version pinning does not work yet
@@ -124,10 +131,11 @@ export class ContactsView extends View<GraphObject> {
     return Generator.from(vertices)
   }
 
-  private async getAllContacts(socialRoot: Vertex<GraphObject>): Promise<Generator<VirtualContactVertex>> {
+  private async getAllContacts(userFriendsRoot: Vertex<GraphObject>): Promise<Generator<VirtualContactVertex>> {
     const friends = await this.graph
-      .queryAtVertex(socialRoot)
-      .out()
+      .queryAtVertex(userFriendsRoot)
+      .out(CONTACTS_PATHS.SOCIAL_TO_FRIENDS)
+      .out() // each <vertexId>@<feed>
       .generator()
       .map((v) => new User(<Vertex<UserRoot>>v, this.graph))
       .destruct(onError)
@@ -137,10 +145,9 @@ export class ContactsView extends View<GraphObject> {
     for (const friend of friends) {
       promises.push(
         // get all friends
-        Communication.GetOrInitUserCommunication(this.graph, socialRoot, this.cacheDb, this.user, friend)
-          //this.graph.queryPathAtVertex(COMM_PATHS.SOCIAL_ROOT_TO_CHANNELS + '/' + Communication.getUserLabel(friend), socialRoot).generator().destruct(onError)
+        Communication.GetOrInitUserCommunication(this.graph, userFriendsRoot, this.cacheDb, this.user, friend)
           .then(async (channel) => {
-            const contacts = new Array<Generator<User>>()
+            const contacts = new Array<Generator<User>>(Generator.from([friend]))
             // get all friend requests (containing urls to their friend list)
             for (const request of await channel.getRequests()) {
               // parse url to the friend list
@@ -155,7 +162,7 @@ export class ContactsView extends View<GraphObject> {
                 .queryAtVertex(userFriendsRoot, this)
                 .out()
                 .generator()
-                .map(async (vertex: Vertex<UserRoot>) => new User(await vertex, this.graph))
+                .map((vertex: Vertex<UserRoot>) => new User(vertex, this.graph))
               contacts.push(userFriends)
             }
             return Generator.from(contacts).flatMap(async (gen) => await gen.destruct(onError))
@@ -167,7 +174,7 @@ export class ContactsView extends View<GraphObject> {
       return gen.map(async (user) => {
         const profile = await user.getProfile()
         const url = user.getPublicUrl()
-        debug('loaded user profile for ' + profile.username + ' (' + url + ')')
+        debug('loaded user profile for ' + profile?.username + ' (' + url + ')')
         return new VirtualContactVertex(url, profile)
       })
     })
@@ -183,7 +190,7 @@ class ContactProfile extends UserProfile {
 }
 
 class VirtualContactVertex implements IVertex<ContactProfile> {
-  constructor(readonly publicUrl: string, readonly userProfile: UserProfile) {}
+  constructor(readonly publicUrl: string, readonly userProfile?: UserProfile) { }
 
   getContent(): ContactProfile {
     const profile = new ContactProfile()
