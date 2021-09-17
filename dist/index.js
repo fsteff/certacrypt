@@ -72,6 +72,7 @@ class CertaCrypt {
         this.graph.codec.registerImpl((data) => new graphObjects_1.UserKey(data));
         this.graph.codec.registerImpl((data) => new graphObjects_1.UserProfile(data));
         this.graph.codec.registerImpl((data) => new graphObjects_1.UserRoot(data));
+        this.graph.codec.registerImpl((data) => new graphObjects_1.JsonGraphObject(data));
         this.graph.factory.register(referrer_1.REFERRER_VIEW, (db, codec, tr) => new referrer_1.ReferrerView(db, codec, this.graph.factory, tr));
     }
     async initSession() {

@@ -27,22 +27,22 @@ export class Communication {
     const comm = new Communication(graph, message(graph, { userUrl: user.getPublicUrl(), type: 'Init' }), cache)
     await graph.put(comm.userInit)
 
-    let userComm: Vertex<GraphObject>
+    let channels: Vertex<GraphObject>
     const results = await graph.queryPathAtVertex(COMM_PATHS.SOCIAL_ROOT_TO_CHANNELS, socialRoot).vertices()
     if (results.length > 0) {
-      userComm = <Vertex<GraphObject>>results[0]
+      channels = <Vertex<GraphObject>>results[0]
     } else {
-      userComm = graph.create<GraphObject>()
-      await graph.put(userComm)
-      socialRoot.addEdgeTo(userComm, COMM_PATHS.SOCIAL_ROOT_TO_CHANNELS)
+      channels = graph.create<GraphObject>()
+      await graph.put(channels)
+      socialRoot.addEdgeTo(channels, COMM_PATHS.SOCIAL_ROOT_TO_CHANNELS)
       await graph.put(socialRoot)
     }
     const label = this.getUserLabel(addressant)
-    userComm.addEdgeTo(comm.userInit, label)
-    await graph.put(userComm)
+    channels.addEdgeTo(comm.userInit, label)
+    await graph.put(channels)
 
     const mail = await user.getInbox()
-    await mail.postEnvelope(userComm, addressant)
+    await mail.postEnvelope(comm.userInit, addressant)
     await comm.checkInbox(addressant)
 
     return comm
@@ -63,16 +63,18 @@ export class Communication {
   }
 
   static getUserLabel(user: User) {
-    return 'hyper://' + user.publicRoot.getFeed() + '/' + user.publicRoot.getId()
+    return user.publicRoot.getId() + '@' + user.publicRoot.getFeed()
   }
 
   async getParticipants() {
-    return <Promise<Vertex<MsgTypeInit>[]>>this.graph.queryPathAtVertex(COMM_PATHS.PARTICIPANTS, this.userInit).vertices()
+    const prt = await this.graph.queryAtVertex(this.userInit).out(COMM_PATHS.PARTICIPANTS).generator().destruct()
+    return prt
+    //return <Promise<Vertex<MsgTypeInit>[]>>this.graph.queryPathAtVertex(COMM_PATHS.PARTICIPANTS, this.userInit).generator().destruct()
   }
 
   async checkInbox(participant: User) {
     const mail = await participant.getInbox(true)
-    const cachePath = `communication/user/${encodeURIComponent(Communication.getUserLabel(participant))}/inboxLastCheckedVersion}`
+    const cachePath = `communication/user/${Communication.getUserLabel(participant)}/inboxLastCheckedVersion}`
     const lastChecked = await this.cache.get<number>(cachePath)
     const envelopes = <Vertex<MsgTypeInit>[]>await mail.checkEnvelopes(lastChecked)
     await this.cache.put(cachePath, mail.getVersion())
@@ -114,6 +116,8 @@ export class Communication {
   }
 
   async getRequests() {
+    const prs = await this.graph.queryAtVertex(this.userInit).out(COMM_PATHS.PARTICIPANTS).generator().destruct()
+
     const iter = this.graph
       .queryPathAtVertex(COMM_PATHS.PARTICIPANTS + '/' + COMM_PATHS.MSG_REQUESTS, this.userInit)
       .values((v) => <MessageTypes>v.getContent())

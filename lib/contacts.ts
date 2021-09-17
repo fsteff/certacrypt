@@ -13,10 +13,10 @@ export const CONTACTS_PATHS = {
   CONTACTS_TO_PROFILES: 'profiles'
 }
 export enum FriendState {
-  NONE,
-  REQUEST_SENT,
-  REQUEST_RECEIVED,
-  FRIENDS
+  NONE = 'none',
+  REQUEST_SENT = 'sent',
+  REQUEST_RECEIVED = 'received',
+  FRIENDS = 'friends'
 }
 
 export class Contacts {
@@ -44,7 +44,7 @@ export class Contacts {
   async addFriend(user: User) {
     const friends = await this.friends
     friends.addEdgeTo(user.publicRoot, Communication.getUserLabel(user))
-    await this.graph.put(this.socialRoot)
+    await this.graph.put(friends)
     const comm = await Communication.GetOrInitUserCommunication(this.graph, this.socialRoot, this.cacheDb, this.user, user)
     await comm.sendFriendRequest(friends)
   }

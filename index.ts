@@ -2,7 +2,7 @@ import { Cipher, ICrypto, DefaultCrypto } from 'certacrypt-crypto'
 import { CertaCryptGraph } from 'certacrypt-graph'
 import { ShareGraphObject, SHARE_VIEW } from 'certacrypt-graph'
 import { Core, Corestore, GraphObject, SimpleGraphObject, Vertex, IVertex } from 'hyper-graphdb'
-import { Directory, File, Thombstone, PreSharedGraphObject, UserKey, UserProfile, UserRoot } from './lib/graphObjects'
+import { Directory, File, Thombstone, PreSharedGraphObject, UserKey, UserProfile, UserRoot, JsonGraphObject } from './lib/graphObjects'
 import { parseUrl, createUrl, URL_TYPES } from './lib/url'
 import { cryptoDrive } from './lib/drive'
 import { Hyperdrive } from './lib/types'
@@ -82,6 +82,7 @@ export class CertaCrypt {
     this.graph.codec.registerImpl((data) => new UserKey(data))
     this.graph.codec.registerImpl((data) => new UserProfile(data))
     this.graph.codec.registerImpl((data) => new UserRoot(data))
+    this.graph.codec.registerImpl((data) => new JsonGraphObject(data))
 
     this.graph.factory.register(REFERRER_VIEW, (db, codec, tr) => new ReferrerView(<CryptoCore>db, codec, this.graph.factory, tr))
   }

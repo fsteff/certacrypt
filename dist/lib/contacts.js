@@ -14,10 +14,10 @@ exports.CONTACTS_PATHS = {
 };
 var FriendState;
 (function (FriendState) {
-    FriendState[FriendState["NONE"] = 0] = "NONE";
-    FriendState[FriendState["REQUEST_SENT"] = 1] = "REQUEST_SENT";
-    FriendState[FriendState["REQUEST_RECEIVED"] = 2] = "REQUEST_RECEIVED";
-    FriendState[FriendState["FRIENDS"] = 3] = "FRIENDS";
+    FriendState["NONE"] = "none";
+    FriendState["REQUEST_SENT"] = "sent";
+    FriendState["REQUEST_RECEIVED"] = "received";
+    FriendState["FRIENDS"] = "friends";
 })(FriendState = exports.FriendState || (exports.FriendState = {}));
 class Contacts {
     constructor(graph, socialRoot, user, cacheDb) {
@@ -46,7 +46,7 @@ class Contacts {
     async addFriend(user) {
         const friends = await this.friends;
         friends.addEdgeTo(user.publicRoot, communication_1.Communication.getUserLabel(user));
-        await this.graph.put(this.socialRoot);
+        await this.graph.put(friends);
         const comm = await communication_1.Communication.GetOrInitUserCommunication(this.graph, this.socialRoot, this.cacheDb, this.user, user);
         await comm.sendFriendRequest(friends);
     }

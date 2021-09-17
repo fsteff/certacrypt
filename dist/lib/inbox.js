@@ -19,8 +19,10 @@ class Inbox {
             .filter((edge) => {
             const box = edge.metadata.envelope;
             const key = this.crypto.tryOpenEnvelope(box);
-            if (Buffer.isBuffer(key))
+            if (Buffer.isBuffer(key)) {
+                // console.log('registering key for envelope ' + edge.ref + '@' + edge.feed.toString('hex') + ': ' + key.toString('hex').substr(0, 2) + '...')
                 this.crypto.registerKey(key, { index: edge.ref, feed: edge.feed.toString('hex'), type: certacrypt_crypto_1.Cipher.ChaCha20_Stream });
+            }
             return Buffer.isBuffer(key);
         })
             .map(async (edge) => {
@@ -48,6 +50,9 @@ class Inbox {
         };
         this.inbox.addEdge(edge);
         await this.graph.put(this.inbox);
+        // safety check to make sure certacrypt-graph doesn't ever inject the key
+        if (this.inbox.getEdges().find((e) => { var _a; return !!((_a = e.metadata) === null || _a === void 0 ? void 0 : _a['key']); }))
+            throw new Error('envelope edge has key');
     }
     getVersion() {
         return this.inbox.getVersion();
