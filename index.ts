@@ -1,5 +1,5 @@
 import { Cipher, ICrypto, DefaultCrypto } from 'certacrypt-crypto'
-import { CertaCryptGraph } from 'certacrypt-graph'
+import { CertaCryptGraph, SHARE_GRAPHOBJECT } from 'certacrypt-graph'
 import { ShareGraphObject, SHARE_VIEW } from 'certacrypt-graph'
 import { Core, Corestore, GraphObject, SimpleGraphObject, Vertex, IVertex } from 'hyper-graphdb'
 import * as GraphObjects from './lib/graphObjects'
@@ -171,7 +171,25 @@ export class CertaCrypt {
     debug(await this.debugDrawGraph())
   }
 
-  public async drive(rootDir: Vertex<GraphObjects.Directory>): Promise<Hyperdrive> {
+  public async drive(rootDir: Vertex<GraphObjects.Directory> | string): Promise<Hyperdrive> {
+    if(typeof rootDir === 'string') {
+      const { feed, id, key } = parseUrl(rootDir)
+      const vertex = await this.graph.get(id, feed, key)
+      rootDir = <Vertex<GraphObjects.Directory>> vertex
+      /*if(vertex.getContent()?.typeName === SHARE_GRAPHOBJECT) {
+        const dir = await this.graph.queryAtVertex(vertex).out().vertices()
+        if(dir.length !== 1 || dir[0].getContent()?.typeName !== GraphObjects.GraphObjectTypeNames.DIRECTORY) {
+          throw new Error('expected exactly one shared directory, got ' + dir.map(v => v.getContent()?.typeName))
+        }
+        rootDir = <Vertex<GraphObjects.Directory>> dir[0]
+      } else if (vertex.getContent()?.typeName === GraphObjects.GraphObjectTypeNames.DIRECTORY) {
+        rootDir = <Vertex<GraphObjects.Directory>> vertex
+      } else {
+        throw new Error('expected a directory from the passed drive url, got ' + vertex.getContent()?.typeName)
+      }*/
+
+      debug(await this.debugDrawGraph(rootDir))
+    }
     return cryptoDrive(this.corestore, this.graph, this.crypto, rootDir)
   }
 

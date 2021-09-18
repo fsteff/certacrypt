@@ -173,6 +173,23 @@ class CertaCrypt {
         debug_1.debug(await this.debugDrawGraph());
     }
     async drive(rootDir) {
+        if (typeof rootDir === 'string') {
+            const { feed, id, key } = url_1.parseUrl(rootDir);
+            const vertex = await this.graph.get(id, feed, key);
+            rootDir = vertex;
+            /*if(vertex.getContent()?.typeName === SHARE_GRAPHOBJECT) {
+              const dir = await this.graph.queryAtVertex(vertex).out().vertices()
+              if(dir.length !== 1 || dir[0].getContent()?.typeName !== GraphObjects.GraphObjectTypeNames.DIRECTORY) {
+                throw new Error('expected exactly one shared directory, got ' + dir.map(v => v.getContent()?.typeName))
+              }
+              rootDir = <Vertex<GraphObjects.Directory>> dir[0]
+            } else if (vertex.getContent()?.typeName === GraphObjects.GraphObjectTypeNames.DIRECTORY) {
+              rootDir = <Vertex<GraphObjects.Directory>> vertex
+            } else {
+              throw new Error('expected a directory from the passed drive url, got ' + vertex.getContent()?.typeName)
+            }*/
+            debug_1.debug(await this.debugDrawGraph(rootDir));
+        }
         return drive_1.cryptoDrive(this.corestore, this.graph, this.crypto, rootDir);
     }
     async getUserByUrl(url) {
