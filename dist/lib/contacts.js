@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.ContactsView = exports.Contacts = exports.FriendState = exports.CONTACTS_PATHS = exports.CONTACTS_VIEW = void 0;
+exports.VirtualContactVertex = exports.ContactProfile = exports.ContactsView = exports.Contacts = exports.FriendState = exports.CONTACTS_PATHS = exports.CONTACTS_VIEW = void 0;
 const hyper_graphdb_1 = require("hyper-graphdb");
 const user_1 = require("./user");
 const graphObjects_1 = require("./graphObjects");
@@ -186,6 +186,7 @@ class ContactsView extends hyper_graphdb_1.View {
 exports.ContactsView = ContactsView;
 class ContactProfile extends graphObjects_1.UserProfile {
 }
+exports.ContactProfile = ContactProfile;
 class VirtualContactVertex {
     constructor(publicUrl, userProfile) {
         this.publicUrl = publicUrl;
@@ -203,4 +204,5 @@ class VirtualContactVertex {
         throw new Error('Method not implemented.');
     }
 }
+exports.VirtualContactVertex = VirtualContactVertex;
 //# sourceMappingURL=contacts.js.map

@@ -2,7 +2,7 @@ import { Cipher, ICrypto, DefaultCrypto } from 'certacrypt-crypto'
 import { CertaCryptGraph } from 'certacrypt-graph'
 import { ShareGraphObject, SHARE_VIEW } from 'certacrypt-graph'
 import { Core, Corestore, GraphObject, SimpleGraphObject, Vertex, IVertex } from 'hyper-graphdb'
-import { Directory, File, Thombstone, PreSharedGraphObject, UserKey, UserProfile, UserRoot, JsonGraphObject } from './lib/graphObjects'
+import * as GraphObjects from './lib/graphObjects'
 import { parseUrl, createUrl, URL_TYPES } from './lib/url'
 import { cryptoDrive } from './lib/drive'
 import { Hyperdrive } from './lib/types'
@@ -12,10 +12,10 @@ import { CryptoCore } from 'certacrypt-graph'
 import { User, USER_PATHS } from './lib/user'
 import { Inbox } from './lib/inbox'
 import { CacheDB } from './lib/cacheDB'
-import { CONTACTS_VIEW, ContactsView, Contacts, CONTACTS_PATHS } from './lib/contacts'
+import { CONTACTS_VIEW, ContactsView, Contacts, ContactProfile } from './lib/contacts'
 import { COMM_PATHS } from './lib/communication'
 
-export { Directory, File, ShareGraphObject, Hyperdrive, enableDebugLogging, createUrl, parseUrl, URL_TYPES, User, Inbox }
+export { GraphObjects, ShareGraphObject, Hyperdrive, enableDebugLogging, createUrl, parseUrl, URL_TYPES, User, Inbox, Contacts, ContactProfile }
 
 export class CertaCrypt {
   readonly corestore: Corestore
@@ -47,8 +47,8 @@ export class CertaCrypt {
       this.graph = new CertaCryptGraph(corestore, feed, crypto)
       this.graph.get(id, feed, key).then(resolveRoot)
       this.sessionRoot.then(async (root) => {
-        const secret = <Vertex<UserKey>>await this.path(USER_PATHS.IDENTITY_SECRET)
-        const publicRoot = <Vertex<UserRoot>>await this.path(USER_PATHS.PUBLIC)
+        const secret = <Vertex<GraphObjects.UserKey>>await this.path(USER_PATHS.IDENTITY_SECRET)
+        const publicRoot = <Vertex<GraphObjects.UserRoot>>await this.path(USER_PATHS.PUBLIC)
         const user = new User(publicRoot, this.graph, secret)
         resolveUser(user)
 
@@ -78,14 +78,13 @@ export class CertaCrypt {
       return contacts
     })
 
-    this.graph.codec.registerImpl((data) => new File(data))
-    this.graph.codec.registerImpl((data) => new Directory(data))
-    this.graph.codec.registerImpl((data) => new Thombstone(data))
-    this.graph.codec.registerImpl((data) => new PreSharedGraphObject(data))
-    this.graph.codec.registerImpl((data) => new UserKey(data))
-    this.graph.codec.registerImpl((data) => new UserProfile(data))
-    this.graph.codec.registerImpl((data) => new UserRoot(data))
-    this.graph.codec.registerImpl((data) => new JsonGraphObject(data))
+    for (const key in GraphObjects) {
+      const Constr = getConstructor(GraphObjects[key])
+      if(Constr) {
+        this.graph.codec.registerImpl(Constr)
+        debug('Registered GraphObject ' + GraphObjects[key]?.name)
+      }
+    }
 
     this.graph.factory.register(REFERRER_VIEW, (db, codec, tr) => new ReferrerView(<CryptoCore>db, codec, this.graph.factory, tr))
   }
@@ -172,13 +171,13 @@ export class CertaCrypt {
     debug(await this.debugDrawGraph())
   }
 
-  public async drive(rootDir: Vertex<Directory>): Promise<Hyperdrive> {
+  public async drive(rootDir: Vertex<GraphObjects.Directory>): Promise<Hyperdrive> {
     return cryptoDrive(this.corestore, this.graph, this.crypto, rootDir)
   }
 
   public async getUserByUrl(url: string) {
     const { feed, id, key } = parseUrl(url)
-    const root = <Vertex<UserRoot>>await this.graph.get(id, feed, key)
+    const root = <Vertex<GraphObjects.UserRoot>>await this.graph.get(id, feed, key)
     return new User(root, this.graph)
   }
 
@@ -202,5 +201,16 @@ export class CertaCrypt {
       }
     }
     return graph
+  }
+}
+
+type Constructor<T> = new (...args: any[]) => T
+function getConstructor<T extends GraphObject>(f: Constructor<T>) {
+  if(! f?.constructor?.name) return
+  try {
+    const inst = new f()
+    return (...args) => new f(...args)
+  } catch {
+    // return undefined
   }
 }

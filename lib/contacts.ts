@@ -185,11 +185,11 @@ export class ContactsView extends View<GraphObject> {
   }
 }
 
-class ContactProfile extends UserProfile {
+export class ContactProfile extends UserProfile {
   publicUrl: string
 }
 
-class VirtualContactVertex implements IVertex<ContactProfile> {
+export class VirtualContactVertex implements IVertex<ContactProfile> {
   constructor(readonly publicUrl: string, readonly userProfile?: UserProfile) { }
 
   getContent(): ContactProfile {

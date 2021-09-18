@@ -1,12 +1,30 @@
 "use strict";
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    Object.defineProperty(o, k2, { enumerable: true, get: function() { return m[k]; } });
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || function (mod) {
+    if (mod && mod.__esModule) return mod;
+    var result = {};
+    if (mod != null) for (var k in mod) if (k !== "default" && Object.prototype.hasOwnProperty.call(mod, k)) __createBinding(result, mod, k);
+    __setModuleDefault(result, mod);
+    return result;
+};
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.CertaCrypt = exports.Inbox = exports.User = exports.URL_TYPES = exports.parseUrl = exports.createUrl = exports.enableDebugLogging = exports.ShareGraphObject = exports.File = exports.Directory = void 0;
+exports.CertaCrypt = exports.ContactProfile = exports.Contacts = exports.Inbox = exports.User = exports.URL_TYPES = exports.parseUrl = exports.createUrl = exports.enableDebugLogging = exports.ShareGraphObject = exports.GraphObjects = void 0;
 const certacrypt_graph_1 = require("certacrypt-graph");
 const certacrypt_graph_2 = require("certacrypt-graph");
 Object.defineProperty(exports, "ShareGraphObject", { enumerable: true, get: function () { return certacrypt_graph_2.ShareGraphObject; } });
-const graphObjects_1 = require("./lib/graphObjects");
-Object.defineProperty(exports, "Directory", { enumerable: true, get: function () { return graphObjects_1.Directory; } });
-Object.defineProperty(exports, "File", { enumerable: true, get: function () { return graphObjects_1.File; } });
+const GraphObjects = __importStar(require("./lib/graphObjects"));
+exports.GraphObjects = GraphObjects;
 const url_1 = require("./lib/url");
 Object.defineProperty(exports, "parseUrl", { enumerable: true, get: function () { return url_1.parseUrl; } });
 Object.defineProperty(exports, "createUrl", { enumerable: true, get: function () { return url_1.createUrl; } });
@@ -21,9 +39,12 @@ const inbox_1 = require("./lib/inbox");
 Object.defineProperty(exports, "Inbox", { enumerable: true, get: function () { return inbox_1.Inbox; } });
 const cacheDB_1 = require("./lib/cacheDB");
 const contacts_1 = require("./lib/contacts");
+Object.defineProperty(exports, "Contacts", { enumerable: true, get: function () { return contacts_1.Contacts; } });
+Object.defineProperty(exports, "ContactProfile", { enumerable: true, get: function () { return contacts_1.ContactProfile; } });
 const communication_1 = require("./lib/communication");
 class CertaCrypt {
     constructor(corestore, crypto, sessionUrl) {
+        var _a;
         this.corestore = corestore;
         this.crypto = crypto;
         let resolveRoot, resolveUser, resolveSocialRoot;
@@ -70,14 +91,13 @@ class CertaCrypt {
             await contacts.friends;
             return contacts;
         });
-        this.graph.codec.registerImpl((data) => new graphObjects_1.File(data));
-        this.graph.codec.registerImpl((data) => new graphObjects_1.Directory(data));
-        this.graph.codec.registerImpl((data) => new graphObjects_1.Thombstone(data));
-        this.graph.codec.registerImpl((data) => new graphObjects_1.PreSharedGraphObject(data));
-        this.graph.codec.registerImpl((data) => new graphObjects_1.UserKey(data));
-        this.graph.codec.registerImpl((data) => new graphObjects_1.UserProfile(data));
-        this.graph.codec.registerImpl((data) => new graphObjects_1.UserRoot(data));
-        this.graph.codec.registerImpl((data) => new graphObjects_1.JsonGraphObject(data));
+        for (const key in GraphObjects) {
+            const Constr = getConstructor(GraphObjects[key]);
+            if (Constr) {
+                this.graph.codec.registerImpl(Constr);
+                debug_1.debug('Registered GraphObject ' + ((_a = GraphObjects[key]) === null || _a === void 0 ? void 0 : _a.name));
+            }
+        }
         this.graph.factory.register(referrer_1.REFERRER_VIEW, (db, codec, tr) => new referrer_1.ReferrerView(db, codec, this.graph.factory, tr));
     }
     async initSession() {
@@ -185,4 +205,16 @@ class CertaCrypt {
     }
 }
 exports.CertaCrypt = CertaCrypt;
+function getConstructor(f) {
+    var _a;
+    if (!((_a = f === null || f === void 0 ? void 0 : f.constructor) === null || _a === void 0 ? void 0 : _a.name))
+        return;
+    try {
+        const inst = new f();
+        return (...args) => new f(...args);
+    }
+    catch (_b) {
+        // return undefined
+    }
+}
 //# sourceMappingURL=index.js.map
