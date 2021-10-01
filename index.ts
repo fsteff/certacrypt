@@ -12,10 +12,10 @@ import { CryptoCore } from 'certacrypt-graph'
 import { User, USER_PATHS } from './lib/user'
 import { Inbox } from './lib/inbox'
 import { CacheDB } from './lib/cacheDB'
-import { CONTACTS_VIEW, ContactsView, Contacts, ContactProfile } from './lib/contacts'
+import { CONTACTS_VIEW, ContactsView, FriendState, Contacts, ContactProfile } from './lib/contacts'
 import { COMM_PATHS } from './lib/communication'
 
-export { GraphObjects, ShareGraphObject, Hyperdrive, enableDebugLogging, createUrl, parseUrl, URL_TYPES, User, Inbox, Contacts, ContactProfile }
+export { GraphObjects, ShareGraphObject, Hyperdrive, enableDebugLogging, createUrl, parseUrl, URL_TYPES, User, Inbox, Contacts, ContactProfile , FriendState}
 
 export class CertaCrypt {
   readonly corestore: Corestore

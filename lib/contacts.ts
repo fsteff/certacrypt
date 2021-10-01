@@ -50,6 +50,8 @@ export class Contacts {
   }
 
   async getFriendState(user: User): Promise<FriendState> {
+    if(this.user.publicRoot.equals(user.publicRoot)) return FriendState.NONE
+
     const channel = await Communication.GetOrInitUserCommunication(this.graph, this.socialRoot, this.cacheDb, this.user, user)
     const received = (await channel.getRequests()).filter((r) => r.type === 'FriendRequest').length > 0
     const sent = (await channel.getSentRequests()).filter((r) => r.type === 'FriendRequest').length > 0
