@@ -45,7 +45,7 @@ export class Inbox {
   }
 
   async postEnvelope(msg: Vertex<GraphObject>, receipient: User) {
-    const pubkey = receipient.getPublicKey()
+    const pubkey = await receipient.getPublicKey()
     const secret = this.graph.getKey(msg)
     const box = this.crypto.sealEnvelope(pubkey, secret)
     const edge: EnvelopeEdge = {

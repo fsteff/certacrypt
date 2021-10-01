@@ -25,7 +25,7 @@ class User {
         if (((_a = publicRoot.getContent()) === null || _a === void 0 ? void 0 : _a.typeName) !== graphObjects_1.GraphObjectTypeNames.USERROOT) {
             throw new Error('passed vertex is not of type UserRoot');
         }
-        graph
+        this.identity = graph
             .queryAtVertex(this.publicRoot)
             .out(exports.USER_PATHS.PUBLIC_TO_IDENTITY)
             .matches((v) => !!v.getContent() && v.getContent().typeName === graphObjects_1.GraphObjectTypeNames.USERKEY)
@@ -35,12 +35,13 @@ class User {
                 throw new Error('User Root has no Identity vertex');
             }
             else {
-                this.identity = results[0];
+                const identity = results[0];
                 if (identitySecret) {
                     const secret = Buffer.from(this.identitySecret.getContent().key);
-                    const pub = Buffer.from(this.identity.getContent().key);
+                    const pub = Buffer.from(identity.getContent().key);
                     this.crypto.registerUserKeyPair(pub, secret);
                 }
+                return identity;
             }
         });
     }
@@ -82,8 +83,16 @@ class User {
         });
         return new inbox_1.Inbox(this.crypto, this.graph, inboxVertex);
     }
-    getPublicKey() {
-        return Buffer.from(this.identity.getContent().key);
+    async getPublicKey() {
+        return Buffer.from((await this.identity).getContent().key);
+    }
+    getSecretKey() {
+        var _a, _b;
+        let key = (_b = (_a = this.identitySecret) === null || _a === void 0 ? void 0 : _a.getContent()) === null || _b === void 0 ? void 0 : _b.key;
+        if (key)
+            return Buffer.from(key);
+        else
+            return null;
     }
     getPublicUrl() {
         return url_1.createUrl(this.publicRoot, this.graph.getKey(this.publicRoot), undefined, url_1.URL_TYPES.USER);

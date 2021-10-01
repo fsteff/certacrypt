@@ -17,7 +17,7 @@ export const USER_PATHS = {
 }
 
 export class User {
-  private identity: Vertex<UserKey>
+  private identity: Promise<Vertex<UserKey>>
   private crypto: ICrypto
 
   constructor(readonly publicRoot: Vertex<UserRoot>, readonly graph: CertaCryptGraph, private readonly identitySecret?: Vertex<UserKey>) {
@@ -27,7 +27,7 @@ export class User {
       throw new Error('passed vertex is not of type UserRoot')
     }
 
-    graph
+    this.identity = graph
       .queryAtVertex(this.publicRoot)
       .out(USER_PATHS.PUBLIC_TO_IDENTITY)
       .matches((v) => !!v.getContent() && v.getContent().typeName === GraphObjectTypeNames.USERKEY)
@@ -36,12 +36,13 @@ export class User {
         if (results.length === 0) {
           throw new Error('User Root has no Identity vertex')
         } else {
-          this.identity = <Vertex<UserKey>>results[0]
+          const identity = <Vertex<UserKey>>results[0]
           if (identitySecret) {
             const secret = Buffer.from(this.identitySecret.getContent().key)
-            const pub = Buffer.from(this.identity.getContent().key)
+            const pub = Buffer.from(identity.getContent().key)
             this.crypto.registerUserKeyPair(pub, secret)
           }
+          return identity
         }
       })
   }
@@ -94,8 +95,14 @@ export class User {
     return new Inbox(this.crypto, this.graph, inboxVertex)
   }
 
-  getPublicKey() {
-    return Buffer.from(this.identity.getContent().key)
+  async getPublicKey() {
+    return Buffer.from((await this.identity).getContent().key)
+  }
+
+  getSecretKey(): Buffer|null {
+    let key = this.identitySecret?.getContent()?.key
+    if (key) return Buffer.from(key)
+    else return null
   }
 
   getPublicUrl() {

@@ -54,14 +54,14 @@ export class CertaCrypt {
 
         const socialRoot = <Vertex<GraphObject>>await this.path(COMM_PATHS.SOCIAL)
         resolveSocialRoot(socialRoot)
-      })
+      }).catch(console.error)
     } else {
       this.graph = new CertaCryptGraph(corestore, undefined, crypto)
       this.initSession().then(({ root, user, commRoot: socialRoot }) => {
         resolveRoot(root)
         resolveUser(user)
         resolveSocialRoot(socialRoot)
-      })
+      }).catch(console.error)
     }
 
     this.cacheDb = new Promise(async (resolve) => {

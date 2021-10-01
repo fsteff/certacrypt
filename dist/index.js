@@ -19,7 +19,7 @@ var __importStar = (this && this.__importStar) || function (mod) {
     return result;
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.CertaCrypt = exports.ContactProfile = exports.Contacts = exports.Inbox = exports.User = exports.URL_TYPES = exports.parseUrl = exports.createUrl = exports.enableDebugLogging = exports.ShareGraphObject = exports.GraphObjects = void 0;
+exports.CertaCrypt = exports.FriendState = exports.ContactProfile = exports.Contacts = exports.Inbox = exports.User = exports.URL_TYPES = exports.parseUrl = exports.createUrl = exports.enableDebugLogging = exports.ShareGraphObject = exports.GraphObjects = void 0;
 const certacrypt_graph_1 = require("certacrypt-graph");
 const certacrypt_graph_2 = require("certacrypt-graph");
 Object.defineProperty(exports, "ShareGraphObject", { enumerable: true, get: function () { return certacrypt_graph_2.ShareGraphObject; } });
@@ -39,6 +39,7 @@ const inbox_1 = require("./lib/inbox");
 Object.defineProperty(exports, "Inbox", { enumerable: true, get: function () { return inbox_1.Inbox; } });
 const cacheDB_1 = require("./lib/cacheDB");
 const contacts_1 = require("./lib/contacts");
+Object.defineProperty(exports, "FriendState", { enumerable: true, get: function () { return contacts_1.FriendState; } });
 Object.defineProperty(exports, "Contacts", { enumerable: true, get: function () { return contacts_1.Contacts; } });
 Object.defineProperty(exports, "ContactProfile", { enumerable: true, get: function () { return contacts_1.ContactProfile; } });
 const communication_1 = require("./lib/communication");
@@ -68,7 +69,7 @@ class CertaCrypt {
                 resolveUser(user);
                 const socialRoot = await this.path(communication_1.COMM_PATHS.SOCIAL);
                 resolveSocialRoot(socialRoot);
-            });
+            }).catch(console.error);
         }
         else {
             this.graph = new certacrypt_graph_1.CertaCryptGraph(corestore, undefined, crypto);
@@ -76,7 +77,7 @@ class CertaCrypt {
                 resolveRoot(root);
                 resolveUser(user);
                 resolveSocialRoot(socialRoot);
-            });
+            }).catch(console.error);
         }
         this.cacheDb = new Promise(async (resolve) => {
             const root = await this.sessionRoot;
