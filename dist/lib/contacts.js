@@ -148,8 +148,7 @@ class ContactsView extends hyper_graphdb_1.View {
         for (const friend of friends) {
             promises.push(
             // get all friends
-            communication_1.Communication.GetOrInitUserCommunication(this.graph, userFriendsRoot, this.cacheDb, this.user, friend)
-                .then(async (channel) => {
+            communication_1.Communication.GetOrInitUserCommunication(this.graph, userFriendsRoot, this.cacheDb, this.user, friend).then(async (channel) => {
                 const contacts = new Array(hyper_graphdb_1.Generator.from([friend]));
                 // get all friend requests (containing urls to their friend list)
                 for (const request of await channel.getRequests()) {

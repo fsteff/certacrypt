@@ -46,7 +46,12 @@ export class Communication {
     await mail.postEnvelope(comm.userInit, addressant)
     await comm.checkInbox(addressant)
 
-    debug('Initialized Communication between ' + ((await user.getProfile())?.username || user.getPublicUrl()) + ' (current user) and ' + ((await addressant.getProfile())?.username || addressant.getPublicUrl()))
+    debug(
+      'Initialized Communication between ' +
+        ((await user.getProfile())?.username || user.getPublicUrl()) +
+        ' (current user) and ' +
+        ((await addressant.getProfile())?.username || addressant.getPublicUrl())
+    )
 
     return comm
   }

@@ -148,7 +148,7 @@ tape_1.default('contacts', async (t) => {
     t.equals(await bobContacts.getFriendState(aliceSeenFromBob), contacts_1.FriendState.FRIENDS);
     const contacts = await bobContacts.getAllContacts();
     t.equals(contacts.length, 2);
-    t.equals(contacts.map(c => c.username).join(', '), ['Alice', 'Caesar'].join(', '));
+    t.equals(contacts.map((c) => c.username).join(', '), ['Alice', 'Caesar'].join(', '));
     cleanup();
     t.end();
 });

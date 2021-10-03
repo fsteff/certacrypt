@@ -1,5 +1,5 @@
 import { HyperGraphDB, Vertex, Corestore, GraphObject } from 'hyper-graphdb'
-import { CertaCryptGraph } from 'certacrypt-graph'
+import { CertaCryptGraph, ShareGraphObject, SHARE_GRAPHOBJECT } from 'certacrypt-graph'
 import { Cipher, ICrypto } from 'certacrypt-crypto'
 import { cryptoCorestore, wrapTrie } from './crypto'
 import { Directory, DriveGraphObject } from './graphObjects'

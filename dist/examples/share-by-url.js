@@ -63,7 +63,7 @@ async function start(app) {
     const drive = await app.drive(driveRoot);
     await drive.promises.writeFile(filename, content);
     console.log('file successfully written');
-    const share = await app.share(driveRoot);
+    const share = await app.createShare(driveRoot);
     const url = url_1.createUrl(share, app.graph.getKey(share));
     console.log('drive can be shared using the url ' + url);
     console.log('press any key to end program...');

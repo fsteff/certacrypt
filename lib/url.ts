@@ -6,7 +6,8 @@ export const URL_TYPES = {
   SHARE: 'share',
   SPACE: 'space',
   COMMUNICATION: 'com',
-  CONTACTS: 'contacts'
+  CONTACTS: 'contacts',
+  FILE: 'file'
 }
 
 export function parseUrl(url: string) {
@@ -17,6 +18,7 @@ export function parseUrl(url: string) {
   const fileKey = parsed.searchParams.get('fkey')
   const singleKey = parsed.searchParams.get('key')
   const type = parsed.searchParams.get('type')
+  const name = parsed.searchParams.get('name')
 
   let mkey: Buffer | undefined, fkey: Buffer | undefined, key: Buffer | undefined
   let id: number | undefined, version: number | undefined
@@ -26,11 +28,12 @@ export function parseUrl(url: string) {
   if (path && path.length > 1 && /^\d+$/.test(path.substr(1))) id = parseInt(path.substr(1))
   if (versionStr && /^\d+$/.test(versionStr)) version = parseInt(versionStr)
 
-  return { feed, path, id, mkey, fkey, key, version, type }
+  return { feed, path, id, mkey, fkey, key, version, type, name }
 }
 
-export function createUrl(vertex: Vertex<GraphObject>, key: Buffer, version?: number, type?: string) {
+export function createUrl(vertex: Vertex<GraphObject>, key: Buffer, version?: number, type?: string, name?: string) {
   let versionStr = version ? '+' + version : ''
   let typeStr = type ? '&type=' + type : ''
-  return `hyper://${vertex.getFeed()}${versionStr}/${vertex.getId()}?key=${key.toString('hex')}${typeStr}`
+  let nameStr = name ? '&name=' + name : ''
+  return `hyper://${vertex.getFeed()}${versionStr}/${vertex.getId()}?key=${key.toString('hex')}${typeStr}${nameStr}`
 }

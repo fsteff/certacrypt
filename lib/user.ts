@@ -99,7 +99,7 @@ export class User {
     return Buffer.from((await this.identity).getContent().key)
   }
 
-  getSecretKey(): Buffer|null {
+  getSecretKey(): Buffer | null {
     let key = this.identitySecret?.getContent()?.key
     if (key) return Buffer.from(key)
     else return null
@@ -137,14 +137,14 @@ export class User {
 
   async setProfile(profile: UserProfile) {
     if (!this.publicRoot.getWriteable()) throw new Error('cannot write profile, hypercore is not writeable')
-    if(!(profile instanceof UserProfile)) throw new Error('profile has to be of type UserProfile')
+    if (!(profile instanceof UserProfile)) throw new Error('profile has to be of type UserProfile')
 
     let vertex = <Vertex<UserProfile>>await this.graph
       .queryAtVertex(this.publicRoot)
       .out(USER_PATHS.PUBLIC_TO_PROFILE)
       .vertices()
       .then((results) => (results.length > 0 ? results[0] : undefined))
-    if(vertex) {
+    if (vertex) {
       vertex.setContent(profile)
       await this.graph.put(vertex)
     }
@@ -160,9 +160,9 @@ export class User {
   async getProfile(): Promise<UserProfile | undefined> {
     //await this.graph.updateVertex(this.publicRoot)
     let results = <Vertex<UserProfile>[]>await this.graph.queryAtVertex(this.publicRoot).out(USER_PATHS.PUBLIC_TO_PROFILE).vertices()
-    for(const profileVertex of results) {
+    for (const profileVertex of results) {
       const profile = profileVertex.getContent()
-      if(profile?.typeName === GraphObjectTypeNames.USERPROFILE) {
+      if (profile?.typeName === GraphObjectTypeNames.USERPROFILE) {
         return profile
       }
     }

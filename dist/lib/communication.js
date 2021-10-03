@@ -45,7 +45,10 @@ class Communication {
         const mail = await user.getInbox();
         await mail.postEnvelope(comm.userInit, addressant);
         await comm.checkInbox(addressant);
-        debug_1.debug('Initialized Communication between ' + (((_a = (await user.getProfile())) === null || _a === void 0 ? void 0 : _a.username) || user.getPublicUrl()) + ' (current user) and ' + (((_b = (await addressant.getProfile())) === null || _b === void 0 ? void 0 : _b.username) || addressant.getPublicUrl()));
+        debug_1.debug('Initialized Communication between ' +
+            (((_a = (await user.getProfile())) === null || _a === void 0 ? void 0 : _a.username) || user.getPublicUrl()) +
+            ' (current user) and ' +
+            (((_b = (await addressant.getProfile())) === null || _b === void 0 ? void 0 : _b.username) || addressant.getPublicUrl()));
         return comm;
     }
     static async GetOrInitUserCommunication(graph, socialRoot, cache, user, addressant) {

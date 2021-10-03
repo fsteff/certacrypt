@@ -50,7 +50,7 @@ export class Contacts {
   }
 
   async getFriendState(user: User): Promise<FriendState> {
-    if(this.user.publicRoot.equals(user.publicRoot)) return FriendState.NONE
+    if (this.user.publicRoot.equals(user.publicRoot)) return FriendState.NONE
 
     const channel = await Communication.GetOrInitUserCommunication(this.graph, this.socialRoot, this.cacheDb, this.user, user)
     const received = (await channel.getRequests()).filter((r) => r.type === 'FriendRequest').length > 0
@@ -118,12 +118,12 @@ export class ContactsView extends View<GraphObject> {
       return this.getAllContacts(vertex)
     } else {
       vertices = []
-  //    if(!label) {
-  //      const contacts = (await this.getAllContacts(vertex)).values()
-  //      for await (const contact of contacts) {
-  //        vertices.push(Promise.resolve(contact))
-  //      }
-  //    }
+      //    if(!label) {
+      //      const contacts = (await this.getAllContacts(vertex)).values()
+      //      for await (const contact of contacts) {
+      //        vertices.push(Promise.resolve(contact))
+      //      }
+      //    }
       for (const edge of edges) {
         const feed = edge.feed?.toString('hex') || <string>vertex.getFeed()
         // TODO: version pinning does not work yet
@@ -147,28 +147,27 @@ export class ContactsView extends View<GraphObject> {
     for (const friend of friends) {
       promises.push(
         // get all friends
-        Communication.GetOrInitUserCommunication(this.graph, userFriendsRoot, this.cacheDb, this.user, friend)
-          .then(async (channel) => {
-            const contacts = new Array<Generator<User>>(Generator.from([friend]))
-            // get all friend requests (containing urls to their friend list)
-            for (const request of await channel.getRequests()) {
-              // parse url to the friend list
-              debug('found friend request from ' + channel.userInit.getContent().userUrl)
-              const { feed, id, key, type } = parseUrl(request.contactsUrl)
-              if (type !== URL_TYPES.CONTACTS) throw new Error('URL is not of type Contacts: ' + type)
-              // load vertex from url - TODO: use existing transactions(?)
-              const userFriendsRoot = <Vertex<GraphObject>>await this.graph.get(id, feed, key)
-              // get friends from list and instantiate users
-              debug('loading friends of user ' + channel.userInit.getContent().userUrl)
-              const userFriends = this.graph
-                .queryAtVertex(userFriendsRoot, this)
-                .out()
-                .generator()
-                .map((vertex: Vertex<UserRoot>) => new User(vertex, this.graph))
-              contacts.push(userFriends)
-            }
-            return Generator.from(contacts).flatMap(async (gen) => await gen.destruct(onError))
-          })
+        Communication.GetOrInitUserCommunication(this.graph, userFriendsRoot, this.cacheDb, this.user, friend).then(async (channel) => {
+          const contacts = new Array<Generator<User>>(Generator.from([friend]))
+          // get all friend requests (containing urls to their friend list)
+          for (const request of await channel.getRequests()) {
+            // parse url to the friend list
+            debug('found friend request from ' + channel.userInit.getContent().userUrl)
+            const { feed, id, key, type } = parseUrl(request.contactsUrl)
+            if (type !== URL_TYPES.CONTACTS) throw new Error('URL is not of type Contacts: ' + type)
+            // load vertex from url - TODO: use existing transactions(?)
+            const userFriendsRoot = <Vertex<GraphObject>>await this.graph.get(id, feed, key)
+            // get friends from list and instantiate users
+            debug('loading friends of user ' + channel.userInit.getContent().userUrl)
+            const userFriends = this.graph
+              .queryAtVertex(userFriendsRoot, this)
+              .out()
+              .generator()
+              .map((vertex: Vertex<UserRoot>) => new User(vertex, this.graph))
+            contacts.push(userFriends)
+          }
+          return Generator.from(contacts).flatMap(async (gen) => await gen.destruct(onError))
+        })
       )
     }
 
@@ -192,7 +191,7 @@ export class ContactProfile extends UserProfile {
 }
 
 export class VirtualContactVertex implements IVertex<ContactProfile> {
-  constructor(readonly publicUrl: string, readonly userProfile?: UserProfile) { }
+  constructor(readonly publicUrl: string, readonly userProfile?: UserProfile) {}
 
   getContent(): ContactProfile {
     const profile = new ContactProfile()

@@ -20,6 +20,7 @@ var __importStar = (this && this.__importStar) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.CertaCrypt = exports.FriendState = exports.ContactProfile = exports.Contacts = exports.Inbox = exports.User = exports.URL_TYPES = exports.parseUrl = exports.createUrl = exports.enableDebugLogging = exports.ShareGraphObject = exports.GraphObjects = void 0;
+const certacrypt_crypto_1 = require("certacrypt-crypto");
 const certacrypt_graph_1 = require("certacrypt-graph");
 const certacrypt_graph_2 = require("certacrypt-graph");
 Object.defineProperty(exports, "ShareGraphObject", { enumerable: true, get: function () { return certacrypt_graph_2.ShareGraphObject; } });
@@ -62,22 +63,26 @@ class CertaCrypt {
             const { feed, id, key } = url_1.parseUrl(sessionUrl);
             this.graph = new certacrypt_graph_1.CertaCryptGraph(corestore, feed, crypto);
             this.graph.get(id, feed, key).then(resolveRoot);
-            this.sessionRoot.then(async (root) => {
+            this.sessionRoot
+                .then(async (root) => {
                 const secret = await this.path(user_1.USER_PATHS.IDENTITY_SECRET);
                 const publicRoot = await this.path(user_1.USER_PATHS.PUBLIC);
                 const user = new user_1.User(publicRoot, this.graph, secret);
                 resolveUser(user);
                 const socialRoot = await this.path(communication_1.COMM_PATHS.SOCIAL);
                 resolveSocialRoot(socialRoot);
-            }).catch(console.error);
+            })
+                .catch(console.error);
         }
         else {
             this.graph = new certacrypt_graph_1.CertaCryptGraph(corestore, undefined, crypto);
-            this.initSession().then(({ root, user, commRoot: socialRoot }) => {
+            this.initSession()
+                .then(({ root, user, commRoot: socialRoot }) => {
                 resolveRoot(root);
                 resolveUser(user);
                 resolveSocialRoot(socialRoot);
-            }).catch(console.error);
+            })
+                .catch(console.error);
         }
         this.cacheDb = new Promise(async (resolve) => {
             const root = await this.sessionRoot;
@@ -86,11 +91,26 @@ class CertaCrypt {
             this.graph.factory.register(contacts_1.CONTACTS_VIEW, (_, codec, tr) => new contacts_1.ContactsView(cache, this.graph, user, codec, this.graph.factory, tr));
             resolve(cache);
         });
-        this.contacts = Promise.all([this.socialRoot, this.user, this.cacheDb])
-            .then(async ([socialRoot, user, cacheDb]) => {
+        this.contacts = Promise.all([this.socialRoot, this.user, this.cacheDb]).then(async ([socialRoot, user, cacheDb]) => {
             const contacts = new contacts_1.Contacts(this.graph, socialRoot, user, cacheDb);
             await contacts.friends;
             return contacts;
+        });
+        this.tmp = this.path('tmp')
+            .catch(async () => {
+            const root = await this.sessionRoot;
+            const dir = this.graph.create();
+            dir.setContent(new GraphObjects.Directory());
+            await this.graph.put(dir);
+            root.addEdgeTo(dir, 'tmp');
+            await this.graph.put(root);
+            return dir;
+        })
+            .then(async (tmp) => {
+            return {
+                rootDir: tmp,
+                drive: await drive_1.cryptoDrive(this.corestore, this.graph, this.crypto, tmp)
+            };
         });
         for (const key in GraphObjects) {
             const Constr = getConstructor(GraphObjects[key]);
@@ -107,9 +127,11 @@ class CertaCrypt {
         //const contacts = this.graph.create<SimpleGraphObject>()
         const shares = this.graph.create();
         const commRoot = this.graph.create();
-        await this.graph.put([root, apps, shares, commRoot]);
+        const tmp = this.graph.create();
+        tmp.setContent(new GraphObjects.Directory());
+        await this.graph.put([root, apps, shares, commRoot, tmp]);
         root.addEdgeTo(apps, 'apps');
-        //root.addEdgeTo(contacts, 'contacts')
+        root.addEdgeTo(tmp, 'tmp');
         root.addEdgeTo(shares, 'shares');
         root.addEdgeTo(commRoot, communication_1.COMM_PATHS.SOCIAL);
         root.addEdgeTo(commRoot, 'contacts', undefined, undefined, contacts_1.CONTACTS_VIEW);
@@ -135,7 +157,7 @@ class CertaCrypt {
                 throw new Error('path query requires unique results');
         });
     }
-    async share(vertex, reuseIfExists = true) {
+    async createShare(vertex, reuseIfExists = true) {
         const shares = await this.path('/shares');
         let shareVertex;
         if (reuseIfExists) {
@@ -153,12 +175,7 @@ class CertaCrypt {
             }
         }
         if (!shareVertex) {
-            shareVertex = this.graph.create();
-            const content = new certacrypt_graph_2.ShareGraphObject();
-            content.info = 'share by URL';
-            shareVertex.setContent(content);
-            shareVertex.addEdgeTo(vertex, 'share');
-            await this.graph.put(shareVertex);
+            shareVertex = await this.graph.createShare(vertex, { info: 'share by URL', owner: (await this.user).getPublicUrl() });
             shares.addEdgeTo(shareVertex, 'url', undefined, undefined, certacrypt_graph_2.SHARE_VIEW);
             await this.graph.put(shares);
             debug_1.debug(`created share to vertex ${vertex.getFeed()}/${vertex.getId()} at ${shareVertex.getFeed()}/${shareVertex.getId()}`);
@@ -173,22 +190,32 @@ class CertaCrypt {
         debug_1.debug(`mounted share from URL ${url} to ${target.getFeed()}/${target.getId()}->${label}`);
         debug_1.debug(await this.debugDrawGraph());
     }
+    getFileUrl(vertex, name) {
+        return url_1.createUrl(vertex, this.graph.getKey(vertex), vertex.getVersion(), url_1.URL_TYPES.FILE, name);
+    }
+    async getFileByUrl(url) {
+        const { feed, id, key, name, version } = url_1.parseUrl(url);
+        this.crypto.registerKey(key, { feed, index: id, type: certacrypt_crypto_1.Cipher.ChaCha20_Stream });
+        const tmp = await this.tmp;
+        const vertex = await this.graph.core.get(feed, id, this.graph.codec, version);
+        const label = encodeURIComponent(url);
+        if (tmp.rootDir.getEdges(label).length === 0) {
+            tmp.rootDir.addEdgeTo(vertex, label);
+            await this.graph.put(tmp.rootDir);
+        }
+        return { vertex, name, stat, readFile };
+        async function stat() {
+            return tmp.drive.promises.lstat(label, { db: { encrypted: true } });
+        }
+        async function readFile(opts) {
+            return tmp.drive.promises.readFile(label, opts);
+        }
+    }
     async drive(rootDir) {
         if (typeof rootDir === 'string') {
             const { feed, id, key } = url_1.parseUrl(rootDir);
             const vertex = await this.graph.get(id, feed, key);
             rootDir = vertex;
-            /*if(vertex.getContent()?.typeName === SHARE_GRAPHOBJECT) {
-              const dir = await this.graph.queryAtVertex(vertex).out().vertices()
-              if(dir.length !== 1 || dir[0].getContent()?.typeName !== GraphObjects.GraphObjectTypeNames.DIRECTORY) {
-                throw new Error('expected exactly one shared directory, got ' + dir.map(v => v.getContent()?.typeName))
-              }
-              rootDir = <Vertex<GraphObjects.Directory>> dir[0]
-            } else if (vertex.getContent()?.typeName === GraphObjects.GraphObjectTypeNames.DIRECTORY) {
-              rootDir = <Vertex<GraphObjects.Directory>> vertex
-            } else {
-              throw new Error('expected a directory from the passed drive url, got ' + vertex.getContent()?.typeName)
-            }*/
             debug_1.debug(await this.debugDrawGraph(rootDir));
         }
         return drive_1.cryptoDrive(this.corestore, this.graph, this.crypto, rootDir);

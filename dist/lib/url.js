@@ -10,7 +10,8 @@ exports.URL_TYPES = {
     SHARE: 'share',
     SPACE: 'space',
     COMMUNICATION: 'com',
-    CONTACTS: 'contacts'
+    CONTACTS: 'contacts',
+    FILE: 'file'
 };
 function parseUrl(url) {
     const parsed = new URL(url);
@@ -20,6 +21,7 @@ function parseUrl(url) {
     const fileKey = parsed.searchParams.get('fkey');
     const singleKey = parsed.searchParams.get('key');
     const type = parsed.searchParams.get('type');
+    const name = parsed.searchParams.get('name');
     let mkey, fkey, key;
     let id, version;
     if (metaKey)
@@ -32,13 +34,14 @@ function parseUrl(url) {
         id = parseInt(path.substr(1));
     if (versionStr && /^\d+$/.test(versionStr))
         version = parseInt(versionStr);
-    return { feed, path, id, mkey, fkey, key, version, type };
+    return { feed, path, id, mkey, fkey, key, version, type, name };
 }
 exports.parseUrl = parseUrl;
-function createUrl(vertex, key, version, type) {
+function createUrl(vertex, key, version, type, name) {
     let versionStr = version ? '+' + version : '';
     let typeStr = type ? '&type=' + type : '';
-    return `hyper://${vertex.getFeed()}${versionStr}/${vertex.getId()}?key=${key.toString('hex')}${typeStr}`;
+    let nameStr = name ? '&name=' + name : '';
+    return `hyper://${vertex.getFeed()}${versionStr}/${vertex.getId()}?key=${key.toString('hex')}${typeStr}${nameStr}`;
 }
 exports.createUrl = createUrl;
 //# sourceMappingURL=url.js.map

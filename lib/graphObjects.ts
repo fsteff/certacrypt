@@ -1,6 +1,17 @@
 import { GraphObject } from 'hyper-graphdb'
 import { json } from 'codecs'
 
+export enum GraphObjectTypeNames {
+  DIRECTORY = 'CertaCrypt-Directory',
+  FILE = 'CertaCrypt-File',
+  THOMBSTONE = 'CertaCrypt-Thombstone',
+  USERROOT = 'CertaCrypt-UserRoot',
+  USERKEY = 'CertaCrypt-X25519Key',
+  USERPROFILE = 'CertaCrypt-Profile',
+  PRESHARED = 'CertaCrypt-PreShared',
+  JSON = 'CertaCrypt-Json'
+}
+
 export abstract class DriveGraphObject extends GraphObject {
   filename?: string
   trie?: string
@@ -17,17 +28,6 @@ export abstract class DriveGraphObject extends GraphObject {
   serialize(): Buffer {
     return json.encode(this)
   }
-}
-
-export enum GraphObjectTypeNames {
-  DIRECTORY = 'CertaCrypt-Directory',
-  FILE = 'CertaCrypt-File',
-  THOMBSTONE = 'CertaCrypt-Thombstone',
-  USERROOT = 'CertaCrypt-UserRoot',
-  USERKEY = 'CertaCrypt-X25519Key',
-  USERPROFILE = 'CertaCrypt-Profile',
-  PRESHARED = 'CertaCrypt-PreShared',
-  JSON = 'CertaCrypt-Json'
 }
 
 export class File extends DriveGraphObject {

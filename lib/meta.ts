@@ -9,7 +9,7 @@ import MountableHypertrie from 'mountable-hypertrie'
 import { Feed } from 'hyperobjects'
 import { Stat as TrieStat } from 'hyperdrive-schemas'
 import { parseUrl } from './url'
-import { debug, enableDebugLogging } from './debug'
+import { debug } from './debug'
 
 export class MetaStorage {
   private readonly drive: Hyperdrive

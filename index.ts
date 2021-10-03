@@ -1,7 +1,7 @@
-import { Cipher, ICrypto, DefaultCrypto } from 'certacrypt-crypto'
-import { CertaCryptGraph, SHARE_GRAPHOBJECT } from 'certacrypt-graph'
+import { Cipher, ICrypto } from 'certacrypt-crypto'
+import { CertaCryptGraph } from 'certacrypt-graph'
 import { ShareGraphObject, SHARE_VIEW } from 'certacrypt-graph'
-import { Core, Corestore, GraphObject, SimpleGraphObject, Vertex, IVertex } from 'hyper-graphdb'
+import { Corestore, GraphObject, SimpleGraphObject, Vertex } from 'hyper-graphdb'
 import * as GraphObjects from './lib/graphObjects'
 import { parseUrl, createUrl, URL_TYPES } from './lib/url'
 import { cryptoDrive } from './lib/drive'
@@ -14,8 +14,10 @@ import { Inbox } from './lib/inbox'
 import { CacheDB } from './lib/cacheDB'
 import { CONTACTS_VIEW, ContactsView, FriendState, Contacts, ContactProfile } from './lib/contacts'
 import { COMM_PATHS } from './lib/communication'
+import RAM from 'random-access-memory'
+import SimpleCorestore from 'corestore'
 
-export { GraphObjects, ShareGraphObject, Hyperdrive, enableDebugLogging, createUrl, parseUrl, URL_TYPES, User, Inbox, Contacts, ContactProfile , FriendState}
+export { GraphObjects, ShareGraphObject, Hyperdrive, enableDebugLogging, createUrl, parseUrl, URL_TYPES, User, Inbox, Contacts, ContactProfile, FriendState }
 
 export class CertaCrypt {
   readonly corestore: Corestore
@@ -26,6 +28,8 @@ export class CertaCrypt {
   readonly cacheDb: Promise<CacheDB>
   readonly socialRoot: Promise<Vertex<GraphObject>>
   readonly contacts: Promise<Contacts>
+
+  readonly tmp: Promise<{ drive: Hyperdrive; rootDir: Vertex<GraphObjects.Directory> }>
 
   constructor(corestore: Corestore, crypto: ICrypto, sessionUrl?: string) {
     this.corestore = corestore
@@ -46,22 +50,26 @@ export class CertaCrypt {
       const { feed, id, key } = parseUrl(sessionUrl)
       this.graph = new CertaCryptGraph(corestore, feed, crypto)
       this.graph.get(id, feed, key).then(resolveRoot)
-      this.sessionRoot.then(async (root) => {
-        const secret = <Vertex<GraphObjects.UserKey>>await this.path(USER_PATHS.IDENTITY_SECRET)
-        const publicRoot = <Vertex<GraphObjects.UserRoot>>await this.path(USER_PATHS.PUBLIC)
-        const user = new User(publicRoot, this.graph, secret)
-        resolveUser(user)
+      this.sessionRoot
+        .then(async (root) => {
+          const secret = <Vertex<GraphObjects.UserKey>>await this.path(USER_PATHS.IDENTITY_SECRET)
+          const publicRoot = <Vertex<GraphObjects.UserRoot>>await this.path(USER_PATHS.PUBLIC)
+          const user = new User(publicRoot, this.graph, secret)
+          resolveUser(user)
 
-        const socialRoot = <Vertex<GraphObject>>await this.path(COMM_PATHS.SOCIAL)
-        resolveSocialRoot(socialRoot)
-      }).catch(console.error)
+          const socialRoot = <Vertex<GraphObject>>await this.path(COMM_PATHS.SOCIAL)
+          resolveSocialRoot(socialRoot)
+        })
+        .catch(console.error)
     } else {
       this.graph = new CertaCryptGraph(corestore, undefined, crypto)
-      this.initSession().then(({ root, user, commRoot: socialRoot }) => {
-        resolveRoot(root)
-        resolveUser(user)
-        resolveSocialRoot(socialRoot)
-      }).catch(console.error)
+      this.initSession()
+        .then(({ root, user, commRoot: socialRoot }) => {
+          resolveRoot(root)
+          resolveUser(user)
+          resolveSocialRoot(socialRoot)
+        })
+        .catch(console.error)
     }
 
     this.cacheDb = new Promise(async (resolve) => {
@@ -71,16 +79,32 @@ export class CertaCrypt {
       this.graph.factory.register(CONTACTS_VIEW, (_, codec, tr) => new ContactsView(cache, this.graph, user, codec, this.graph.factory, tr))
       resolve(cache)
     })
-    this.contacts = Promise.all([this.socialRoot, this.user, this.cacheDb])
-    .then(async ([socialRoot, user, cacheDb]) => {
+    this.contacts = Promise.all([this.socialRoot, this.user, this.cacheDb]).then(async ([socialRoot, user, cacheDb]) => {
       const contacts = new Contacts(this.graph, socialRoot, user, cacheDb)
       await contacts.friends
       return contacts
     })
 
+    this.tmp = this.path('tmp')
+      .catch(async () => {
+        const root = await this.sessionRoot
+        const dir = this.graph.create<GraphObjects.Directory>()
+        dir.setContent(new GraphObjects.Directory())
+        await this.graph.put(dir)
+        root.addEdgeTo(dir, 'tmp')
+        await this.graph.put(root)
+        return dir
+      })
+      .then(async (tmp) => {
+        return {
+          rootDir: <Vertex<GraphObjects.Directory>>tmp,
+          drive: await cryptoDrive(this.corestore, this.graph, this.crypto, <Vertex<GraphObjects.Directory>>tmp)
+        }
+      })
+
     for (const key in GraphObjects) {
       const Constr = getConstructor(GraphObjects[key])
-      if(Constr) {
+      if (Constr) {
         this.graph.codec.registerImpl(Constr)
         debug('Registered GraphObject ' + GraphObjects[key]?.name)
       }
@@ -95,10 +119,12 @@ export class CertaCrypt {
     //const contacts = this.graph.create<SimpleGraphObject>()
     const shares = this.graph.create<SimpleGraphObject>()
     const commRoot = this.graph.create<SimpleGraphObject>()
-    await this.graph.put([root, apps, shares, commRoot])
+    const tmp = this.graph.create<GraphObjects.Directory>()
+    tmp.setContent(new GraphObjects.Directory())
+    await this.graph.put([root, apps, shares, commRoot, tmp])
 
     root.addEdgeTo(apps, 'apps')
-    //root.addEdgeTo(contacts, 'contacts')
+    root.addEdgeTo(tmp, 'tmp')
     root.addEdgeTo(shares, 'shares')
     root.addEdgeTo(commRoot, COMM_PATHS.SOCIAL)
     root.addEdgeTo(commRoot, 'contacts', undefined, undefined, CONTACTS_VIEW)
@@ -127,7 +153,7 @@ export class CertaCrypt {
       })
   }
 
-  public async share(vertex: Vertex<GraphObject>, reuseIfExists = true) {
+  public async createShare(vertex: Vertex<GraphObject>, reuseIfExists = true) {
     const shares = await this.path('/shares')
 
     let shareVertex: Vertex<ShareGraphObject>
@@ -146,13 +172,7 @@ export class CertaCrypt {
     }
 
     if (!shareVertex) {
-      shareVertex = this.graph.create<ShareGraphObject>()
-      const content = new ShareGraphObject()
-      content.info = 'share by URL'
-      shareVertex.setContent(content)
-      shareVertex.addEdgeTo(vertex, 'share')
-      await this.graph.put(shareVertex)
-
+      shareVertex = await this.graph.createShare(vertex, { info: 'share by URL', owner: (await this.user).getPublicUrl() })
       shares.addEdgeTo(shareVertex, 'url', undefined, undefined, SHARE_VIEW)
       await this.graph.put(shares)
 
@@ -171,22 +191,39 @@ export class CertaCrypt {
     debug(await this.debugDrawGraph())
   }
 
+  public getFileUrl(vertex: Vertex<GraphObjects.DriveGraphObject>, name?: string) {
+    return createUrl(vertex, this.graph.getKey(vertex), vertex.getVersion(), URL_TYPES.FILE, name)
+  }
+
+  public async getFileByUrl(url: string) {
+    const { feed, id, key, name, version } = parseUrl(url)
+    this.crypto.registerKey(key, { feed, index: id, type: Cipher.ChaCha20_Stream })
+
+    const tmp = await this.tmp
+    const vertex = <Vertex<GraphObjects.DriveGraphObject>>await this.graph.core.get(feed, id, this.graph.codec, version)
+
+    const label = encodeURIComponent(url)
+    if (tmp.rootDir.getEdges(label).length === 0) {
+      tmp.rootDir.addEdgeTo(vertex, label)
+      await this.graph.put(tmp.rootDir)
+    }
+
+    return { vertex, name, stat, readFile }
+
+    async function stat() {
+      return tmp.drive.promises.lstat(label, { db: { encrypted: true } })
+    }
+
+    async function readFile(opts?: { encoding: string } | any) {
+      return tmp.drive.promises.readFile(label, opts)
+    }
+  }
+
   public async drive(rootDir: Vertex<GraphObjects.Directory> | string): Promise<Hyperdrive> {
-    if(typeof rootDir === 'string') {
+    if (typeof rootDir === 'string') {
       const { feed, id, key } = parseUrl(rootDir)
       const vertex = await this.graph.get(id, feed, key)
-      rootDir = <Vertex<GraphObjects.Directory>> vertex
-      /*if(vertex.getContent()?.typeName === SHARE_GRAPHOBJECT) {
-        const dir = await this.graph.queryAtVertex(vertex).out().vertices()
-        if(dir.length !== 1 || dir[0].getContent()?.typeName !== GraphObjects.GraphObjectTypeNames.DIRECTORY) {
-          throw new Error('expected exactly one shared directory, got ' + dir.map(v => v.getContent()?.typeName))
-        }
-        rootDir = <Vertex<GraphObjects.Directory>> dir[0]
-      } else if (vertex.getContent()?.typeName === GraphObjects.GraphObjectTypeNames.DIRECTORY) {
-        rootDir = <Vertex<GraphObjects.Directory>> vertex
-      } else {
-        throw new Error('expected a directory from the passed drive url, got ' + vertex.getContent()?.typeName)
-      }*/
+      rootDir = <Vertex<GraphObjects.Directory>>vertex
 
       debug(await this.debugDrawGraph(rootDir))
     }
@@ -224,7 +261,7 @@ export class CertaCrypt {
 
 type Constructor<T> = new (...args: any[]) => T
 function getConstructor<T extends GraphObject>(f: Constructor<T>) {
-  if(! f?.constructor?.name) return
+  if (!f?.constructor?.name) return
   try {
     const inst = new f()
     return (...args) => new f(...args)

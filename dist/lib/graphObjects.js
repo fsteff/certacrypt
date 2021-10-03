@@ -1,8 +1,19 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.JsonGraphObject = exports.PreSharedGraphObject = exports.UserProfile = exports.UserKey = exports.UserRoot = exports.Thombstone = exports.Directory = exports.File = exports.GraphObjectTypeNames = exports.DriveGraphObject = void 0;
+exports.JsonGraphObject = exports.PreSharedGraphObject = exports.UserProfile = exports.UserKey = exports.UserRoot = exports.Thombstone = exports.Directory = exports.File = exports.DriveGraphObject = exports.GraphObjectTypeNames = void 0;
 const hyper_graphdb_1 = require("hyper-graphdb");
 const codecs_1 = require("codecs");
+var GraphObjectTypeNames;
+(function (GraphObjectTypeNames) {
+    GraphObjectTypeNames["DIRECTORY"] = "CertaCrypt-Directory";
+    GraphObjectTypeNames["FILE"] = "CertaCrypt-File";
+    GraphObjectTypeNames["THOMBSTONE"] = "CertaCrypt-Thombstone";
+    GraphObjectTypeNames["USERROOT"] = "CertaCrypt-UserRoot";
+    GraphObjectTypeNames["USERKEY"] = "CertaCrypt-X25519Key";
+    GraphObjectTypeNames["USERPROFILE"] = "CertaCrypt-Profile";
+    GraphObjectTypeNames["PRESHARED"] = "CertaCrypt-PreShared";
+    GraphObjectTypeNames["JSON"] = "CertaCrypt-Json";
+})(GraphObjectTypeNames = exports.GraphObjectTypeNames || (exports.GraphObjectTypeNames = {}));
 class DriveGraphObject extends hyper_graphdb_1.GraphObject {
     constructor(data) {
         super();
@@ -16,17 +27,6 @@ class DriveGraphObject extends hyper_graphdb_1.GraphObject {
     }
 }
 exports.DriveGraphObject = DriveGraphObject;
-var GraphObjectTypeNames;
-(function (GraphObjectTypeNames) {
-    GraphObjectTypeNames["DIRECTORY"] = "CertaCrypt-Directory";
-    GraphObjectTypeNames["FILE"] = "CertaCrypt-File";
-    GraphObjectTypeNames["THOMBSTONE"] = "CertaCrypt-Thombstone";
-    GraphObjectTypeNames["USERROOT"] = "CertaCrypt-UserRoot";
-    GraphObjectTypeNames["USERKEY"] = "CertaCrypt-X25519Key";
-    GraphObjectTypeNames["USERPROFILE"] = "CertaCrypt-Profile";
-    GraphObjectTypeNames["PRESHARED"] = "CertaCrypt-PreShared";
-    GraphObjectTypeNames["JSON"] = "CertaCrypt-Json";
-})(GraphObjectTypeNames = exports.GraphObjectTypeNames || (exports.GraphObjectTypeNames = {}));
 class File extends DriveGraphObject {
     constructor() {
         super(...arguments);

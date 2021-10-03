@@ -177,7 +177,7 @@ tape('contacts', async (t) => {
   t.equals((await caesarSeenFromAlice.getProfile())?.username, 'Caesar')
   const caesarSeenFromBob = await bob.certacrypt.getUserByUrl(caesarUser.getPublicUrl())
   t.equals((await caesarSeenFromBob.getProfile())?.username, 'Caesar')
-  
+
   // -------------- check actual communication -----------------------------
 
   const aliceContacts = await alice.certacrypt.contacts
@@ -186,14 +186,14 @@ tape('contacts', async (t) => {
   t.equals((await aliceSeenFromBob.getProfile())?.username, 'Alice')
   await aliceContacts.addFriend(bobSeenFromAlice)
   t.equals((await aliceSeenFromBob.getProfile())?.username, 'Alice')
-  
+
   const bobContacts = await bob.certacrypt.contacts
   await bobContacts.addFriend(aliceSeenFromBob)
   t.equals(await bobContacts.getFriendState(aliceSeenFromBob), FriendState.FRIENDS)
 
   const contacts = await bobContacts.getAllContacts()
   t.equals(contacts.length, 2)
-  t.equals(contacts.map(c => c.username).join(', '), ['Alice', 'Caesar'].join(', '))
+  t.equals(contacts.map((c) => c.username).join(', '), ['Alice', 'Caesar'].join(', '))
 
   cleanup()
   t.end()
