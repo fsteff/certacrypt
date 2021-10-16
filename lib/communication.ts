@@ -1,8 +1,8 @@
-import { CertaCryptGraph, ShareGraphObject } from 'certacrypt-graph'
-import { GraphObject, Vertex } from 'hyper-graphdb'
-import { GraphMessage, JsonGraphObject, MessageType } from './graphObjects'
+import { CertaCryptGraph, ShareGraphObject, SHARE_GRAPHOBJECT, SHARE_VIEW } from 'certacrypt-graph'
+import { Edge, Generator, GraphObject, GRAPH_VIEW, IVertex, Vertex, VertexQueries, View } from 'hyper-graphdb'
+import { GraphMessage, JsonGraphObject, MessageType, VirtualGraphObject } from './graphObjects'
 import { User } from './user'
-import { createUrl, URL_TYPES } from './url'
+import { createUrl, URL_TYPES, parseUrl } from './url'
 import { CacheDB } from './cacheDB'
 import { debug } from './debug'
 
@@ -16,10 +16,13 @@ export type MessageVertex = Vertex<MessageTypes>
 export const COMM_PATHS = {
   SOCIAL: 'social',
   SOCIAL_ROOT_TO_CHANNELS: 'channels',
+  COMM_TO_SHARES: 'shares',
   MSG_REQUESTS: 'requests',
   MSG_PROVISION: 'provision',
   PARTICIPANTS: 'participants'
 }
+
+export const COMM_VIEW = 'CommView'
 
 export class Communication {
   constructor(readonly graph: CertaCryptGraph, readonly userInit: Vertex<MsgTypeInit>, readonly cache: CacheDB) {}
@@ -180,4 +183,94 @@ function message<T extends string, V extends object>(graph: CertaCryptGraph, val
   const vertex = graph.create<GraphMessage<V, T>>()
   vertex.setContent(Object.assign(new JsonGraphObject<MessageType<T>>(), value))
   return vertex
+}
+
+export class CommunicationView extends View<GraphObject> {
+  public readonly viewName = COMM_VIEW
+
+  constructor(readonly cacheDb: CacheDB, readonly graph: CertaCryptGraph, readonly user: User, contentEncoding, factory, transactions?) {
+    super(graph.core, contentEncoding, factory, transactions)
+  }
+
+  async out(vertex: IVertex<GraphObject>, label?: string): Promise<VertexQueries<GraphObject>> {
+    if (!(vertex instanceof Vertex) || !vertex.getFeed()) {
+      throw new Error('ContactsView.out does only accept persisted Vertex instances as input')
+    }
+    const edges = vertex.getEdges(label)
+    let vertices: Array<Promise<IVertex<GraphObject>>>
+    if (label === COMM_PATHS.COMM_TO_SHARES) {
+      return this.getAllShares(vertex)
+    } else {
+      vertices = []
+      for (const edge of edges) {
+        const feed = edge.feed?.toString('hex') || <string>vertex.getFeed()
+        // TODO: version pinning does not work yet
+        vertices.push(this.get(feed, edge.ref, /*edge.version*/ undefined, edge.view, edge.metadata))
+      }
+    }
+    return Generator.from(vertices)
+  }
+
+  private getAllShares(socialRoot: Vertex<GraphObject>): Generator<VirtualCommShareVertex> {
+    const self = this
+    const shares = this.query(Generator.from([socialRoot]))
+      .out(COMM_PATHS.SOCIAL_ROOT_TO_CHANNELS)
+      .out()
+      .generator()
+      .map((init: Vertex<MsgTypeInit>) => new Communication(this.graph, init, this.cacheDb))
+      .map((comm) => comm.getProvisions())
+      .flatMap((msgs) => Generator.from(msgs.map(getShare)))
+    return shares
+
+    async function getShare(msg: MsgTypeShare): Promise<VirtualCommShareVertex> {
+      const parsed = parseUrl(msg.shareUrl)
+      if (parsed.type && parsed.type !== URL_TYPES.SHARE) {
+        throw new Error('URL does not have type share: ' + msg.shareUrl)
+      }
+
+      self.graph.registerVertexKey(parsed.id, parsed.feed, parsed.key)
+      const vertex = <Vertex<ShareGraphObject>>await self.get(parsed.feed, parsed.id, undefined, GRAPH_VIEW)
+      if (vertex.getContent()?.typeName !== SHARE_GRAPHOBJECT || vertex.getEdges().length !== 1) {
+        throw new Error('invalid share vertex: type=' + vertex.getContent()?.typeName + ' #edges=' + vertex.getEdges().length)
+      }
+      const share = <Vertex<ShareGraphObject>>await self.get(parsed.feed, parsed.id, undefined, SHARE_VIEW)
+      const content = vertex.getContent()
+      return new VirtualCommShareVertex(content.owner, content.info, parsed.name, share)
+    }
+  }
+}
+
+export class CommShare extends VirtualGraphObject {
+  owner: string
+  info: string
+  name: string
+  share: Vertex<GraphObject>
+
+  equals(other: CommShare): boolean {
+    return this.owner === other.owner && this.info === other.info && this.share.equals(other.share)
+  }
+}
+
+export class VirtualCommShareVertex implements IVertex<CommShare> {
+  private share: CommShare
+
+  constructor(owner: string, info: string, name: string, share: Vertex<GraphObject>) {
+    this.share = new CommShare()
+    this.share.owner = owner
+    this.share.info = info
+    this.share.name = name
+    this.share.share = share
+  }
+
+  getContent(): CommShare {
+    return this.share
+  }
+
+  getEdges(label?: string): Edge[] {
+    throw new Error('Method not implemented.')
+  }
+  equals(other: IVertex<any>): boolean {
+    if (other.getContent()?.typeName !== this.share.typeName) return false
+    return this.share.equals((<VirtualCommShareVertex>other).share)
+  }
 }

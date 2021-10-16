@@ -9,7 +9,8 @@ export enum GraphObjectTypeNames {
   USERKEY = 'CertaCrypt-X25519Key',
   USERPROFILE = 'CertaCrypt-Profile',
   PRESHARED = 'CertaCrypt-PreShared',
-  JSON = 'CertaCrypt-Json'
+  JSON = 'CertaCrypt-Json',
+  VIRTUAL = 'CertaCrypt-Virtual'
 }
 
 export abstract class DriveGraphObject extends GraphObject {
@@ -117,6 +118,18 @@ export class JsonGraphObject<T extends object> extends GraphObject {
       if (key !== 'typeName') clone[key] = this[key]
     }
     return json.encode(clone)
+  }
+}
+
+export class VirtualGraphObject extends GraphObject {
+  readonly typeName = GraphObjectTypeNames.VIRTUAL
+  constructor(data?: any) {
+    super()
+    if (data) throw new Error('cannot deserialize virtual graph object')
+  }
+
+  serialize(): Buffer {
+    throw new Error('cannot serialize virtual graph object')
   }
 }
 

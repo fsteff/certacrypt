@@ -13,7 +13,7 @@ import { User, USER_PATHS } from './lib/user'
 import { Inbox } from './lib/inbox'
 import { CacheDB } from './lib/cacheDB'
 import { CONTACTS_VIEW, ContactsView, FriendState, Contacts, ContactProfile } from './lib/contacts'
-import { COMM_PATHS } from './lib/communication'
+import { CommunicationView, COMM_PATHS, COMM_VIEW } from './lib/communication'
 import RAM from 'random-access-memory'
 import SimpleCorestore from 'corestore'
 
@@ -77,6 +77,7 @@ export class CertaCrypt {
       const cache = new CacheDB(this.corestore, this.graph, root)
       const user = await this.user
       this.graph.factory.register(CONTACTS_VIEW, (_, codec, tr) => new ContactsView(cache, this.graph, user, codec, this.graph.factory, tr))
+      this.graph.factory.register(COMM_VIEW, (_, codec, tr) => new CommunicationView(cache, this.graph, user, codec, this.graph.factory, tr))
       resolve(cache)
     })
     this.contacts = Promise.all([this.socialRoot, this.user, this.cacheDb]).then(async ([socialRoot, user, cacheDb]) => {

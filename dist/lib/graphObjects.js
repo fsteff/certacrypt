@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.JsonGraphObject = exports.PreSharedGraphObject = exports.UserProfile = exports.UserKey = exports.UserRoot = exports.Thombstone = exports.Directory = exports.File = exports.DriveGraphObject = exports.GraphObjectTypeNames = void 0;
+exports.VirtualGraphObject = exports.JsonGraphObject = exports.PreSharedGraphObject = exports.UserProfile = exports.UserKey = exports.UserRoot = exports.Thombstone = exports.Directory = exports.File = exports.DriveGraphObject = exports.GraphObjectTypeNames = void 0;
 const hyper_graphdb_1 = require("hyper-graphdb");
 const codecs_1 = require("codecs");
 var GraphObjectTypeNames;
@@ -13,6 +13,7 @@ var GraphObjectTypeNames;
     GraphObjectTypeNames["USERPROFILE"] = "CertaCrypt-Profile";
     GraphObjectTypeNames["PRESHARED"] = "CertaCrypt-PreShared";
     GraphObjectTypeNames["JSON"] = "CertaCrypt-Json";
+    GraphObjectTypeNames["VIRTUAL"] = "CertaCrypt-Virtual";
 })(GraphObjectTypeNames = exports.GraphObjectTypeNames || (exports.GraphObjectTypeNames = {}));
 class DriveGraphObject extends hyper_graphdb_1.GraphObject {
     constructor(data) {
@@ -116,4 +117,16 @@ class JsonGraphObject extends hyper_graphdb_1.GraphObject {
     }
 }
 exports.JsonGraphObject = JsonGraphObject;
+class VirtualGraphObject extends hyper_graphdb_1.GraphObject {
+    constructor(data) {
+        super();
+        this.typeName = GraphObjectTypeNames.VIRTUAL;
+        if (data)
+            throw new Error('cannot deserialize virtual graph object');
+    }
+    serialize() {
+        throw new Error('cannot serialize virtual graph object');
+    }
+}
+exports.VirtualGraphObject = VirtualGraphObject;
 //# sourceMappingURL=graphObjects.js.map

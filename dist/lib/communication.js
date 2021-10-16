@@ -7,17 +7,21 @@ var __asyncValues = (this && this.__asyncValues) || function (o) {
     function settle(resolve, reject, d, v) { Promise.resolve(v).then(function(v) { resolve({ value: v, done: d }); }, reject); }
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.Communication = exports.COMM_PATHS = void 0;
+exports.VirtualCommShareVertex = exports.CommShare = exports.CommunicationView = exports.Communication = exports.COMM_VIEW = exports.COMM_PATHS = void 0;
+const certacrypt_graph_1 = require("certacrypt-graph");
+const hyper_graphdb_1 = require("hyper-graphdb");
 const graphObjects_1 = require("./graphObjects");
 const url_1 = require("./url");
 const debug_1 = require("./debug");
 exports.COMM_PATHS = {
     SOCIAL: 'social',
     SOCIAL_ROOT_TO_CHANNELS: 'channels',
+    COMM_TO_SHARES: 'shares',
     MSG_REQUESTS: 'requests',
     MSG_PROVISION: 'provision',
     PARTICIPANTS: 'participants'
 };
+exports.COMM_VIEW = 'CommView';
 class Communication {
     constructor(graph, userInit, cache) {
         this.graph = graph;
@@ -208,4 +212,88 @@ function message(graph, value) {
     vertex.setContent(Object.assign(new graphObjects_1.JsonGraphObject(), value));
     return vertex;
 }
+class CommunicationView extends hyper_graphdb_1.View {
+    constructor(cacheDb, graph, user, contentEncoding, factory, transactions) {
+        super(graph.core, contentEncoding, factory, transactions);
+        this.cacheDb = cacheDb;
+        this.graph = graph;
+        this.user = user;
+        this.viewName = exports.COMM_VIEW;
+    }
+    async out(vertex, label) {
+        var _a;
+        if (!(vertex instanceof hyper_graphdb_1.Vertex) || !vertex.getFeed()) {
+            throw new Error('ContactsView.out does only accept persisted Vertex instances as input');
+        }
+        const edges = vertex.getEdges(label);
+        let vertices;
+        if (label === exports.COMM_PATHS.COMM_TO_SHARES) {
+            return this.getAllShares(vertex);
+        }
+        else {
+            vertices = [];
+            for (const edge of edges) {
+                const feed = ((_a = edge.feed) === null || _a === void 0 ? void 0 : _a.toString('hex')) || vertex.getFeed();
+                // TODO: version pinning does not work yet
+                vertices.push(this.get(feed, edge.ref, /*edge.version*/ undefined, edge.view, edge.metadata));
+            }
+        }
+        return hyper_graphdb_1.Generator.from(vertices);
+    }
+    getAllShares(socialRoot) {
+        const self = this;
+        const shares = this.query(hyper_graphdb_1.Generator.from([socialRoot]))
+            .out(exports.COMM_PATHS.SOCIAL_ROOT_TO_CHANNELS)
+            .out()
+            .generator()
+            .map((init) => new Communication(this.graph, init, this.cacheDb))
+            .map((comm) => comm.getProvisions())
+            .flatMap((msgs) => hyper_graphdb_1.Generator.from(msgs.map(getShare)));
+        return shares;
+        async function getShare(msg) {
+            var _a, _b;
+            const parsed = url_1.parseUrl(msg.shareUrl);
+            if (parsed.type && parsed.type !== url_1.URL_TYPES.SHARE) {
+                throw new Error('URL does not have type share: ' + msg.shareUrl);
+            }
+            self.graph.registerVertexKey(parsed.id, parsed.feed, parsed.key);
+            const vertex = await self.get(parsed.feed, parsed.id, undefined, hyper_graphdb_1.GRAPH_VIEW);
+            if (((_a = vertex.getContent()) === null || _a === void 0 ? void 0 : _a.typeName) !== certacrypt_graph_1.SHARE_GRAPHOBJECT || vertex.getEdges().length !== 1) {
+                throw new Error('invalid share vertex: type=' + ((_b = vertex.getContent()) === null || _b === void 0 ? void 0 : _b.typeName) + ' #edges=' + vertex.getEdges().length);
+            }
+            const share = await self.get(parsed.feed, parsed.id, undefined, certacrypt_graph_1.SHARE_VIEW);
+            const content = vertex.getContent();
+            return new VirtualCommShareVertex(content.owner, content.info, parsed.name, share);
+        }
+    }
+}
+exports.CommunicationView = CommunicationView;
+class CommShare extends graphObjects_1.VirtualGraphObject {
+    equals(other) {
+        return this.owner === other.owner && this.info === other.info && this.share.equals(other.share);
+    }
+}
+exports.CommShare = CommShare;
+class VirtualCommShareVertex {
+    constructor(owner, info, name, share) {
+        this.share = new CommShare();
+        this.share.owner = owner;
+        this.share.info = info;
+        this.share.name = name;
+        this.share.share = share;
+    }
+    getContent() {
+        return this.share;
+    }
+    getEdges(label) {
+        throw new Error('Method not implemented.');
+    }
+    equals(other) {
+        var _a;
+        if (((_a = other.getContent()) === null || _a === void 0 ? void 0 : _a.typeName) !== this.share.typeName)
+            return false;
+        return this.share.equals(other.share);
+    }
+}
+exports.VirtualCommShareVertex = VirtualCommShareVertex;
 //# sourceMappingURL=communication.js.map

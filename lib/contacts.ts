@@ -118,12 +118,6 @@ export class ContactsView extends View<GraphObject> {
       return this.getAllContacts(vertex)
     } else {
       vertices = []
-      //    if(!label) {
-      //      const contacts = (await this.getAllContacts(vertex)).values()
-      //      for await (const contact of contacts) {
-      //        vertices.push(Promise.resolve(contact))
-      //      }
-      //    }
       for (const edge of edges) {
         const feed = edge.feed?.toString('hex') || <string>vertex.getFeed()
         // TODO: version pinning does not work yet
@@ -133,9 +127,9 @@ export class ContactsView extends View<GraphObject> {
     return Generator.from(vertices)
   }
 
-  private async getAllContacts(userFriendsRoot: Vertex<GraphObject>): Promise<Generator<VirtualContactVertex>> {
+  private async getAllContacts(socialRoot: Vertex<GraphObject>): Promise<Generator<VirtualContactVertex>> {
     const friends = await this.graph
-      .queryAtVertex(userFriendsRoot)
+      .queryAtVertex(socialRoot)
       .out(CONTACTS_PATHS.SOCIAL_TO_FRIENDS)
       .out() // each <vertexId>@<feed>
       .generator()
@@ -147,7 +141,7 @@ export class ContactsView extends View<GraphObject> {
     for (const friend of friends) {
       promises.push(
         // get all friends
-        Communication.GetOrInitUserCommunication(this.graph, userFriendsRoot, this.cacheDb, this.user, friend).then(async (channel) => {
+        Communication.GetOrInitUserCommunication(this.graph, socialRoot, this.cacheDb, this.user, friend).then(async (channel) => {
           const contacts = new Array<Generator<User>>(Generator.from([friend]))
           // get all friend requests (containing urls to their friend list)
           for (const request of await channel.getRequests()) {
@@ -156,7 +150,8 @@ export class ContactsView extends View<GraphObject> {
             const { feed, id, key, type } = parseUrl(request.contactsUrl)
             if (type !== URL_TYPES.CONTACTS) throw new Error('URL is not of type Contacts: ' + type)
             // load vertex from url - TODO: use existing transactions(?)
-            const userFriendsRoot = <Vertex<GraphObject>>await this.graph.get(id, feed, key)
+            this.graph.registerVertexKey(id, feed, key)
+            const userFriendsRoot = <Vertex<GraphObject>>await this.get(feed, id) //<Vertex<GraphObject>>await this.graph.get(id, feed, key)
             // get friends from list and instantiate users
             debug('loading friends of user ' + channel.userInit.getContent().userUrl)
             const userFriends = this.graph
