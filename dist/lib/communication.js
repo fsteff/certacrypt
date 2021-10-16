@@ -173,6 +173,7 @@ class Communication {
                 if (!['Share'].includes(msg.type)) {
                     throw new Error('Message is not a provision: ' + msg.type);
                 }
+                results.push(msg);
             }
         }
         catch (e_3_1) { e_3 = { error: e_3_1 }; }

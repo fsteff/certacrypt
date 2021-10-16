@@ -212,6 +212,12 @@ class CertaCrypt {
             return tmp.drive.promises.readFile(label, opts);
         }
     }
+    async sendShare(share, recipients) {
+        for (const user of recipients) {
+            const comm = await communication_1.Communication.GetOrInitUserCommunication(this.graph, await this.socialRoot, await this.cacheDb, await this.user, user);
+            await comm.sendShare(share);
+        }
+    }
     async drive(rootDir) {
         if (typeof rootDir === 'string') {
             const { feed, id, key } = url_1.parseUrl(rootDir);

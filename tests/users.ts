@@ -6,10 +6,11 @@ import { ReferrerEdge } from '../lib/referrer'
 import { SimpleGraphObject, Vertex } from 'hyper-graphdb'
 import { Communication } from '../lib/communication'
 import { FriendState } from '../lib/contacts'
-import { UserProfile } from '../lib/graphObjects'
+import { Directory, UserProfile } from '../lib/graphObjects'
 import { enableDebugLogging } from '../lib/debug'
 
 //enableDebugLogging()
+const encryptedOpts = { db: { encrypted: true }, encoding: 'utf-8' }
 
 async function createCertaCrypt(client) {
   const store = client.corestore()
@@ -194,6 +195,59 @@ tape('contacts', async (t) => {
   const contacts = await bobContacts.getAllContacts()
   t.equals(contacts.length, 2)
   t.equals(contacts.map((c) => c.username).join(', '), ['Alice', 'Caesar'].join(', '))
+
+  cleanup()
+  t.end()
+})
+
+tape('shares', async (t) => {
+  const { client, server, cleanup } = await simulator()
+  await client.ready()
+
+  // init users
+  const alice = await createCertaCrypt(client)
+  const bob = await createCertaCrypt(client)
+
+  const aliceUser = await alice.certacrypt.user
+  const bobUser = await bob.certacrypt.user
+
+  const aliceProfile = new UserProfile()
+  aliceProfile.username = 'Alice'
+  await aliceUser.setProfile(aliceProfile)
+  t.equals((await aliceUser.getProfile())?.username, 'Alice')
+
+  const bobProfile = new UserProfile()
+  bobProfile.username = 'Bob'
+  await bobUser.setProfile(bobProfile)
+  t.equals((await bobUser.getProfile())?.username, 'Bob')
+
+  const aliceSeenFromBob = await bob.certacrypt.getUserByUrl(aliceUser.getPublicUrl())
+  t.equals((await aliceSeenFromBob.getProfile())?.username, 'Alice')
+  const bobSeenFromAlice = await alice.certacrypt.getUserByUrl(bobUser.getPublicUrl())
+  t.equals((await bobSeenFromAlice.getProfile())?.username, 'Bob')
+
+  // -------------- check actual communication -----------------------------
+
+  const aliceContacts = await alice.certacrypt.contacts
+  await aliceContacts.addFriend(bobSeenFromAlice)
+
+  const bobContacts = await bob.certacrypt.contacts
+  await bobContacts.addFriend(aliceSeenFromBob)
+  t.equals(await bobContacts.getFriendState(aliceSeenFromBob), FriendState.FRIENDS)
+
+  const aliceHome = alice.certacrypt.graph.create<Directory>()
+  aliceHome.setContent(new Directory())
+  await alice.certacrypt.graph.put(aliceHome)
+  const aliceAppRoot = await alice.certacrypt.path('/apps')
+  aliceAppRoot.addEdgeTo(aliceHome, 'home')
+  await alice.certacrypt.graph.put(aliceAppRoot)
+
+  const share = await alice.certacrypt.createShare(aliceHome)
+  await alice.certacrypt.sendShare(share, [bobSeenFromAlice])
+
+  const bobShares = await bobContacts.getAllShares()
+  t.equals(bobShares.length, 1)
+  t.true(bobShares[0].share.equals(aliceHome))
 
   cleanup()
   t.end()

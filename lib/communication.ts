@@ -163,6 +163,7 @@ export class Communication {
       if (!['Share'].includes(msg.type)) {
         throw new Error('Message is not a provision: ' + msg.type)
       }
+      results.push(<MsgTypeShare>msg)
     }
     return results
   }

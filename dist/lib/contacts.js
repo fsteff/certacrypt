@@ -98,6 +98,18 @@ class Contacts {
             console.error('failed to load contact profile: ' + err);
         }
     }
+    async getAllShares() {
+        const view = this.graph.factory.get(communication_1.COMM_VIEW);
+        const shares = await this.graph
+            .queryPathAtVertex(communication_1.COMM_PATHS.COMM_TO_SHARES, this.socialRoot, view)
+            .generator()
+            .map((v) => v.getContent())
+            .destruct(onError);
+        return shares;
+        function onError(err) {
+            console.error('failed to load share: ' + err);
+        }
+    }
 }
 exports.Contacts = Contacts;
 class ContactsView extends hyper_graphdb_1.View {

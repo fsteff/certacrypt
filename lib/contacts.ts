@@ -3,7 +3,7 @@ import { CertaCryptGraph, CryptoCore } from 'certacrypt-graph'
 import { CacheDB } from './cacheDB'
 import { User, USER_PATHS } from './user'
 import { UserProfile, UserRoot } from './graphObjects'
-import { Communication, COMM_PATHS, MsgTypeInit } from './communication'
+import { CommShare, Communication, COMM_PATHS, COMM_VIEW, MsgTypeInit, VirtualCommShareVertex } from './communication'
 import { parseUrl, URL_TYPES } from './url'
 import { debug } from './debug'
 
@@ -97,6 +97,20 @@ export class Contacts {
 
     function onError(err: Error) {
       console.error('failed to load contact profile: ' + err)
+    }
+  }
+
+  async getAllShares(): Promise<CommShare[]> {
+    const view = this.graph.factory.get(COMM_VIEW)
+    const shares = await this.graph
+      .queryPathAtVertex(COMM_PATHS.COMM_TO_SHARES, this.socialRoot, view)
+      .generator()
+      .map((v: VirtualCommShareVertex) => v.getContent())
+      .destruct(onError)
+    return shares
+
+    function onError(err: Error) {
+      console.error('failed to load share: ' + err)
     }
   }
 }

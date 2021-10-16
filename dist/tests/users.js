@@ -12,6 +12,7 @@ const communication_1 = require("../lib/communication");
 const contacts_1 = require("../lib/contacts");
 const graphObjects_1 = require("../lib/graphObjects");
 //enableDebugLogging()
+const encryptedOpts = { db: { encrypted: true }, encoding: 'utf-8' };
 async function createCertaCrypt(client) {
     const store = client.corestore();
     await store.ready();
@@ -149,6 +150,47 @@ tape_1.default('contacts', async (t) => {
     const contacts = await bobContacts.getAllContacts();
     t.equals(contacts.length, 2);
     t.equals(contacts.map((c) => c.username).join(', '), ['Alice', 'Caesar'].join(', '));
+    cleanup();
+    t.end();
+});
+tape_1.default('shares', async (t) => {
+    var _a, _b, _c, _d;
+    const { client, server, cleanup } = await simulator_1.default();
+    await client.ready();
+    // init users
+    const alice = await createCertaCrypt(client);
+    const bob = await createCertaCrypt(client);
+    const aliceUser = await alice.certacrypt.user;
+    const bobUser = await bob.certacrypt.user;
+    const aliceProfile = new graphObjects_1.UserProfile();
+    aliceProfile.username = 'Alice';
+    await aliceUser.setProfile(aliceProfile);
+    t.equals((_a = (await aliceUser.getProfile())) === null || _a === void 0 ? void 0 : _a.username, 'Alice');
+    const bobProfile = new graphObjects_1.UserProfile();
+    bobProfile.username = 'Bob';
+    await bobUser.setProfile(bobProfile);
+    t.equals((_b = (await bobUser.getProfile())) === null || _b === void 0 ? void 0 : _b.username, 'Bob');
+    const aliceSeenFromBob = await bob.certacrypt.getUserByUrl(aliceUser.getPublicUrl());
+    t.equals((_c = (await aliceSeenFromBob.getProfile())) === null || _c === void 0 ? void 0 : _c.username, 'Alice');
+    const bobSeenFromAlice = await alice.certacrypt.getUserByUrl(bobUser.getPublicUrl());
+    t.equals((_d = (await bobSeenFromAlice.getProfile())) === null || _d === void 0 ? void 0 : _d.username, 'Bob');
+    // -------------- check actual communication -----------------------------
+    const aliceContacts = await alice.certacrypt.contacts;
+    await aliceContacts.addFriend(bobSeenFromAlice);
+    const bobContacts = await bob.certacrypt.contacts;
+    await bobContacts.addFriend(aliceSeenFromBob);
+    t.equals(await bobContacts.getFriendState(aliceSeenFromBob), contacts_1.FriendState.FRIENDS);
+    const aliceHome = alice.certacrypt.graph.create();
+    aliceHome.setContent(new graphObjects_1.Directory());
+    await alice.certacrypt.graph.put(aliceHome);
+    const aliceAppRoot = await alice.certacrypt.path('/apps');
+    aliceAppRoot.addEdgeTo(aliceHome, 'home');
+    await alice.certacrypt.graph.put(aliceAppRoot);
+    const share = await alice.certacrypt.createShare(aliceHome);
+    await alice.certacrypt.sendShare(share, [bobSeenFromAlice]);
+    const bobShares = await bobContacts.getAllShares();
+    t.equals(bobShares.length, 1);
+    t.true(bobShares[0].share.equals(aliceHome));
     cleanup();
     t.end();
 });

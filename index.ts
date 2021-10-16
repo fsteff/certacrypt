@@ -13,7 +13,7 @@ import { User, USER_PATHS } from './lib/user'
 import { Inbox } from './lib/inbox'
 import { CacheDB } from './lib/cacheDB'
 import { CONTACTS_VIEW, ContactsView, FriendState, Contacts, ContactProfile } from './lib/contacts'
-import { CommunicationView, COMM_PATHS, COMM_VIEW } from './lib/communication'
+import { Communication, CommunicationView, COMM_PATHS, COMM_VIEW } from './lib/communication'
 import RAM from 'random-access-memory'
 import SimpleCorestore from 'corestore'
 
@@ -217,6 +217,13 @@ export class CertaCrypt {
 
     async function readFile(opts?: { encoding: string } | any) {
       return tmp.drive.promises.readFile(label, opts)
+    }
+  }
+
+  public async sendShare(share: Vertex<ShareGraphObject>, recipients: User[]) {
+    for (const user of recipients) {
+      const comm = await Communication.GetOrInitUserCommunication(this.graph, await this.socialRoot, await this.cacheDb, await this.user, user)
+      await comm.sendShare(share)
     }
   }
 
