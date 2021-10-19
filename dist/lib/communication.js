@@ -229,7 +229,7 @@ class CommunicationView extends hyper_graphdb_1.View {
         const edges = vertex.getEdges(label);
         let vertices;
         if (label === exports.COMM_PATHS.COMM_TO_SHARES) {
-            return this.getAllShares(vertex);
+            return this.getAllReceivedShares(vertex);
         }
         else {
             vertices = [];
@@ -241,7 +241,7 @@ class CommunicationView extends hyper_graphdb_1.View {
         }
         return hyper_graphdb_1.Generator.from(vertices);
     }
-    getAllShares(socialRoot) {
+    getAllReceivedShares(socialRoot) {
         const self = this;
         const shares = this.query(hyper_graphdb_1.Generator.from([socialRoot]))
             .out(exports.COMM_PATHS.SOCIAL_ROOT_TO_CHANNELS)
@@ -249,9 +249,11 @@ class CommunicationView extends hyper_graphdb_1.View {
             .generator()
             .map((init) => new Communication(this.graph, init, this.cacheDb))
             .map(async (comm) => {
-            const sharedWith = (await comm.getParticipants()).map(p => { var _a; return (_a = p.getContent()) === null || _a === void 0 ? void 0 : _a.userUrl; });
+            const sharedWith = (await comm.getParticipants()).map((p) => { var _a; return (_a = p.getContent()) === null || _a === void 0 ? void 0 : _a.userUrl; });
             const provisions = await comm.getProvisions();
-            return provisions.map(p => { return { msg: p, sharedWith }; });
+            return provisions.map((p) => {
+                return { msg: p, sharedBy: sharedWith.length > 0 ? sharedWith[0] : undefined };
+            });
         })
             .flatMap((msgs) => hyper_graphdb_1.Generator.from(msgs.map(getShare)));
         return shares;
@@ -268,7 +270,7 @@ class CommunicationView extends hyper_graphdb_1.View {
             }
             const share = await self.get(parsed.feed, parsed.id, undefined, certacrypt_graph_1.SHARE_VIEW);
             const content = vertex.getContent();
-            return new VirtualCommShareVertex(content.owner, content.info, parsed.name, share, result.sharedWith);
+            return new VirtualCommShareVertex(content.owner, content.info, parsed.name, share, result.sharedBy);
         }
     }
 }
@@ -280,13 +282,13 @@ class CommShare extends graphObjects_1.VirtualGraphObject {
 }
 exports.CommShare = CommShare;
 class VirtualCommShareVertex {
-    constructor(owner, info, name, share, sharedWith) {
+    constructor(owner, info, name, share, sharedBy) {
         this.share = new CommShare();
         this.share.owner = owner;
         this.share.info = info;
         this.share.name = name;
         this.share.share = share;
-        this.share.sharedWith = sharedWith;
+        this.share.sharedBy = sharedBy;
     }
     getContent() {
         return this.share;
