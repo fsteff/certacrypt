@@ -19,7 +19,7 @@ var __importStar = (this && this.__importStar) || function (mod) {
     return result;
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.CertaCrypt = exports.FriendState = exports.ContactProfile = exports.Contacts = exports.Inbox = exports.User = exports.URL_TYPES = exports.parseUrl = exports.createUrl = exports.enableDebugLogging = exports.ShareGraphObject = exports.GraphObjects = void 0;
+exports.CertaCrypt = exports.CommShare = exports.FriendState = exports.ContactProfile = exports.Contacts = exports.Inbox = exports.User = exports.URL_TYPES = exports.parseUrl = exports.createUrl = exports.enableDebugLogging = exports.ShareGraphObject = exports.GraphObjects = void 0;
 const certacrypt_crypto_1 = require("certacrypt-crypto");
 const certacrypt_graph_1 = require("certacrypt-graph");
 const certacrypt_graph_2 = require("certacrypt-graph");
@@ -44,6 +44,7 @@ Object.defineProperty(exports, "FriendState", { enumerable: true, get: function 
 Object.defineProperty(exports, "Contacts", { enumerable: true, get: function () { return contacts_1.Contacts; } });
 Object.defineProperty(exports, "ContactProfile", { enumerable: true, get: function () { return contacts_1.ContactProfile; } });
 const communication_1 = require("./lib/communication");
+Object.defineProperty(exports, "CommShare", { enumerable: true, get: function () { return communication_1.CommShare; } });
 class CertaCrypt {
     constructor(corestore, crypto, sessionUrl) {
         var _a;

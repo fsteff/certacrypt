@@ -13,11 +13,9 @@ import { User, USER_PATHS } from './lib/user'
 import { Inbox } from './lib/inbox'
 import { CacheDB } from './lib/cacheDB'
 import { CONTACTS_VIEW, ContactsView, FriendState, Contacts, ContactProfile } from './lib/contacts'
-import { Communication, CommunicationView, COMM_PATHS, COMM_VIEW } from './lib/communication'
-import RAM from 'random-access-memory'
-import SimpleCorestore from 'corestore'
+import { Communication, CommunicationView, COMM_PATHS, COMM_VIEW, CommShare } from './lib/communication'
 
-export { GraphObjects, ShareGraphObject, Hyperdrive, enableDebugLogging, createUrl, parseUrl, URL_TYPES, User, Inbox, Contacts, ContactProfile, FriendState }
+export { GraphObjects, ShareGraphObject, Hyperdrive, enableDebugLogging, createUrl, parseUrl, URL_TYPES, User, Inbox, Contacts, ContactProfile, FriendState, CommShare }
 
 export class CertaCrypt {
   readonly corestore: Corestore
