@@ -268,9 +268,10 @@ class CommunicationView extends hyper_graphdb_1.View {
             if (((_a = vertex.getContent()) === null || _a === void 0 ? void 0 : _a.typeName) !== certacrypt_graph_1.SHARE_GRAPHOBJECT || vertex.getEdges().length !== 1) {
                 throw new Error('invalid share vertex: type=' + ((_b = vertex.getContent()) === null || _b === void 0 ? void 0 : _b.typeName) + ' #edges=' + vertex.getEdges().length);
             }
-            const share = await self.get(parsed.feed, parsed.id, undefined, certacrypt_graph_1.SHARE_VIEW);
+            // why?
+            // const share = <Vertex<ShareGraphObject>>await self.get(parsed.feed, parsed.id, undefined, SHARE_VIEW)
             const content = vertex.getContent();
-            return new VirtualCommShareVertex(content.owner, content.info, parsed.name, share, result.sharedBy);
+            return new VirtualCommShareVertex(content.owner, content.info, parsed.name, vertex, result.sharedBy);
         }
     }
 }
@@ -294,7 +295,7 @@ class VirtualCommShareVertex {
         return this.share;
     }
     getEdges(label) {
-        throw new Error('Method not implemented.');
+        return this.share.share.getEdges(label);
     }
     equals(other) {
         var _a;

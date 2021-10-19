@@ -19,7 +19,7 @@ var __importStar = (this && this.__importStar) || function (mod) {
     return result;
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.CertaCrypt = exports.CommShare = exports.FriendState = exports.ContactProfile = exports.Contacts = exports.Inbox = exports.User = exports.URL_TYPES = exports.parseUrl = exports.createUrl = exports.enableDebugLogging = exports.ShareGraphObject = exports.GraphObjects = void 0;
+exports.CertaCrypt = exports.DriveShare = exports.CommShare = exports.FriendState = exports.ContactProfile = exports.Contacts = exports.Inbox = exports.User = exports.URL_TYPES = exports.parseUrl = exports.createUrl = exports.enableDebugLogging = exports.ShareGraphObject = exports.GraphObjects = void 0;
 const certacrypt_crypto_1 = require("certacrypt-crypto");
 const certacrypt_graph_1 = require("certacrypt-graph");
 const certacrypt_graph_2 = require("certacrypt-graph");
@@ -45,6 +45,8 @@ Object.defineProperty(exports, "Contacts", { enumerable: true, get: function () 
 Object.defineProperty(exports, "ContactProfile", { enumerable: true, get: function () { return contacts_1.ContactProfile; } });
 const communication_1 = require("./lib/communication");
 Object.defineProperty(exports, "CommShare", { enumerable: true, get: function () { return communication_1.CommShare; } });
+const DriveShare = __importStar(require("./lib/driveshares"));
+exports.DriveShare = DriveShare;
 class CertaCrypt {
     constructor(corestore, crypto, sessionUrl) {
         var _a;
@@ -89,8 +91,10 @@ class CertaCrypt {
             const root = await this.sessionRoot;
             const cache = new cacheDB_1.CacheDB(this.corestore, this.graph, root);
             const user = await this.user;
+            const socialRoot = await this.socialRoot;
             this.graph.factory.register(contacts_1.CONTACTS_VIEW, (_, codec, tr) => new contacts_1.ContactsView(cache, this.graph, user, codec, this.graph.factory, tr));
             this.graph.factory.register(communication_1.COMM_VIEW, (_, codec, tr) => new communication_1.CommunicationView(cache, this.graph, user, codec, this.graph.factory, tr));
+            this.graph.factory.register(DriveShare.DRIVE_SHARE_VIEW, (_, codec, tr) => new DriveShare.DriveShareView(cache, this.graph, socialRoot, codec, this.graph.factory, tr));
             resolve(cache);
         });
         this.contacts = Promise.all([this.socialRoot, this.user, this.cacheDb]).then(async ([socialRoot, user, cacheDb]) => {
@@ -233,14 +237,15 @@ class CertaCrypt {
         const root = await this.graph.get(id, feed, key);
         return new user_1.User(root, this.graph);
     }
-    async debugDrawGraph(root, currentDepth = 0, label = '/', visited = new Set()) {
+    async debugDrawGraph(root, currentDepth = 0, label = '/', visited = new Set(), view) {
         var _a, _b;
         root = root || (await this.sessionRoot);
         let graph = '';
         let type = ((_a = root.getContent()) === null || _a === void 0 ? void 0 : _a.typeName) || 'GraphObject';
+        let viewStr = !!view ? ' - View: ' + view : '';
         for (let i = 0; i < currentDepth; i++)
             graph += ' |';
-        graph += ` ${label} <${type}> [${root.getId()}] @ ${root.getFeed()}\n`;
+        graph += ` ${label} <${type}> [${root.getId()}] @ ${root.getFeed()}${viewStr}\n`;
         const id = root.getId() + '@' + root.getFeed();
         if (visited.has(id))
             return graph;
@@ -248,7 +253,7 @@ class CertaCrypt {
         for (const edge of root.getEdges()) {
             try {
                 const next = await this.graph.get(edge.ref, edge.feed || root.getFeed(), edge.metadata.key);
-                graph += await this.debugDrawGraph(next, currentDepth + 1, edge.label, visited);
+                graph += await this.debugDrawGraph(next, currentDepth + 1, edge.label, visited, edge.view);
             }
             catch (err) {
                 graph += err + '\nat ' + edge.ref + '@' + ((_b = edge.feed) === null || _b === void 0 ? void 0 : _b.toString('hex')) + '\n';

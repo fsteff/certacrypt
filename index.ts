@@ -1,7 +1,7 @@
 import { Cipher, ICrypto } from 'certacrypt-crypto'
 import { CertaCryptGraph } from 'certacrypt-graph'
 import { ShareGraphObject, SHARE_VIEW } from 'certacrypt-graph'
-import { Corestore, GraphObject, SimpleGraphObject, Vertex } from 'hyper-graphdb'
+import { Corestore, GraphObject, GRAPH_VIEW, SimpleGraphObject, Vertex } from 'hyper-graphdb'
 import * as GraphObjects from './lib/graphObjects'
 import { parseUrl, createUrl, URL_TYPES } from './lib/url'
 import { cryptoDrive } from './lib/drive'
@@ -14,8 +14,24 @@ import { Inbox } from './lib/inbox'
 import { CacheDB } from './lib/cacheDB'
 import { CONTACTS_VIEW, ContactsView, FriendState, Contacts, ContactProfile } from './lib/contacts'
 import { Communication, CommunicationView, COMM_PATHS, COMM_VIEW, CommShare } from './lib/communication'
+import * as DriveShare from './lib/driveshares'
 
-export { GraphObjects, ShareGraphObject, Hyperdrive, enableDebugLogging, createUrl, parseUrl, URL_TYPES, User, Inbox, Contacts, ContactProfile, FriendState, CommShare }
+export {
+  GraphObjects,
+  ShareGraphObject,
+  Hyperdrive,
+  enableDebugLogging,
+  createUrl,
+  parseUrl,
+  URL_TYPES,
+  User,
+  Inbox,
+  Contacts,
+  ContactProfile,
+  FriendState,
+  CommShare,
+  DriveShare
+}
 
 export class CertaCrypt {
   readonly corestore: Corestore
@@ -74,8 +90,13 @@ export class CertaCrypt {
       const root = await this.sessionRoot
       const cache = new CacheDB(this.corestore, this.graph, root)
       const user = await this.user
+      const socialRoot = await this.socialRoot
       this.graph.factory.register(CONTACTS_VIEW, (_, codec, tr) => new ContactsView(cache, this.graph, user, codec, this.graph.factory, tr))
       this.graph.factory.register(COMM_VIEW, (_, codec, tr) => new CommunicationView(cache, this.graph, user, codec, this.graph.factory, tr))
+      this.graph.factory.register(
+        DriveShare.DRIVE_SHARE_VIEW,
+        (_, codec, tr) => new DriveShare.DriveShareView(cache, this.graph, socialRoot, codec, this.graph.factory, tr)
+      )
       resolve(cache)
     })
     this.contacts = Promise.all([this.socialRoot, this.user, this.cacheDb]).then(async ([socialRoot, user, cacheDb]) => {
@@ -242,12 +263,13 @@ export class CertaCrypt {
     return new User(root, this.graph)
   }
 
-  public async debugDrawGraph(root?: Vertex<GraphObject>, currentDepth = 0, label = '/', visited = new Set<string>()): Promise<string> {
+  public async debugDrawGraph(root?: Vertex<GraphObject>, currentDepth = 0, label = '/', visited = new Set<string>(), view?: string): Promise<string> {
     root = root || (await this.sessionRoot)
     let graph = ''
     let type = root.getContent()?.typeName || 'GraphObject'
+    let viewStr = !!view ? ' - View: ' + view : ''
     for (let i = 0; i < currentDepth; i++) graph += ' |'
-    graph += ` ${label} <${type}> [${root.getId()}] @ ${root.getFeed()}\n`
+    graph += ` ${label} <${type}> [${root.getId()}] @ ${root.getFeed()}${viewStr}\n`
 
     const id = root.getId() + '@' + root.getFeed()
     if (visited.has(id)) return graph
@@ -256,7 +278,7 @@ export class CertaCrypt {
     for (const edge of root.getEdges()) {
       try {
         const next = await this.graph.get(edge.ref, edge.feed || root.getFeed(), (<{ key: Buffer }>edge.metadata).key)
-        graph += await this.debugDrawGraph(next, currentDepth + 1, edge.label, visited)
+        graph += await this.debugDrawGraph(next, currentDepth + 1, edge.label, visited, edge.view)
       } catch (err) {
         graph += err + '\nat ' + edge.ref + '@' + edge.feed?.toString('hex') + '\n'
       }

@@ -240,9 +240,10 @@ export class CommunicationView extends View<GraphObject> {
       if (vertex.getContent()?.typeName !== SHARE_GRAPHOBJECT || vertex.getEdges().length !== 1) {
         throw new Error('invalid share vertex: type=' + vertex.getContent()?.typeName + ' #edges=' + vertex.getEdges().length)
       }
-      const share = <Vertex<ShareGraphObject>>await self.get(parsed.feed, parsed.id, undefined, SHARE_VIEW)
+      // why?
+      // const share = <Vertex<ShareGraphObject>>await self.get(parsed.feed, parsed.id, undefined, SHARE_VIEW)
       const content = vertex.getContent()
-      return new VirtualCommShareVertex(content.owner, content.info, parsed.name, share, result.sharedBy)
+      return new VirtualCommShareVertex(content.owner, content.info, parsed.name, vertex, result.sharedBy)
     }
   }
 }
@@ -276,7 +277,7 @@ export class VirtualCommShareVertex implements IVertex<CommShare> {
   }
 
   getEdges(label?: string): Edge[] {
-    throw new Error('Method not implemented.')
+    return this.share.share.getEdges(label)
   }
   equals(other: IVertex<any>): boolean {
     if (other.getContent()?.typeName !== this.share.typeName) return false
