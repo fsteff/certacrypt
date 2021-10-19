@@ -248,6 +248,8 @@ tape('shares', async (t) => {
   const bobShares = await bobContacts.getAllShares()
   t.equals(bobShares.length, 1)
   t.true(bobShares[0].share.equals(aliceHome))
+  t.equal(bobShares[0].sharedBy.length, 1)
+  t.equals(bobShares[0].sharedBy, aliceUser.getPublicUrl())
 
   cleanup()
   t.end()

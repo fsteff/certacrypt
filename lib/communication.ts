@@ -78,7 +78,7 @@ export class Communication {
   }
 
   async getParticipants() {
-    const prt = await this.graph.queryAtVertex(this.userInit).out(COMM_PATHS.PARTICIPANTS).generator().destruct()
+    const prt = <Vertex<MsgTypeInit>[]>await this.graph.queryAtVertex(this.userInit).out(COMM_PATHS.PARTICIPANTS).generator().destruct()
     return prt
     //return <Promise<Vertex<MsgTypeInit>[]>>this.graph.queryPathAtVertex(COMM_PATHS.PARTICIPANTS, this.userInit).generator().destruct()
   }
@@ -200,7 +200,7 @@ export class CommunicationView extends View<GraphObject> {
     const edges = vertex.getEdges(label)
     let vertices: Array<Promise<IVertex<GraphObject>>>
     if (label === COMM_PATHS.COMM_TO_SHARES) {
-      return this.getAllShares(vertex)
+      return this.getAllReceivedShares(vertex)
     } else {
       vertices = []
       for (const edge of edges) {
@@ -212,21 +212,27 @@ export class CommunicationView extends View<GraphObject> {
     return Generator.from(vertices)
   }
 
-  private getAllShares(socialRoot: Vertex<GraphObject>): Generator<VirtualCommShareVertex> {
+  private getAllReceivedShares(socialRoot: Vertex<GraphObject>): Generator<VirtualCommShareVertex> {
     const self = this
     const shares = this.query(Generator.from([socialRoot]))
       .out(COMM_PATHS.SOCIAL_ROOT_TO_CHANNELS)
       .out()
       .generator()
       .map((init: Vertex<MsgTypeInit>) => new Communication(this.graph, init, this.cacheDb))
-      .map((comm) => comm.getProvisions())
+      .map(async (comm: Communication) => {
+        const sharedWith = (await comm.getParticipants()).map((p) => p.getContent()?.userUrl)
+        const provisions = await comm.getProvisions()
+        return provisions.map((p) => {
+          return { msg: p, sharedBy: sharedWith.length > 0 ? sharedWith[0] : undefined }
+        })
+      })
       .flatMap((msgs) => Generator.from(msgs.map(getShare)))
     return shares
 
-    async function getShare(msg: MsgTypeShare): Promise<VirtualCommShareVertex> {
-      const parsed = parseUrl(msg.shareUrl)
+    async function getShare(result: { msg: MsgTypeShare; sharedBy: string }): Promise<VirtualCommShareVertex> {
+      const parsed = parseUrl(result.msg.shareUrl)
       if (parsed.type && parsed.type !== URL_TYPES.SHARE) {
-        throw new Error('URL does not have type share: ' + msg.shareUrl)
+        throw new Error('URL does not have type share: ' + result.msg.shareUrl)
       }
 
       self.graph.registerVertexKey(parsed.id, parsed.feed, parsed.key)
@@ -236,7 +242,7 @@ export class CommunicationView extends View<GraphObject> {
       }
       const share = <Vertex<ShareGraphObject>>await self.get(parsed.feed, parsed.id, undefined, SHARE_VIEW)
       const content = vertex.getContent()
-      return new VirtualCommShareVertex(content.owner, content.info, parsed.name, share)
+      return new VirtualCommShareVertex(content.owner, content.info, parsed.name, share, result.sharedBy)
     }
   }
 }
@@ -245,6 +251,7 @@ export class CommShare extends VirtualGraphObject {
   owner: string
   info: string
   name: string
+  sharedBy: string
   share: Vertex<GraphObject>
 
   equals(other: CommShare): boolean {
@@ -255,12 +262,13 @@ export class CommShare extends VirtualGraphObject {
 export class VirtualCommShareVertex implements IVertex<CommShare> {
   private share: CommShare
 
-  constructor(owner: string, info: string, name: string, share: Vertex<GraphObject>) {
+  constructor(owner: string, info: string, name: string, share: Vertex<GraphObject>, sharedBy: string) {
     this.share = new CommShare()
     this.share.owner = owner
     this.share.info = info
     this.share.name = name
     this.share.share = share
+    this.share.sharedBy = sharedBy
   }
 
   getContent(): CommShare {

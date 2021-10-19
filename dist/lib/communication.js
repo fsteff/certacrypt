@@ -248,14 +248,18 @@ class CommunicationView extends hyper_graphdb_1.View {
             .out()
             .generator()
             .map((init) => new Communication(this.graph, init, this.cacheDb))
-            .map((comm) => comm.getProvisions())
+            .map(async (comm) => {
+            const sharedWith = (await comm.getParticipants()).map(p => { var _a; return (_a = p.getContent()) === null || _a === void 0 ? void 0 : _a.userUrl; });
+            const provisions = await comm.getProvisions();
+            return provisions.map(p => { return { msg: p, sharedWith }; });
+        })
             .flatMap((msgs) => hyper_graphdb_1.Generator.from(msgs.map(getShare)));
         return shares;
-        async function getShare(msg) {
+        async function getShare(result) {
             var _a, _b;
-            const parsed = url_1.parseUrl(msg.shareUrl);
+            const parsed = url_1.parseUrl(result.msg.shareUrl);
             if (parsed.type && parsed.type !== url_1.URL_TYPES.SHARE) {
-                throw new Error('URL does not have type share: ' + msg.shareUrl);
+                throw new Error('URL does not have type share: ' + result.msg.shareUrl);
             }
             self.graph.registerVertexKey(parsed.id, parsed.feed, parsed.key);
             const vertex = await self.get(parsed.feed, parsed.id, undefined, hyper_graphdb_1.GRAPH_VIEW);
@@ -264,7 +268,7 @@ class CommunicationView extends hyper_graphdb_1.View {
             }
             const share = await self.get(parsed.feed, parsed.id, undefined, certacrypt_graph_1.SHARE_VIEW);
             const content = vertex.getContent();
-            return new VirtualCommShareVertex(content.owner, content.info, parsed.name, share);
+            return new VirtualCommShareVertex(content.owner, content.info, parsed.name, share, result.sharedWith);
         }
     }
 }
@@ -276,12 +280,13 @@ class CommShare extends graphObjects_1.VirtualGraphObject {
 }
 exports.CommShare = CommShare;
 class VirtualCommShareVertex {
-    constructor(owner, info, name, share) {
+    constructor(owner, info, name, share, sharedWith) {
         this.share = new CommShare();
         this.share.owner = owner;
         this.share.info = info;
         this.share.name = name;
         this.share.share = share;
+        this.share.sharedWith = sharedWith;
     }
     getContent() {
         return this.share;

@@ -191,6 +191,8 @@ tape_1.default('shares', async (t) => {
     const bobShares = await bobContacts.getAllShares();
     t.equals(bobShares.length, 1);
     t.true(bobShares[0].share.equals(aliceHome));
+    t.equal(bobShares[0].sharedWith.length, 1);
+    t.equals(bobShares[0].sharedWith[0], aliceUser.getPublicUrl());
     cleanup();
     t.end();
 });
