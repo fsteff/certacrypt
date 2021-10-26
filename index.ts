@@ -136,7 +136,6 @@ export class CertaCrypt {
   private async initSession() {
     const root = this.graph.create<SimpleGraphObject>()
     const apps = this.graph.create<SimpleGraphObject>()
-    //const contacts = this.graph.create<SimpleGraphObject>()
     const shares = this.graph.create<SimpleGraphObject>()
     const commRoot = this.graph.create<SimpleGraphObject>()
     const tmp = this.graph.create<GraphObjects.Directory>()
