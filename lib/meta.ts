@@ -50,7 +50,7 @@ export class MetaStorage {
     else this.crypto.registerPublic(feed, path)
 
     const trie = await this.getTrie(feed)
-    const { stat, contentFeed } = await this.lstat(path, encrypted, trie, true)
+    const { stat, contentFeed } = await this.lstat(vertex, path, encrypted, trie, true)
 
     const dataFeed = contentFeed.key.toString('hex')
     if (encrypted) this.crypto.registerKey(fkey, { feed: dataFeed, type: Cipher.ChaCha20_Stream, index: stat.offset })
@@ -150,7 +150,7 @@ export class MetaStorage {
   }
 
   public async find(path: string) {
-    const vertex = latestWrite(<Vertex<DriveGraphObject>[]>await this.graph.queryPathAtVertex(path, this.root).vertices())
+    const vertex = latestWrite(<Vertex<DriveGraphObject>[]>await this.graph.queryPathAtVertex(path, this.root).generator().destruct(onError))
     if (!vertex) return null
 
     const file = vertex.getContent()
@@ -159,11 +159,24 @@ export class MetaStorage {
     if (!file.filename) throw new Error('vertex is not of type file or directory, it does not have a filename url')
     const parsed = parseUrl(file.filename)
     return { vertex, ...parsed }
+
+    function onError(err: Error) {
+      console.error('failed to find vertex for path ' + path)
+      throw err
+    }
   }
 
-  public lstat(path, encrypted: boolean, trie?, file?: boolean): Promise<{ stat: Stat; trie: MountableHypertrie; contentFeed: Feed }> {
+  public lstat(
+    vertex: Vertex<DriveGraphObject>,
+    path,
+    encrypted: boolean,
+    trie?,
+    file?: boolean
+  ): Promise<{ stat: Stat; trie: MountableHypertrie; contentFeed: Feed }> {
     const self = this
     const opts = { file: !!file, db: { trie, encrypted, hidden: !!encrypted } }
+    const isFile = vertex.getContent()?.typeName === GraphObjectTypeNames.FILE
+    const isDirectory = vertex.getContent()?.typeName === GraphObjectTypeNames.DIRECTORY
     return new Promise((resolve, reject) => {
       if (trie && trie !== self.drive.db) {
         trie.get(path, opts.db, onRemoteStat)
@@ -171,9 +184,15 @@ export class MetaStorage {
         this.drive.lstat(path, opts, onStat)
       }
 
-      function onStat(err, stat, passedTrie) {
+      function onStat(err: Error, stat: Stat, passedTrie) {
         if (err) return reject(err)
-        if (stat && !passedTrie) return resolve(stat)
+        if (stat) {
+          stat.isFile = isFile
+          stat.isDirectory = isDirectory
+        }
+        if (stat && !passedTrie) {
+          return resolve({ stat, trie: passedTrie, contentFeed: undefined })
+        }
         self.drive._getContent(passedTrie.feed, (err, contentState) => {
           if (err) return reject(err)
           else resolve({ stat, trie: passedTrie, contentFeed: contentState.feed })
@@ -185,8 +204,9 @@ export class MetaStorage {
         // vanilla hyperdrive mounts are not supported yet
         if (!node && opts.file) return reject(new FileNotFound(path))
         if (!node) return onStat(null, TrieStat.directory(), trie) // TODO: modes?
+        let st: Stat
         try {
-          var st = TrieStat.decode(node.value)
+          st = <Stat>TrieStat.decode(node.value)
         } catch (err) {
           return reject(err)
         }

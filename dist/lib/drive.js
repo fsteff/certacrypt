@@ -107,9 +107,9 @@ async function cryptoDrive(corestore, graph, crypto, root) {
         else {
             return meta
                 .find(name)
-                .then(async ({ path, feed }) => {
+                .then(async ({ path, feed, vertex }) => {
                 const feedTrie = await meta.getTrie(feed);
-                const { stat, trie } = await meta.lstat(path, !!opts.db.encrypted, feedTrie, !!opts.file);
+                const { stat, trie } = await meta.lstat(vertex, path, !!opts.db.encrypted, feedTrie, !!opts.file);
                 cb(null, stat, trie);
                 return stat;
             })

@@ -1,7 +1,7 @@
 import { Cipher, ICrypto } from 'certacrypt-crypto'
 import { CertaCryptGraph } from 'certacrypt-graph'
 import { ShareGraphObject, SHARE_VIEW } from 'certacrypt-graph'
-import { Corestore, GraphObject, GRAPH_VIEW, SimpleGraphObject, Vertex } from 'hyper-graphdb'
+import { Corestore, Generator, GraphObject, GRAPH_VIEW, SimpleGraphObject, STATIC_VIEW, Vertex } from 'hyper-graphdb'
 import * as GraphObjects from './lib/graphObjects'
 import { parseUrl, createUrl, URL_TYPES } from './lib/url'
 import { cryptoDrive } from './lib/drive'
@@ -167,8 +167,8 @@ export class CertaCrypt {
       .vertices()
       .then((res) => {
         if (res.length === 1) return <Vertex<GraphObject>>res[0]
-        else if (res.length === 0) throw new Error('path does not exist')
-        else throw new Error('path query requires unique results')
+        else if (res.length === 0) throw new Error('path does not exist: ' + path)
+        else throw new Error('path query requires unique results: ' + path)
       })
   }
 
@@ -178,15 +178,23 @@ export class CertaCrypt {
     let shareVertex: Vertex<ShareGraphObject>
     if (reuseIfExists) {
       // checks if exists + loads the keys into the crypto key store
-      const existing = await this.graph
-        .queryAtVertex(await this.sessionRoot)
-        .out('shares')
-        .out('url')
-        .matches((v) => v.equals(vertex))
-        .vertices()
-      if (existing.length > 0) {
-        const edges = shares.getEdges('url').filter((e) => e.ref === vertex.getId() && (e.feed?.toString('hex') || shares.getFeed()) === vertex.getFeed())
-        if (edges.length > 0) shareVertex = <Vertex<ShareGraphObject>>await this.graph.get(edges[0].ref, edges[0].feed || shares.getFeed())
+      const view = this.graph.factory.get(STATIC_VIEW)
+      const matching = await view
+        .query(Generator.from([shares]))
+        .out('url', view)
+        .generator()
+        .filter(async (share) => {
+          const target = await view
+            .query(Generator.from([share]))
+            .out('share')
+            .matches((v) => v.equals(vertex))
+            .generator()
+            .destruct()
+          return target.length > 0
+        })
+        .destruct()
+      if (matching.length > 0) {
+        shareVertex = <Vertex<ShareGraphObject>>matching[0]
       }
     }
 

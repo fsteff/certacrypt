@@ -24,6 +24,7 @@ const certacrypt_crypto_1 = require("certacrypt-crypto");
 const certacrypt_graph_1 = require("certacrypt-graph");
 const certacrypt_graph_2 = require("certacrypt-graph");
 Object.defineProperty(exports, "ShareGraphObject", { enumerable: true, get: function () { return certacrypt_graph_2.ShareGraphObject; } });
+const hyper_graphdb_1 = require("hyper-graphdb");
 const GraphObjects = __importStar(require("./lib/graphObjects"));
 exports.GraphObjects = GraphObjects;
 const url_1 = require("./lib/url");
@@ -157,9 +158,9 @@ class CertaCrypt {
             if (res.length === 1)
                 return res[0];
             else if (res.length === 0)
-                throw new Error('path does not exist');
+                throw new Error('path does not exist: ' + path);
             else
-                throw new Error('path query requires unique results');
+                throw new Error('path query requires unique results: ' + path);
         });
     }
     async createShare(vertex, reuseIfExists = true) {
@@ -167,16 +168,23 @@ class CertaCrypt {
         let shareVertex;
         if (reuseIfExists) {
             // checks if exists + loads the keys into the crypto key store
-            const existing = await this.graph
-                .queryAtVertex(await this.sessionRoot)
-                .out('shares')
-                .out('url')
-                .matches((v) => v.equals(vertex))
-                .vertices();
-            if (existing.length > 0) {
-                const edges = shares.getEdges('url').filter((e) => { var _a; return e.ref === vertex.getId() && (((_a = e.feed) === null || _a === void 0 ? void 0 : _a.toString('hex')) || shares.getFeed()) === vertex.getFeed(); });
-                if (edges.length > 0)
-                    shareVertex = await this.graph.get(edges[0].ref, edges[0].feed || shares.getFeed());
+            const view = this.graph.factory.get(hyper_graphdb_1.STATIC_VIEW);
+            const matching = await view
+                .query(hyper_graphdb_1.Generator.from([shares]))
+                .out('url', view)
+                .generator()
+                .filter(async (share) => {
+                const target = await view
+                    .query(hyper_graphdb_1.Generator.from([share]))
+                    .out('share')
+                    .matches((v) => v.equals(vertex))
+                    .generator()
+                    .destruct();
+                return target.length > 0;
+            })
+                .destruct();
+            if (matching.length > 0) {
+                shareVertex = matching[0];
             }
         }
         if (!shareVertex) {

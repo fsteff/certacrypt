@@ -31,7 +31,7 @@ class Communication {
     }
     static async InitUserCommunication(graph, socialRoot, cache, user, addressant) {
         var _a, _b;
-        const comm = new Communication(graph, message(graph, { userUrl: user.getPublicUrl(), type: 'Init' }), cache);
+        const comm = new Communication(graph, message(graph, { userUrl: user.getPublicUrl(), addressedTo: addressant.getPublicUrl(), type: 'Init' }), cache);
         await graph.put(comm.userInit);
         let channels;
         const results = await graph.queryPathAtVertex(exports.COMM_PATHS.SOCIAL_ROOT_TO_CHANNELS, socialRoot).vertices();
@@ -288,7 +288,10 @@ class CommunicationView extends hyper_graphdb_1.View {
             .generator()
             .map((init) => new Communication(this.graph, init, this.cacheDb))
             .map(async (comm) => {
-            const sharedWith = (await comm.getParticipants()).map((p) => { var _a; return (_a = p.getContent()) === null || _a === void 0 ? void 0 : _a.userUrl; });
+            var _a;
+            let sharedWith = (await comm.getParticipants()).map((p) => { var _a; return (_a = p.getContent()) === null || _a === void 0 ? void 0 : _a.userUrl; });
+            if (!sharedWith || sharedWith.length === 0)
+                sharedWith = [(_a = comm.userInit.getContent()) === null || _a === void 0 ? void 0 : _a.addressedTo];
             const provisions = await comm.getSentProvisions();
             return provisions.map((p) => {
                 return { msg: p, sharedWith };

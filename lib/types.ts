@@ -29,9 +29,9 @@ export interface Stat {
   size: number
   offset: number
   blocks: number
-  atime: string
-  mtime: string
-  ctime: string
+  atime: Date
+  mtime: Date
+  ctime: Date
   linkname?: string
   isFile?: boolean
   isDirectory?: boolean

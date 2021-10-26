@@ -6,7 +6,7 @@ import { createUrl, URL_TYPES, parseUrl } from './url'
 import { CacheDB } from './cacheDB'
 import { debug } from './debug'
 
-export type MsgTypeInit = GraphMessage<{ userUrl: string }, 'Init'>
+export type MsgTypeInit = GraphMessage<{ userUrl: string; addressedTo?: string }, 'Init'>
 export type MsgTypeFriendRequest = GraphMessage<{ contactsUrl: string }, 'FriendRequest'>
 export type MsgTypeShare = GraphMessage<{ shareUrl: string }, 'Share'>
 
@@ -29,7 +29,7 @@ export class Communication {
   constructor(readonly graph: CertaCryptGraph, readonly userInit: Vertex<MsgTypeInit>, readonly cache: CacheDB) {}
 
   static async InitUserCommunication(graph: CertaCryptGraph, socialRoot: Vertex<GraphObject>, cache: CacheDB, user: User, addressant: User) {
-    const comm = new Communication(graph, message(graph, { userUrl: user.getPublicUrl(), type: 'Init' }), cache)
+    const comm = new Communication(graph, message(graph, { userUrl: user.getPublicUrl(), addressedTo: addressant.getPublicUrl(), type: 'Init' }), cache)
     await graph.put(comm.userInit)
 
     let channels: Vertex<GraphObject>
@@ -260,7 +260,8 @@ export class CommunicationView extends View<GraphObject> {
       .generator()
       .map((init: Vertex<MsgTypeInit>) => new Communication(this.graph, init, this.cacheDb))
       .map(async (comm: Communication) => {
-        const sharedWith = (await comm.getParticipants()).map((p) => p.getContent()?.userUrl)
+        let sharedWith = (await comm.getParticipants()).map((p) => p.getContent()?.userUrl)
+        if (!sharedWith || sharedWith.length === 0) sharedWith = [comm.userInit.getContent()?.addressedTo]
         const provisions = await comm.getSentProvisions()
         return provisions.map((p) => {
           return { msg: p, sharedWith }

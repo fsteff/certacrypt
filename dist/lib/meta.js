@@ -39,7 +39,7 @@ class MetaStorage {
         else
             this.crypto.registerPublic(feed, path);
         const trie = await this.getTrie(feed);
-        const { stat, contentFeed } = await this.lstat(path, encrypted, trie, true);
+        const { stat, contentFeed } = await this.lstat(vertex, path, encrypted, trie, true);
         const dataFeed = contentFeed.key.toString('hex');
         if (encrypted)
             this.crypto.registerKey(fkey, { feed: dataFeed, type: certacrypt_crypto_1.Cipher.ChaCha20_Stream, index: stat.offset });
@@ -132,7 +132,7 @@ class MetaStorage {
         return target;
     }
     async find(path) {
-        const vertex = latestWrite(await this.graph.queryPathAtVertex(path, this.root).vertices());
+        const vertex = latestWrite(await this.graph.queryPathAtVertex(path, this.root).generator().destruct(onError));
         if (!vertex)
             return null;
         const file = vertex.getContent();
@@ -144,10 +144,17 @@ class MetaStorage {
             throw new Error('vertex is not of type file or directory, it does not have a filename url');
         const parsed = url_1.parseUrl(file.filename);
         return Object.assign({ vertex }, parsed);
+        function onError(err) {
+            console.error('failed to find vertex for path ' + path);
+            throw err;
+        }
     }
-    lstat(path, encrypted, trie, file) {
+    lstat(vertex, path, encrypted, trie, file) {
+        var _a, _b;
         const self = this;
         const opts = { file: !!file, db: { trie, encrypted, hidden: !!encrypted } };
+        const isFile = ((_a = vertex.getContent()) === null || _a === void 0 ? void 0 : _a.typeName) === graphObjects_1.GraphObjectTypeNames.FILE;
+        const isDirectory = ((_b = vertex.getContent()) === null || _b === void 0 ? void 0 : _b.typeName) === graphObjects_1.GraphObjectTypeNames.DIRECTORY;
         return new Promise((resolve, reject) => {
             if (trie && trie !== self.drive.db) {
                 trie.get(path, opts.db, onRemoteStat);
@@ -158,8 +165,13 @@ class MetaStorage {
             function onStat(err, stat, passedTrie) {
                 if (err)
                     return reject(err);
-                if (stat && !passedTrie)
-                    return resolve(stat);
+                if (stat) {
+                    stat.isFile = isFile;
+                    stat.isDirectory = isDirectory;
+                }
+                if (stat && !passedTrie) {
+                    return resolve({ stat, trie: passedTrie, contentFeed: undefined });
+                }
                 self.drive._getContent(passedTrie.feed, (err, contentState) => {
                     if (err)
                         return reject(err);
@@ -175,8 +187,9 @@ class MetaStorage {
                     return reject(new errors_1.FileNotFound(path));
                 if (!node)
                     return onStat(null, hyperdrive_schemas_1.Stat.directory(), trie); // TODO: modes?
+                let st;
                 try {
-                    var st = hyperdrive_schemas_1.Stat.decode(node.value);
+                    st = hyperdrive_schemas_1.Stat.decode(node.value);
                 }
                 catch (err) {
                     return reject(err);
