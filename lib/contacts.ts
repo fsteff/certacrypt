@@ -100,14 +100,39 @@ export class Contacts {
     }
   }
 
-  async getAllShares(): Promise<CommShare[]> {
+  async getAllReceivedShares(): Promise<CommShare[]> {
     const view = this.graph.factory.get(COMM_VIEW)
     const shares = await this.graph
-      .queryPathAtVertex(COMM_PATHS.COMM_TO_SHARES, this.socialRoot, view)
+      .queryPathAtVertex(COMM_PATHS.COMM_TO_RCV_SHARES, this.socialRoot, view)
       .generator()
       .map((v: VirtualCommShareVertex) => v.getContent())
       .destruct(onError)
     return shares
+
+    function onError(err: Error) {
+      console.error('failed to load share: ' + err)
+    }
+  }
+
+  async getAllSentShares(): Promise<CommShare[]> {
+    const view = this.graph.factory.get(COMM_VIEW)
+    const shares = await this.graph
+      .queryPathAtVertex(COMM_PATHS.COMM_TO_SENT_SHARES, this.socialRoot, view)
+      .generator()
+      .map((v: VirtualCommShareVertex) => v.getContent())
+      .destruct(onError)
+    const dedup: CommShare[] = []
+    for (const share of shares) {
+      const foundIdx = dedup.findIndex((s) => s.equals(share))
+      if (foundIdx < 0) {
+        dedup.push(share)
+      } else {
+        const found = dedup[foundIdx]
+        found.sharedWith = distinct(found.sharedWith.concat(share.sharedWith))
+      }
+    }
+
+    return dedup
 
     function onError(err: Error) {
       console.error('failed to load share: ' + err)
@@ -213,4 +238,8 @@ export class VirtualContactVertex implements IVertex<ContactProfile> {
   equals<V>(other: IVertex<V>): boolean {
     throw new Error('Method not implemented.')
   }
+}
+
+function distinct<T>(values: T[]) {
+  return [...new Set(values)]
 }

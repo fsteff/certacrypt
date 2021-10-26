@@ -245,11 +245,18 @@ tape('shares', async (t) => {
   const share = await alice.certacrypt.createShare(aliceHome)
   await alice.certacrypt.sendShare(share, [bobSeenFromAlice])
 
-  const bobShares = await bobContacts.getAllShares()
+  const bobShares = await bobContacts.getAllReceivedShares()
   t.equals(bobShares.length, 1)
-  t.true(bobShares[0].share.equals(aliceHome))
-  t.equal(bobShares[0].sharedBy.length, 1)
+  t.true(bobShares[0].share.equals(share))
+  t.true(bobShares[0].target.equals(aliceHome))
   t.equals(bobShares[0].sharedBy, aliceUser.getPublicUrl())
+
+  const aliceSentShares = await aliceContacts.getAllSentShares()
+  t.equals(aliceSentShares.length, 1)
+  t.true(aliceSentShares[0].share.equals(share))
+  t.true(aliceSentShares[0].target.equals(aliceHome))
+  t.equals(aliceSentShares[0].sharedWith.length, 1)
+  t.equals(aliceSentShares[0].sharedWith[0], bobUser.getPublicUrl())
 
   cleanup()
   t.end()

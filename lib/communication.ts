@@ -16,7 +16,8 @@ export type MessageVertex = Vertex<MessageTypes>
 export const COMM_PATHS = {
   SOCIAL: 'social',
   SOCIAL_ROOT_TO_CHANNELS: 'channels',
-  COMM_TO_SHARES: 'shares',
+  COMM_TO_RCV_SHARES: 'receivedShares',
+  COMM_TO_SENT_SHARES: 'sentShares',
   MSG_REQUESTS: 'requests',
   MSG_PROVISION: 'provision',
   PARTICIPANTS: 'participants'
@@ -175,6 +176,7 @@ export class Communication {
       if (!['Share'].includes(msg.type)) {
         throw new Error('Message is not a provision: ' + msg.type)
       }
+      results.push(<MsgTypeShare>msg)
     }
     return results
   }
@@ -199,8 +201,10 @@ export class CommunicationView extends View<GraphObject> {
     }
     const edges = vertex.getEdges(label)
     let vertices: Array<Promise<IVertex<GraphObject>>>
-    if (label === COMM_PATHS.COMM_TO_SHARES) {
+    if (label === COMM_PATHS.COMM_TO_RCV_SHARES) {
       return this.getAllReceivedShares(vertex)
+    } else if (label === COMM_PATHS.COMM_TO_SENT_SHARES) {
+      return this.getAllSentShares(vertex)
     } else {
       vertices = []
       for (const edge of edges) {
@@ -214,16 +218,17 @@ export class CommunicationView extends View<GraphObject> {
 
   private getAllReceivedShares(socialRoot: Vertex<GraphObject>): Generator<VirtualCommShareVertex> {
     const self = this
+    const userUrl = this.user.getPublicUrl()
     const shares = this.query(Generator.from([socialRoot]))
       .out(COMM_PATHS.SOCIAL_ROOT_TO_CHANNELS)
       .out()
       .generator()
       .map((init: Vertex<MsgTypeInit>) => new Communication(this.graph, init, this.cacheDb))
       .map(async (comm: Communication) => {
-        const sharedWith = (await comm.getParticipants()).map((p) => p.getContent()?.userUrl)
+        const sharedBy = (await comm.getParticipants()).map((p) => p.getContent()?.userUrl)
         const provisions = await comm.getProvisions()
         return provisions.map((p) => {
-          return { msg: p, sharedBy: sharedWith.length > 0 ? sharedWith[0] : undefined }
+          return { msg: p, sharedBy: sharedBy.length > 0 ? sharedBy[0] : undefined }
         })
       })
       .flatMap((msgs) => Generator.from(msgs.map(getShare)))
@@ -236,14 +241,48 @@ export class CommunicationView extends View<GraphObject> {
       }
 
       self.graph.registerVertexKey(parsed.id, parsed.feed, parsed.key)
-      const vertex = <Vertex<ShareGraphObject>>await self.get(parsed.feed, parsed.id, undefined, GRAPH_VIEW)
-      if (vertex.getContent()?.typeName !== SHARE_GRAPHOBJECT || vertex.getEdges().length !== 1) {
-        throw new Error('invalid share vertex: type=' + vertex.getContent()?.typeName + ' #edges=' + vertex.getEdges().length)
+      const shareVertex = <Vertex<ShareGraphObject>>await self.get(parsed.feed, parsed.id, undefined, GRAPH_VIEW)
+      if (shareVertex.getContent()?.typeName !== SHARE_GRAPHOBJECT || shareVertex.getEdges().length !== 1) {
+        throw new Error('invalid share vertex: type=' + shareVertex.getContent()?.typeName + ' #edges=' + shareVertex.getEdges().length)
       }
-      // why?
-      // const share = <Vertex<ShareGraphObject>>await self.get(parsed.feed, parsed.id, undefined, SHARE_VIEW)
-      const content = vertex.getContent()
-      return new VirtualCommShareVertex(content.owner, content.info, parsed.name, vertex, result.sharedBy)
+      const targetVertex = await self.get(parsed.feed, parsed.id, undefined, SHARE_VIEW)
+      const content = shareVertex.getContent()
+      return new VirtualCommShareVertex(content.owner, content.info, parsed.name, shareVertex, targetVertex, result.sharedBy, [userUrl])
+    }
+  }
+
+  private getAllSentShares(socialRoot: Vertex<GraphObject>) {
+    const self = this
+    const userUrl = this.user.getPublicUrl()
+    const shares = this.query(Generator.from([socialRoot]))
+      .out(COMM_PATHS.SOCIAL_ROOT_TO_CHANNELS)
+      .out()
+      .generator()
+      .map((init: Vertex<MsgTypeInit>) => new Communication(this.graph, init, this.cacheDb))
+      .map(async (comm: Communication) => {
+        const sharedWith = (await comm.getParticipants()).map((p) => p.getContent()?.userUrl)
+        const provisions = await comm.getSentProvisions()
+        return provisions.map((p) => {
+          return { msg: p, sharedWith }
+        })
+      })
+      .flatMap((msgs) => Generator.from(msgs.map(getShare)))
+    return shares
+
+    async function getShare(result: { msg: MsgTypeShare; sharedWith: string[] }): Promise<VirtualCommShareVertex> {
+      const parsed = parseUrl(result.msg.shareUrl)
+      if (parsed.type && parsed.type !== URL_TYPES.SHARE) {
+        throw new Error('URL does not have type share: ' + result.msg.shareUrl)
+      }
+
+      self.graph.registerVertexKey(parsed.id, parsed.feed, parsed.key)
+      const shareVertex = <Vertex<ShareGraphObject>>await self.get(parsed.feed, parsed.id, undefined, GRAPH_VIEW)
+      if (shareVertex.getContent()?.typeName !== SHARE_GRAPHOBJECT || shareVertex.getEdges().length !== 1) {
+        throw new Error('invalid share vertex: type=' + shareVertex.getContent()?.typeName + ' #edges=' + shareVertex.getEdges().length)
+      }
+      const targetVertex = await self.get(parsed.feed, parsed.id, undefined, SHARE_VIEW)
+      const content = shareVertex.getContent()
+      return new VirtualCommShareVertex(content.owner, content.info, parsed.name, shareVertex, targetVertex, userUrl, result.sharedWith)
     }
   }
 }
@@ -253,23 +292,27 @@ export class CommShare extends VirtualGraphObject {
   info: string
   name: string
   sharedBy: string
+  sharedWith: string[]
   share: Vertex<GraphObject>
+  target: IVertex<GraphObject>
 
   equals(other: CommShare): boolean {
-    return this.owner === other.owner && this.info === other.info && this.share.equals(other.share)
+    return this.share.equals(other.share)
   }
 }
 
 export class VirtualCommShareVertex implements IVertex<CommShare> {
   private share: CommShare
 
-  constructor(owner: string, info: string, name: string, share: Vertex<GraphObject>, sharedBy: string) {
+  constructor(owner: string, info: string, name: string, share: Vertex<GraphObject>, target: IVertex<GraphObject>, sharedBy?: string, sharedWith?: string[]) {
     this.share = new CommShare()
     this.share.owner = owner
     this.share.info = info
     this.share.name = name
     this.share.share = share
+    this.share.target = target
     this.share.sharedBy = sharedBy
+    this.share.sharedWith = sharedWith
   }
 
   getContent(): CommShare {

@@ -98,14 +98,37 @@ class Contacts {
             console.error('failed to load contact profile: ' + err);
         }
     }
-    async getAllShares() {
+    async getAllReceivedShares() {
         const view = this.graph.factory.get(communication_1.COMM_VIEW);
         const shares = await this.graph
-            .queryPathAtVertex(communication_1.COMM_PATHS.COMM_TO_SHARES, this.socialRoot, view)
+            .queryPathAtVertex(communication_1.COMM_PATHS.COMM_TO_RCV_SHARES, this.socialRoot, view)
             .generator()
             .map((v) => v.getContent())
             .destruct(onError);
         return shares;
+        function onError(err) {
+            console.error('failed to load share: ' + err);
+        }
+    }
+    async getAllSentShares() {
+        const view = this.graph.factory.get(communication_1.COMM_VIEW);
+        const shares = await this.graph
+            .queryPathAtVertex(communication_1.COMM_PATHS.COMM_TO_SENT_SHARES, this.socialRoot, view)
+            .generator()
+            .map((v) => v.getContent())
+            .destruct(onError);
+        const dedup = [];
+        for (const share of shares) {
+            const foundIdx = dedup.findIndex((s) => s.equals(share));
+            if (foundIdx < 0) {
+                dedup.push(share);
+            }
+            else {
+                const found = dedup[foundIdx];
+                found.sharedWith = distinct(found.sharedWith.concat(share.sharedWith));
+            }
+        }
+        return dedup;
         function onError(err) {
             console.error('failed to load share: ' + err);
         }
@@ -213,4 +236,7 @@ class VirtualContactVertex {
     }
 }
 exports.VirtualContactVertex = VirtualContactVertex;
+function distinct(values) {
+    return [...new Set(values)];
+}
 //# sourceMappingURL=contacts.js.map

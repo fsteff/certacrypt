@@ -34,7 +34,7 @@ export class DriveShareView extends View<GraphObject> {
   private getShareEdges() {
     return this.getView(COMM_VIEW)
       .query(Generator.from([<IVertex<GraphObject>>this.socialRoot]))
-      .out(COMM_PATHS.COMM_TO_SHARES)
+      .out(COMM_PATHS.COMM_TO_RCV_SHARES)
       .generator()
       .map((v) => (<VirtualCommShareVertex>v).getContent())
       .map((c) => this.uniqueEdge(c))

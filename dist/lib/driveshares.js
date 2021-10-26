@@ -30,7 +30,7 @@ class DriveShareView extends hyper_graphdb_1.View {
     getShareEdges() {
         return this.getView(communication_1.COMM_VIEW)
             .query(hyper_graphdb_1.Generator.from([this.socialRoot]))
-            .out(communication_1.COMM_PATHS.COMM_TO_SHARES)
+            .out(communication_1.COMM_PATHS.COMM_TO_RCV_SHARES)
             .generator()
             .map((v) => v.getContent())
             .map((c) => this.uniqueEdge(c))
