@@ -19,6 +19,7 @@ class MetaStorage {
         this.tries = new Map();
     }
     async uniqueFileId() {
+        console.log(await new Promise((resolve, reject) => this.drive.db.list('', (err, res) => (err ? reject(err) : resolve(res)))));
         const nodes = (await new Promise((resolve, reject) => this.drive.db.list('.enc', { hidden: true }, (err, res) => (err ? reject(err) : resolve(res)))));
         let idCtr = this.currentIdCtr + 1;
         nodes.map((node) => parseInt(node.key.split('/', 2)[1])).forEach((id) => (idCtr = Math.max(idCtr, id + 1)));
@@ -107,10 +108,10 @@ class MetaStorage {
         let target;
         for (const vertex of dirs) {
             const content = vertex.getContent();
-            if ((content === null || content === void 0 ? void 0 : content.typeName) === graphObjects_1.GraphObjectTypeNames.DIRECTORY) {
+            if (content && content.filename) {
                 throw new errors_1.PathAlreadyExists(name);
             }
-            if (content === null && vertex.getFeed() === this.root.getFeed()) {
+            if (vertex.getFeed() === this.root.getFeed()) {
                 target = vertex;
             }
         }

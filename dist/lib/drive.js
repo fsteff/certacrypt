@@ -6,15 +6,32 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.cryptoDrive = void 0;
 const certacrypt_crypto_1 = require("certacrypt-crypto");
 const crypto_1 = require("./crypto");
+const graphObjects_1 = require("./graphObjects");
 const meta_1 = require("./meta");
 const hyperdrive_1 = __importDefault(require("hyperdrive"));
 const hypercore_byte_stream_1 = __importDefault(require("hypercore-byte-stream"));
 const minipass_1 = __importDefault(require("minipass"));
 const unixify_1 = __importDefault(require("unixify"));
+const __1 = require("..");
 async function cryptoDrive(corestore, graph, crypto, root) {
-    corestore = crypto_1.cryptoCorestore(corestore.namespace('cryptoDrive'), crypto);
-    const drive = hyperdrive_1.default(corestore); // dirty fix
+    var _a, _b;
+    let metadataFeed = (_a = root.getContent()) === null || _a === void 0 ? void 0 : _a.trie;
+    let metadataRootFile = (_b = root.getContent()) === null || _b === void 0 ? void 0 : _b.filename;
+    if (!metadataFeed && metadataRootFile) {
+        const { feed } = __1.parseUrl(metadataRootFile);
+        metadataFeed = feed;
+    }
+    const seed = certacrypt_crypto_1.Primitives.hash(Buffer.concat([Buffer.from('cryptoDrive'), Buffer.from(root.getFeed(), 'hex'), Buffer.from([root.getId()])]));
+    corestore = crypto_1.cryptoCorestore(corestore.namespace(seed.toString('hex')), crypto);
+    const drive = hyperdrive_1.default(corestore, metadataFeed); // dirty fix
     await drive.promises.ready();
+    if (!metadataFeed && root.getWriteable()) {
+        metadataFeed = drive.db.key.toString('hex');
+        const dir = root.getContent() || new graphObjects_1.Directory();
+        dir.trie = metadataFeed;
+        root.setContent(dir);
+        await graph.put(root);
+    }
     const meta = new meta_1.MetaStorage(drive, graph, root, crypto);
     drive.db = crypto_1.wrapTrie(drive.db, crypto);
     const oldCreateWriteStream = drive.createWriteStream;

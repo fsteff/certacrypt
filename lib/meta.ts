@@ -28,6 +28,7 @@ export class MetaStorage {
   }
 
   private async uniqueFileId() {
+    console.log(await new Promise((resolve, reject) => this.drive.db.list('', (err, res) => (err ? reject(err) : resolve(res)))))
     const nodes = <{ seq: number; key: string; value: Buffer }[]>(
       await new Promise((resolve, reject) => this.drive.db.list('.enc', { hidden: true }, (err, res) => (err ? reject(err) : resolve(res))))
     )
@@ -120,10 +121,10 @@ export class MetaStorage {
     let target: Vertex<Directory>
     for (const vertex of dirs) {
       const content = vertex.getContent()
-      if (content?.typeName === GraphObjectTypeNames.DIRECTORY) {
+      if (content && content.filename) {
         throw new PathAlreadyExists(name)
       }
-      if (content === null && vertex.getFeed() === this.root.getFeed()) {
+      if (vertex.getFeed() === this.root.getFeed()) {
         target = <Vertex<Directory>>vertex
       }
     }

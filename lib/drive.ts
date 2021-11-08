@@ -1,6 +1,6 @@
 import { HyperGraphDB, Vertex, Corestore, GraphObject } from 'hyper-graphdb'
 import { CertaCryptGraph, ShareGraphObject, SHARE_GRAPHOBJECT } from 'certacrypt-graph'
-import { Cipher, ICrypto } from 'certacrypt-crypto'
+import { Cipher, ICrypto, Primitives } from 'certacrypt-crypto'
 import { cryptoCorestore, wrapTrie } from './crypto'
 import { Directory, DriveGraphObject } from './graphObjects'
 import { CBF, CB1, CB2, Hyperdrive, readdirOpts, readdirResult, Stat, encryptionOpts, CB0 } from './types'
@@ -12,11 +12,28 @@ import unixify from 'unixify'
 import { ReadStream, WriteStream } from 'fs'
 import { IVertex } from 'hyper-graphdb/lib/Vertex'
 import { debug } from './debug'
+import { parseUrl } from '..'
 
 export async function cryptoDrive(corestore: Corestore, graph: CertaCryptGraph, crypto: ICrypto, root: Vertex<Directory>): Promise<Hyperdrive> {
-  corestore = cryptoCorestore(corestore.namespace('cryptoDrive'), crypto)
-  const drive = <Hyperdrive>(<unknown>createHyperdrive(corestore)) // dirty fix
+  let metadataFeed = root.getContent()?.trie
+  let metadataRootFile = root.getContent()?.filename
+  if (!metadataFeed && metadataRootFile) {
+    const { feed } = parseUrl(metadataRootFile)
+    metadataFeed = feed
+  }
+
+  const seed = Primitives.hash(Buffer.concat([Buffer.from('cryptoDrive'), Buffer.from(root.getFeed(), 'hex'), Buffer.from([root.getId()])]))
+  corestore = cryptoCorestore(corestore.namespace(seed.toString('hex')), crypto)
+  const drive = <Hyperdrive>(<unknown>createHyperdrive(corestore, metadataFeed)) // dirty fix
   await drive.promises.ready()
+
+  if (!metadataFeed && root.getWriteable()) {
+    metadataFeed = drive.db.key.toString('hex')
+    const dir = root.getContent() || new Directory()
+    dir.trie = metadataFeed
+    root.setContent(dir)
+    await graph.put(root)
+  }
 
   const meta = new MetaStorage(drive, graph, root, crypto)
   drive.db = wrapTrie(drive.db, crypto)
