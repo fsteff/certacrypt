@@ -14,7 +14,7 @@ import { debug } from './debug'
 export class MetaStorage {
   private readonly drive: Hyperdrive
   private readonly graph: CertaCryptGraph
-  private readonly root: Vertex<DriveGraphObject>
+  private root: Vertex<DriveGraphObject>
   private readonly tries: Map<string, MountableHypertrie>
   private readonly crypto: ICrypto
   private currentIdCtr = 0
@@ -102,6 +102,9 @@ export class MetaStorage {
     debug(`created writeableFile ${filename} as ${encrypted ? 'encrypted' : 'public'} file hyper://${feed}${fileid}`)
 
     const created = await this.graph.createEdgesToPath(filename, this.root, vertex)
+    // reload root to be sure
+    this.root = await this.graph.get(this.root.getId(), this.root.getFeed())
+
     for (const { path } of created) {
       const dirs = await this.graph
         .queryPathAtVertex(path, this.root)
@@ -136,14 +139,18 @@ export class MetaStorage {
     const mkey = this.crypto.generateEncryptionKey(Cipher.XChaCha20_Blob)
     const fileid = await this.uniqueFileId()
     const url = `hyper://${feed}${fileid}?mkey=${mkey.toString('hex')}`
-    const dir = new Directory()
+    const dir = target.getContent() || new Directory()
     dir.filename = url
     target.setContent(dir)
     this.crypto.registerKey(mkey, { feed, type: Cipher.XChaCha20_Blob, index: fileid })
 
     await new Promise((resolve, reject) => makeStat.call(null, fileid, (err) => (err ? reject(err) : resolve(undefined))))
     await this.graph.put(target)
-    await this.graph.createEdgesToPath(name, this.root, target)
+    if(this.root.getId() === target.getId() && this.root.getFeed() === target.getFeed()) {
+      this.root = target
+    } else {
+      await this.graph.createEdgesToPath(name, this.root, target)
+    }
 
     debug(`created directory ${name} at hyper://${feed}${fileid}`)
 

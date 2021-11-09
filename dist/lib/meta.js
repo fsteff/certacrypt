@@ -91,6 +91,8 @@ class MetaStorage {
         await this.graph.put(vertex);
         debug_1.debug(`created writeableFile ${filename} as ${encrypted ? 'encrypted' : 'public'} file hyper://${feed}${fileid}`);
         const created = await this.graph.createEdgesToPath(filename, this.root, vertex);
+        // reload root to be sure
+        this.root = await this.graph.get(this.root.getId(), this.root.getFeed());
         for (const { path } of created) {
             const dirs = await this.graph
                 .queryPathAtVertex(path, this.root)
@@ -122,13 +124,18 @@ class MetaStorage {
         const mkey = this.crypto.generateEncryptionKey(certacrypt_crypto_1.Cipher.XChaCha20_Blob);
         const fileid = await this.uniqueFileId();
         const url = `hyper://${feed}${fileid}?mkey=${mkey.toString('hex')}`;
-        const dir = new graphObjects_1.Directory();
+        const dir = target.getContent() || new graphObjects_1.Directory();
         dir.filename = url;
         target.setContent(dir);
         this.crypto.registerKey(mkey, { feed, type: certacrypt_crypto_1.Cipher.XChaCha20_Blob, index: fileid });
         await new Promise((resolve, reject) => makeStat.call(null, fileid, (err) => (err ? reject(err) : resolve(undefined))));
         await this.graph.put(target);
-        await this.graph.createEdgesToPath(name, this.root, target);
+        if (this.root.getId() === target.getId() && this.root.getFeed() === target.getFeed()) {
+            this.root = target;
+        }
+        else {
+            await this.graph.createEdgesToPath(name, this.root, target);
+        }
         debug_1.debug(`created directory ${name} at hyper://${feed}${fileid}`);
         return target;
     }
