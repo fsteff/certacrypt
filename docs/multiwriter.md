@@ -8,14 +8,10 @@ A space typically is is a directory, but technically works independently of it.
 Multiple spaces can intersect, but write permissions in one do not automatically give write permissions in the other - even if the directory structure would suggest that.
 A space is owned by one user and its definition can only be modified by that user.
 
-It is implemented using an Access-Control-List (ACL) composed of:
+It is implemented using an Access-Control-Lists (ACL) appended to the root vertice's edges.
+These ACLs define included and excluded directories and usually are restricted to a set of hypercore feeds.
 
-- a root vertice (or a number of it)
-- included directories (array of path specifications - allow wildcards?)
-- shared directories that are merged into the root vertice (root vertice id : shared vertice id pairs)
-  - in case of revokation, the referenced vertex can either be removed (which removes all of the files of the user)
-   or the vertex is pinned to a certain version
-- optionally a view merging strategy
+In case of revokation, the referenced vertex can either be removed (which removes all of the files of the user) or the vertex is pinned to a certain version.
 
 Spaces create a merged directory view - if there are multiple intersecting spaces, that happens independently of each other!
 To create such a view various strategies are possible, the simplest one (and therefore initiall implemented) is only using timestamps (last-write-wins).
@@ -29,16 +25,27 @@ In case of intersecting spaces, an additional space *should* be defined (automat
 
 *TODO: how to handle inter-spaces of different users*
 
-## Technical Details
+## Write Access Set-Up
 
-A space definition is a graph vertex containing the ACL. These can then be referenced like directories, but act as referrer-nodes.
+Collaboration Spaces are implemented as graph views and the write restrictions are implemented on hyper-graphdb query level. When queried *normally*, the root vertex is not part of the results because it only serves as an intermediate referrer for the underlying data structure.
 
-There are two possible ways to archive that on the graph-layer (likely both are implemented):
+Since only the owner of a hypercore feed can manipulate it, granting write access to parts of a graph is only possible by referring to already existing vertices on an other hypercore feed.
+There are two possible ways to archive that on the graph-layer (only the latter is implemented):
 
-1. directly referencing to files and directories in the graph
+1. directly referencing to existing files and directories in the other user's graph
    - can be archieved by requesting write permissions - these requests then contain the directory
-2. using pre-shared referrer nodes
+2. using [pre-shared vertices](./preshared-vertices.md)
     - allows instant and asynchronous permission management
-    - each user shares referrer nodes in advance
-    - when the access permissions are granted the user defines the label at the referrer node and the encryption key to encrypt the shared directory node
+    - each user supplies pre-shared vertices in advance
+    - when granting access the owner of the space specifies the referrer label and encryption key of the first vertex
     ![preshared-node drawing](https://raw.githubusercontent.com/fsteff/certacrypt/master/docs/writeaccess-preshared-node.png)
+
+## Fine-grained Restrictions
+
+For a *typical* (default implementation) Collaboration Space the participants are allowed to create any arbitrary directory structure, but are restricted to the hypercore feed that contains ther pre-shared vertices.
+
+On the hyper-graphdb level this means the edge from the Space's root vertex specifies (whitelists) the allowed hypercore feeds. Additional restrictions can be applied by setting rules (array of path specifications, simplified [fnmatch](https://www.man7.org/linux/man-pages/man3/fnmatch.3.html) style with wildcards - *TODO: also allow globs ** (?)*).
+Restriction rules are currently implemented using the [minimatch](https://www.npmjs.com/package/minimatch) module and therefore have limitations regarding the supported filenames.
+Edges *down* the directory tree can define additional restrictions, but cannot add exceptions to previously defined rules.
+
+In case of *sub-spaces*, this means these have either to be written by the owner of the space (who does not have any restrictions) or an exception has to be added to the list of rules on the space root's edge.
