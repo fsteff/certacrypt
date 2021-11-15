@@ -44,9 +44,10 @@ There are two possible ways to archive that on the graph-layer (only the latter 
 
 For a *typical* (default implementation) Collaboration Space the participants are allowed to create any arbitrary directory structure, but are restricted to the hypercore feed that contains ther pre-shared vertices.
 
-On the hyper-graphdb level this means the edge from the Space's root vertex specifies (whitelists) the allowed hypercore feeds. Additional restrictions can be applied by setting rules (array of path specifications, [fnmatch](https://www.man7.org/linux/man-pages/man3/fnmatch.3.html) style with wildcards such as *, **, ?, [a-z].
+On the hyper-graphdb level this means the edge from the Space's root vertex specifies (whitelists) the allowed hypercore feeds. Additional restrictions can be applied by setting rules (array of path specifications, [fnmatch](https://www.man7.org/linux/man-pages/man3/fnmatch.3.html)) style with wildcards such as *, **, ?, [a-z].
 Restriction rules are currently implemented using the [minimatch](https://www.npmjs.com/package/minimatch) with the options *nobrace, dot, noext, nocomment*.
 Edges *down* the directory tree can define additional restrictions, but cannot add exceptions to previously defined rules.
-The path to be tested always starts with the currend feed and then the labels relative to the vertex the rule is appended to:  `<hex feed id>/<path>`, therefor the rules have to count in the feed id as well. This way rules are either feed specific or have to start with a wildcard.
+
+The path to be tested always starts with the currend feed and then the labels relative to the vertex the rule is appended to:  `<hex feed id>/<relative path>`, therefor the rules have to count in the feed id as well. This way rules are either feed specific or have to start with a wildcard.
 
 In case of *sub-spaces*, this means these have either to be written by the owner of the space (who does not have any restrictions) or an exception has to be added to the list of rules on the space root's edge.
