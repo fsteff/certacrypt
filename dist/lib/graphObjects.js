@@ -18,6 +18,7 @@ var GraphObjectTypeNames;
 class DriveGraphObject extends hyper_graphdb_1.GraphObject {
     constructor(data) {
         super();
+        this.timestamp = new Date().getUTCMilliseconds();
         if (data) {
             const decoded = codecs_1.json.decode(data);
             Object.assign(this, decoded);

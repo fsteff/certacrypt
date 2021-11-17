@@ -1,4 +1,4 @@
-import { Edge, Generator, GraphObject, IVertex, Vertex, VertexQueries, View } from 'hyper-graphdb'
+import { Edge, Generator, GraphObject, IVertex, QueryResult, QueryState, Vertex, VertexQueries, View, ValueGenerator } from 'hyper-graphdb'
 import { CertaCryptGraph, CryptoCore } from 'certacrypt-graph'
 import { CacheDB } from './cacheDB'
 import { User, USER_PATHS } from './user'
@@ -74,8 +74,9 @@ export class Contacts {
       .queryAtVertex(await this.friends)
       .out()
       .generator()
+      .values(err || onError)
       .map((v) => new User(<Vertex<UserRoot>>v, this.graph))
-      .destruct(err || onError)
+      .destruct()
 
     function onError(err: Error) {
       console.error('Failed to load Friend User: ' + err.message)
@@ -88,8 +89,9 @@ export class Contacts {
       .queryPathAtVertex(CONTACTS_PATHS.CONTACTS_TO_PROFILES, this.socialRoot, view)
       //.out(USER_PATHS.PUBLIC_TO_PROFILE)
       .generator()
+      .values(onError)
       .map((profile: VirtualContactVertex) => profile.getContent())
-      .destruct(onError)
+      .destruct()
     const map = new Map<String, ContactProfile>()
     contacts.forEach((profile) => map.set(profile.publicUrl, profile))
     map.delete(this.user.getPublicUrl())
@@ -105,8 +107,9 @@ export class Contacts {
     const shares = await this.graph
       .queryPathAtVertex(COMM_PATHS.COMM_TO_RCV_SHARES, this.socialRoot, view)
       .generator()
+      .values(onError)
       .map((v: VirtualCommShareVertex) => v.getContent())
-      .destruct(onError)
+      .destruct()
     return shares
 
     function onError(err: Error) {
@@ -119,8 +122,9 @@ export class Contacts {
     const shares = await this.graph
       .queryPathAtVertex(COMM_PATHS.COMM_TO_SENT_SHARES, this.socialRoot, view)
       .generator()
+      .values(onError)
       .map((v: VirtualCommShareVertex) => v.getContent())
-      .destruct(onError)
+      .destruct()
     const dedup: CommShare[] = []
     for (const share of shares) {
       const foundIdx = dedup.findIndex((s) => s.equals(share))
@@ -147,71 +151,71 @@ export class ContactsView extends View<GraphObject> {
     super(graph.core, contentEncoding, factory, transactions)
   }
 
-  async out(vertex: IVertex<GraphObject>, label?: string): Promise<VertexQueries<GraphObject>> {
+  public async out(state: QueryState<GraphObject>, label?: string):  Promise<QueryResult<GraphObject>> {
+    const vertex = <Vertex<GraphObject>> state.value
     if (!(vertex instanceof Vertex) || !vertex.getFeed()) {
       throw new Error('ContactsView.out does only accept persisted Vertex instances as input')
     }
     const edges = vertex.getEdges(label)
-    let vertices: Array<Promise<IVertex<GraphObject>>>
+    
     if (label === CONTACTS_PATHS.CONTACTS_TO_PROFILES) {
-      return this.getAllContacts(vertex)
+      const contacts = await this.getAllContacts(vertex)
+        .map(v => this.toResult(v, {label, ref: 0}, state))
+        .destruct()
+      return contacts.map(async v => v)
     } else {
-      vertices = []
+      const vertices: QueryResult<GraphObject> = []
       for (const edge of edges) {
         const feed = edge.feed?.toString('hex') || <string>vertex.getFeed()
         // TODO: version pinning does not work yet
-        vertices.push(this.get(feed, edge.ref, /*edge.version*/ undefined, edge.view, edge.metadata))
+        vertices.push(this.get(feed, edge.ref, /*edge.version*/ undefined, edge.view, edge.metadata).then(v => this.toResult(v, edge, state)))
       }
+      return vertices
     }
-    return Generator.from(vertices)
   }
 
-  private async getAllContacts(socialRoot: Vertex<GraphObject>): Promise<Generator<VirtualContactVertex>> {
-    const friends = await this.graph
+  private getAllContacts(socialRoot: Vertex<GraphObject>): ValueGenerator<VirtualContactVertex> {
+    const self = this
+    const friends = this.graph
       .queryAtVertex(socialRoot)
       .out(CONTACTS_PATHS.SOCIAL_TO_FRIENDS)
       .out() // each <vertexId>@<feed>
       .generator()
+      .values(onError)
       .map((v) => new User(<Vertex<UserRoot>>v, this.graph))
-      .destruct(onError)
+
     // TODO: caching
     // get all friends's contacts in parallel
-    const promises = new Array<Promise<Generator<User>>>()
-    for (const friend of friends) {
-      promises.push(
-        // get all friends
-        Communication.GetOrInitUserCommunication(this.graph, socialRoot, this.cacheDb, this.user, friend).then(async (channel) => {
-          const contacts = new Array<Generator<User>>(Generator.from([friend]))
-          // get all friend requests (containing urls to their friend list)
-          for (const request of await channel.getRequests()) {
-            // parse url to the friend list
-            debug('found friend request from ' + channel.userInit.getContent().userUrl)
-            const { feed, id, key, type } = parseUrl(request.contactsUrl)
-            if (type !== URL_TYPES.CONTACTS) throw new Error('URL is not of type Contacts: ' + type)
-            // load vertex from url - TODO: use existing transactions(?)
-            this.graph.registerVertexKey(id, feed, key)
-            const userFriendsRoot = <Vertex<GraphObject>>await this.get(feed, id) //<Vertex<GraphObject>>await this.graph.get(id, feed, key)
-            // get friends from list and instantiate users
-            debug('loading friends of user ' + channel.userInit.getContent().userUrl)
-            const userFriends = this.graph
-              .queryAtVertex(userFriendsRoot, this)
-              .out()
-              .generator()
-              .map((vertex: Vertex<UserRoot>) => new User(vertex, this.graph))
-            contacts.push(userFriends)
-          }
-          return Generator.from(contacts).flatMap(async (gen) => await gen.destruct(onError))
-        })
-      )
-    }
+    let results = friends.flatMap<User>(async friend => {
+      const channel = await Communication.GetOrInitUserCommunication(this.graph, socialRoot, this.cacheDb, this.user, friend)
+      let contacts = ValueGenerator.from([friend])
+      // get all friend requests (containing urls to their friend list)
+      for (const request of await channel.getRequests()) {
+          // parse url to the friend list
+          debug('found friend request from ' + channel.userInit.getContent().userUrl)
+          const { feed, id, key, type } = parseUrl(request.contactsUrl)
+          if (type !== URL_TYPES.CONTACTS) throw new Error('URL is not of type Contacts: ' + type)
+          // load vertex from url - TODO: use existing transactions(?)
+          this.graph.registerVertexKey(id, feed, key)
+          const userFriendsRoot = <Vertex<GraphObject>>await this.get(feed, id)
+          // get friends from list and instantiate users
+          debug('loading friends of user ' + channel.userInit.getContent().userUrl)
+          const userFriends = this.graph
+            .queryAtVertex(userFriendsRoot, this)
+            .out()
+            .generator()
+            .values(onError)
+            .map((vertex: Vertex<UserRoot>) => new User(vertex, this.graph))
+          contacts = contacts.concat(userFriends)
+        }
+        return contacts
+    })
 
-    return Generator.from(promises).flatMap(async (gen) => {
-      return gen.map(async (user) => {
-        const profile = await user.getProfile()
+    return results.map(async user => {
+      const profile = await user.getProfile()
         const url = user.getPublicUrl()
         debug('loaded user profile for ' + profile?.username + ' (' + url + ')')
         return new VirtualContactVertex(url, profile)
-      })
     })
 
     function onError(err: Error) {

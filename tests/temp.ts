@@ -1,5 +1,5 @@
 import { cryptoDrive } from '../lib/drive'
-import { Directory, File, Thombstone } from '../lib/graphObjects'
+import { Directory, DriveGraphObject, File, Thombstone } from '../lib/graphObjects'
 import simulator from 'hyperspace/simulator'
 import RAM from 'random-access-memory'
 import Corestore from 'corestore'
@@ -7,6 +7,7 @@ import tape from 'tape'
 import { CertaCryptGraph } from 'certacrypt-graph'
 import { Cipher, DefaultCrypto } from 'certacrypt-crypto'
 import { CertaCrypt } from '..'
+import { Vertex } from 'hyper-graphdb'
 
 const encryptedOpts = { db: { encrypted: true }, encoding: 'utf-8' }
 
@@ -33,7 +34,7 @@ tape('temp drive write and read', async (t) => {
   const drive = await certacrypt.drive(root)
   await drive.promises.writeFile('test.txt', 'test', encryptedOpts)
 
-  let url = certacrypt.getFileUrl(await certacrypt.path('/apps/test/test.txt'), 'test.txt')
+  let url = certacrypt.getFileUrl(<Vertex<DriveGraphObject>> await certacrypt.path('/apps/test/test.txt'), 'test.txt')
   const file = await certacrypt.getFileByUrl(url)
   const content = await file.readFile(encryptedOpts)
 

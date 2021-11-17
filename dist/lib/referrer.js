@@ -11,21 +11,22 @@ class ReferrerView extends hyper_graphdb_1.View {
         this.viewName = exports.REFERRER_VIEW;
         this.crypto = db.crypto;
     }
-    async out(vertex, label) {
+    async out(state, label) {
         var _a;
+        const vertex = state.value;
         if (!(vertex.getContent() instanceof graphObjects_1.PreSharedGraphObject)) {
             throw new Error('Vertex is not a a physical one, cannot use it for a PreSharedVertexView');
         }
         const edges = vertex.getEdges(label);
-        const vertices = new Array();
+        const vertices = [];
         for (const edge of edges) {
             const feed = ((_a = edge.feed) === null || _a === void 0 ? void 0 : _a.toString('hex')) || vertex.getFeed();
             const meta = edge.metadata;
             if (meta.refKey && meta.refLabel) {
-                vertices.push(this.get(feed, edge.ref, undefined, edge.view, meta));
+                vertices.push(this.get(feed, edge.ref, undefined, edge.view, meta).then(v => this.toResult(v, edge, state)));
             }
         }
-        return hyper_graphdb_1.Generator.from(vertices);
+        return vertices;
     }
     // within a query getting the PSV actually returns the one on the referred edge
     async get(feed, id, version, _, metadata) {
@@ -48,7 +49,7 @@ class ReferrerView extends hyper_graphdb_1.View {
         };
         this.crypto.registerKey(metadata.refKey, { feed: ref.feed, index: ref.id, type: certacrypt_crypto_1.Cipher.ChaCha20_Stream });
         const view = this.getView(ref.view);
-        const next = await (await view.out(vertex, ref.label)).destruct();
+        const next = await view.query(hyper_graphdb_1.Generator.from([new hyper_graphdb_1.QueryState(vertex, [], [])])).out(ref.label).vertices();
         if (next.length === 0)
             throw new Error('vertex has no share edge, cannot use ShareView');
         return next[0];

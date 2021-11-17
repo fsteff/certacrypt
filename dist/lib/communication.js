@@ -223,36 +223,44 @@ class CommunicationView extends hyper_graphdb_1.View {
         this.user = user;
         this.viewName = exports.COMM_VIEW;
     }
-    async out(vertex, label) {
+    async out(state, label) {
         var _a;
+        const vertex = state.value;
         if (!(vertex instanceof hyper_graphdb_1.Vertex) || !vertex.getFeed()) {
             throw new Error('ContactsView.out does only accept persisted Vertex instances as input');
         }
         const edges = vertex.getEdges(label);
-        let vertices;
+        let vertices = [];
         if (label === exports.COMM_PATHS.COMM_TO_RCV_SHARES) {
-            return this.getAllReceivedShares(vertex);
+            const shares = await this.getAllReceivedShares(vertex)
+                .map(v => this.toResult(v, { label, ref: 0 }, state))
+                .destruct();
+            return shares.map(async (v) => v);
         }
         else if (label === exports.COMM_PATHS.COMM_TO_SENT_SHARES) {
-            return this.getAllSentShares(vertex);
+            const shares = await this.getAllSentShares(vertex)
+                .map(v => this.toResult(v, { label, ref: 0 }, state))
+                .destruct();
+            return shares.map(async (v) => v);
         }
         else {
-            vertices = [];
+            const vertices = [];
             for (const edge of edges) {
                 const feed = ((_a = edge.feed) === null || _a === void 0 ? void 0 : _a.toString('hex')) || vertex.getFeed();
                 // TODO: version pinning does not work yet
-                vertices.push(this.get(feed, edge.ref, /*edge.version*/ undefined, edge.view, edge.metadata));
+                vertices.push(this.get(feed, edge.ref, /*edge.version*/ undefined, edge.view, edge.metadata).then(v => this.toResult(v, edge, state)));
             }
+            return vertices;
         }
-        return hyper_graphdb_1.Generator.from(vertices);
     }
     getAllReceivedShares(socialRoot) {
         const self = this;
         const userUrl = this.user.getPublicUrl();
-        const shares = this.query(hyper_graphdb_1.Generator.from([socialRoot]))
+        const shares = this.query(hyper_graphdb_1.Generator.from([new hyper_graphdb_1.QueryState(socialRoot, [], [])]))
             .out(exports.COMM_PATHS.SOCIAL_ROOT_TO_CHANNELS)
             .out()
             .generator()
+            .values()
             .map((init) => new Communication(this.graph, init, this.cacheDb))
             .map(async (comm) => {
             const sharedBy = (await comm.getParticipants()).map((p) => { var _a; return (_a = p.getContent()) === null || _a === void 0 ? void 0 : _a.userUrl; });
@@ -261,7 +269,7 @@ class CommunicationView extends hyper_graphdb_1.View {
                 return { msg: p, sharedBy: sharedBy.length > 0 ? sharedBy[0] : undefined };
             });
         })
-            .flatMap((msgs) => hyper_graphdb_1.Generator.from(msgs.map(getShare)));
+            .flatMap((msgs) => msgs.map(getShare));
         return shares;
         async function getShare(result) {
             var _a, _b;
@@ -282,10 +290,11 @@ class CommunicationView extends hyper_graphdb_1.View {
     getAllSentShares(socialRoot) {
         const self = this;
         const userUrl = this.user.getPublicUrl();
-        const shares = this.query(hyper_graphdb_1.Generator.from([socialRoot]))
+        const shares = this.query(hyper_graphdb_1.Generator.from([new hyper_graphdb_1.QueryState(socialRoot, [], [])]))
             .out(exports.COMM_PATHS.SOCIAL_ROOT_TO_CHANNELS)
             .out()
             .generator()
+            .values()
             .map((init) => new Communication(this.graph, init, this.cacheDb))
             .map(async (comm) => {
             var _a;
@@ -297,7 +306,7 @@ class CommunicationView extends hyper_graphdb_1.View {
                 return { msg: p, sharedWith };
             });
         })
-            .flatMap((msgs) => hyper_graphdb_1.Generator.from(msgs.map(getShare)));
+            .flatMap((msgs) => msgs.map(getShare));
         return shares;
         async function getShare(result) {
             var _a, _b;

@@ -13,8 +13,8 @@ class DriveShareView extends hyper_graphdb_1.View {
         this.socialRoot = socialRoot;
         this.viewName = exports.DRIVE_SHARE_VIEW;
     }
-    async out(vertex, label) {
-        return this.getView(hyper_graphdb_1.GRAPH_VIEW).out(vertex, label);
+    async out(state, label) {
+        return this.getView(hyper_graphdb_1.GRAPH_VIEW).out(state, label);
     }
     async get(feed, id, version, viewDesc, metadata) {
         feed = Buffer.isBuffer(feed) ? feed.toString('hex') : feed;
@@ -29,13 +29,15 @@ class DriveShareView extends hyper_graphdb_1.View {
     }
     getShareEdges() {
         return this.getView(communication_1.COMM_VIEW)
-            .query(hyper_graphdb_1.Generator.from([this.socialRoot]))
+            .query(hyper_graphdb_1.Generator.from([new hyper_graphdb_1.QueryState(this.socialRoot, [], [])]))
             .out(communication_1.COMM_PATHS.COMM_TO_RCV_SHARES)
             .generator()
-            .map((v) => v.getContent())
-            .map((c) => this.uniqueEdge(c))
-            .filter(async (e) => e !== null)
-            .destruct((err) => console.error('DriveShareView: failed to load share:' + err));
+            .destruct((err) => console.error('DriveShareView: failed to load share:' + err))
+            .then(vertices => {
+            return vertices.map((v) => v.getContent())
+                .map((c) => this.uniqueEdge(c))
+                .filter(async (e) => e !== null);
+        });
     }
     uniqueEdge(share) {
         const userParsed = url_1.parseUrl(share.sharedBy);

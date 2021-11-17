@@ -1,7 +1,7 @@
 import { Cipher, ICrypto } from 'certacrypt-crypto'
 import { CertaCryptGraph } from 'certacrypt-graph'
 import { ShareGraphObject, SHARE_VIEW } from 'certacrypt-graph'
-import { Corestore, Generator, GraphObject, GRAPH_VIEW, SimpleGraphObject, STATIC_VIEW, Vertex } from 'hyper-graphdb'
+import { Corestore, Generator, GraphObject, GRAPH_VIEW, QueryState, SimpleGraphObject, STATIC_VIEW, Vertex } from 'hyper-graphdb'
 import * as GraphObjects from './lib/graphObjects'
 import { parseUrl, createUrl, URL_TYPES } from './lib/url'
 import { cryptoDrive } from './lib/drive'
@@ -146,7 +146,7 @@ export class CertaCrypt {
     root.addEdgeTo(tmp, 'tmp')
     root.addEdgeTo(shares, 'shares')
     root.addEdgeTo(commRoot, COMM_PATHS.SOCIAL)
-    root.addEdgeTo(commRoot, 'contacts', undefined, undefined, CONTACTS_VIEW)
+    root.addEdgeTo(commRoot, 'contacts',{view: CONTACTS_VIEW})
     await this.graph.put(root)
 
     const user = await User.InitUser(this.graph, root)
@@ -180,12 +180,12 @@ export class CertaCrypt {
       // checks if exists + loads the keys into the crypto key store
       const view = this.graph.factory.get(STATIC_VIEW)
       const matching = await view
-        .query(Generator.from([shares]))
+        .query(Generator.from([new QueryState(shares, [], [])]))
         .out('url', view)
         .generator()
         .filter(async (share) => {
           const target = await view
-            .query(Generator.from([share]))
+            .query(Generator.from([new QueryState(share, [], [])]))
             .out('share')
             .matches((v) => v.equals(vertex))
             .generator()
@@ -200,7 +200,7 @@ export class CertaCrypt {
 
     if (!shareVertex) {
       shareVertex = await this.graph.createShare(vertex, { info: 'share by URL', owner: (await this.user).getPublicUrl() })
-      shares.addEdgeTo(shareVertex, 'url', undefined, undefined, SHARE_VIEW)
+      shares.addEdgeTo(shareVertex, 'url', {view: SHARE_VIEW})
       await this.graph.put(shares)
 
       debug(`created share to vertex ${vertex.getFeed()}/${vertex.getId()} at ${shareVertex.getFeed()}/${shareVertex.getId()}`)
@@ -212,7 +212,7 @@ export class CertaCrypt {
   public async mountShare(target: Vertex<GraphObject>, label: string, url: string) {
     const { feed, id, key } = parseUrl(url)
     const vertex = await this.graph.get(id, feed, key)
-    target.addEdgeTo(vertex, label, undefined, undefined, SHARE_VIEW)
+    target.addEdgeTo(vertex, label, {view:  SHARE_VIEW})
     await this.graph.put(target)
     debug(`mounted share from URL ${url} to ${target.getFeed()}/${target.getId()}->${label}`)
     debug(await this.debugDrawGraph())

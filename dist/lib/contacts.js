@@ -76,8 +76,9 @@ class Contacts {
             .queryAtVertex(await this.friends)
             .out()
             .generator()
+            .values(err || onError)
             .map((v) => new user_1.User(v, this.graph))
-            .destruct(err || onError);
+            .destruct();
         function onError(err) {
             console.error('Failed to load Friend User: ' + err.message);
         }
@@ -88,8 +89,9 @@ class Contacts {
             .queryPathAtVertex(exports.CONTACTS_PATHS.CONTACTS_TO_PROFILES, this.socialRoot, view)
             //.out(USER_PATHS.PUBLIC_TO_PROFILE)
             .generator()
+            .values(onError)
             .map((profile) => profile.getContent())
-            .destruct(onError);
+            .destruct();
         const map = new Map();
         contacts.forEach((profile) => map.set(profile.publicUrl, profile));
         map.delete(this.user.getPublicUrl());
@@ -103,8 +105,9 @@ class Contacts {
         const shares = await this.graph
             .queryPathAtVertex(communication_1.COMM_PATHS.COMM_TO_RCV_SHARES, this.socialRoot, view)
             .generator()
+            .values(onError)
             .map((v) => v.getContent())
-            .destruct(onError);
+            .destruct();
         return shares;
         function onError(err) {
             console.error('failed to load share: ' + err);
@@ -115,8 +118,9 @@ class Contacts {
         const shares = await this.graph
             .queryPathAtVertex(communication_1.COMM_PATHS.COMM_TO_SENT_SHARES, this.socialRoot, view)
             .generator()
+            .values(onError)
             .map((v) => v.getContent())
-            .destruct(onError);
+            .destruct();
         const dedup = [];
         for (const share of shares) {
             const foundIdx = dedup.findIndex((s) => s.equals(share));
@@ -143,71 +147,70 @@ class ContactsView extends hyper_graphdb_1.View {
         this.user = user;
         this.viewName = exports.CONTACTS_VIEW;
     }
-    async out(vertex, label) {
+    async out(state, label) {
         var _a;
+        const vertex = state.value;
         if (!(vertex instanceof hyper_graphdb_1.Vertex) || !vertex.getFeed()) {
             throw new Error('ContactsView.out does only accept persisted Vertex instances as input');
         }
         const edges = vertex.getEdges(label);
-        let vertices;
         if (label === exports.CONTACTS_PATHS.CONTACTS_TO_PROFILES) {
-            return this.getAllContacts(vertex);
+            const contacts = await this.getAllContacts(vertex)
+                .map(v => this.toResult(v, { label, ref: 0 }, state))
+                .destruct();
+            return contacts.map(async (v) => v);
         }
         else {
-            vertices = [];
+            const vertices = [];
             for (const edge of edges) {
                 const feed = ((_a = edge.feed) === null || _a === void 0 ? void 0 : _a.toString('hex')) || vertex.getFeed();
                 // TODO: version pinning does not work yet
-                vertices.push(this.get(feed, edge.ref, /*edge.version*/ undefined, edge.view, edge.metadata));
+                vertices.push(this.get(feed, edge.ref, /*edge.version*/ undefined, edge.view, edge.metadata).then(v => this.toResult(v, edge, state)));
             }
+            return vertices;
         }
-        return hyper_graphdb_1.Generator.from(vertices);
     }
-    async getAllContacts(socialRoot) {
-        const friends = await this.graph
+    getAllContacts(socialRoot) {
+        const self = this;
+        const friends = this.graph
             .queryAtVertex(socialRoot)
             .out(exports.CONTACTS_PATHS.SOCIAL_TO_FRIENDS)
             .out() // each <vertexId>@<feed>
             .generator()
-            .map((v) => new user_1.User(v, this.graph))
-            .destruct(onError);
+            .values(onError)
+            .map((v) => new user_1.User(v, this.graph));
         // TODO: caching
         // get all friends's contacts in parallel
-        const promises = new Array();
-        for (const friend of friends) {
-            promises.push(
-            // get all friends
-            communication_1.Communication.GetOrInitUserCommunication(this.graph, socialRoot, this.cacheDb, this.user, friend).then(async (channel) => {
-                const contacts = new Array(hyper_graphdb_1.Generator.from([friend]));
-                // get all friend requests (containing urls to their friend list)
-                for (const request of await channel.getRequests()) {
-                    // parse url to the friend list
-                    debug_1.debug('found friend request from ' + channel.userInit.getContent().userUrl);
-                    const { feed, id, key, type } = url_1.parseUrl(request.contactsUrl);
-                    if (type !== url_1.URL_TYPES.CONTACTS)
-                        throw new Error('URL is not of type Contacts: ' + type);
-                    // load vertex from url - TODO: use existing transactions(?)
-                    this.graph.registerVertexKey(id, feed, key);
-                    const userFriendsRoot = await this.get(feed, id); //<Vertex<GraphObject>>await this.graph.get(id, feed, key)
-                    // get friends from list and instantiate users
-                    debug_1.debug('loading friends of user ' + channel.userInit.getContent().userUrl);
-                    const userFriends = this.graph
-                        .queryAtVertex(userFriendsRoot, this)
-                        .out()
-                        .generator()
-                        .map((vertex) => new user_1.User(vertex, this.graph));
-                    contacts.push(userFriends);
-                }
-                return hyper_graphdb_1.Generator.from(contacts).flatMap(async (gen) => await gen.destruct(onError));
-            }));
-        }
-        return hyper_graphdb_1.Generator.from(promises).flatMap(async (gen) => {
-            return gen.map(async (user) => {
-                const profile = await user.getProfile();
-                const url = user.getPublicUrl();
-                debug_1.debug('loaded user profile for ' + (profile === null || profile === void 0 ? void 0 : profile.username) + ' (' + url + ')');
-                return new VirtualContactVertex(url, profile);
-            });
+        let results = friends.flatMap(async (friend) => {
+            const channel = await communication_1.Communication.GetOrInitUserCommunication(this.graph, socialRoot, this.cacheDb, this.user, friend);
+            let contacts = hyper_graphdb_1.ValueGenerator.from([friend]);
+            // get all friend requests (containing urls to their friend list)
+            for (const request of await channel.getRequests()) {
+                // parse url to the friend list
+                debug_1.debug('found friend request from ' + channel.userInit.getContent().userUrl);
+                const { feed, id, key, type } = url_1.parseUrl(request.contactsUrl);
+                if (type !== url_1.URL_TYPES.CONTACTS)
+                    throw new Error('URL is not of type Contacts: ' + type);
+                // load vertex from url - TODO: use existing transactions(?)
+                this.graph.registerVertexKey(id, feed, key);
+                const userFriendsRoot = await this.get(feed, id);
+                // get friends from list and instantiate users
+                debug_1.debug('loading friends of user ' + channel.userInit.getContent().userUrl);
+                const userFriends = this.graph
+                    .queryAtVertex(userFriendsRoot, this)
+                    .out()
+                    .generator()
+                    .values(onError)
+                    .map((vertex) => new user_1.User(vertex, this.graph));
+                contacts = contacts.concat(userFriends);
+            }
+            return contacts;
+        });
+        return results.map(async (user) => {
+            const profile = await user.getProfile();
+            const url = user.getPublicUrl();
+            debug_1.debug('loaded user profile for ' + (profile === null || profile === void 0 ? void 0 : profile.username) + ' (' + url + ')');
+            return new VirtualContactVertex(url, profile);
         });
         function onError(err) {
             console.error('failed to load contact profile for view: ' + err.message);

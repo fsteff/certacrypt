@@ -103,7 +103,7 @@ export class MetaStorage {
 
     const created = await this.graph.createEdgesToPath(filename, this.root, vertex)
     // reload root to be sure
-    this.root = await this.graph.get(this.root.getId(), this.root.getFeed())
+    this.root = <Vertex<DriveGraphObject>> await this.graph.get(this.root.getId(), this.root.getFeed())
 
     for (const { path } of created) {
       const dirs = await this.graph

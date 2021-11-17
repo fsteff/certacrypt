@@ -1,4 +1,4 @@
-import { Edge, Generator, GraphObject, GRAPH_VIEW, IVertex, Vertex, VertexQueries, View } from 'hyper-graphdb'
+import { Edge, Generator, GraphObject, GRAPH_VIEW, IVertex, QueryResult, QueryState, Vertex, VertexQueries, View } from 'hyper-graphdb'
 import { CertaCryptGraph } from 'certacrypt-graph'
 import { CacheDB } from './cacheDB'
 import { CommShare, COMM_PATHS, COMM_VIEW, VirtualCommShareVertex } from './communication'
@@ -13,8 +13,8 @@ export class DriveShareView extends View<GraphObject> {
     super(graph.core, contentEncoding, factory, transactions)
   }
 
-  async out(vertex: IVertex<GraphObject>, label?: string): Promise<VertexQueries<GraphObject>> {
-    return this.getView(GRAPH_VIEW).out(vertex, label)
+  public async out(state: QueryState<GraphObject>, label?: string):  Promise<QueryResult<GraphObject>> {
+    return this.getView(GRAPH_VIEW).out(state, label)
   }
 
   public async get(feed: string | Buffer, id: number, version?: number, viewDesc?: string, metadata?: Object): Promise<IVertex<GraphObject>> {
@@ -31,15 +31,17 @@ export class DriveShareView extends View<GraphObject> {
     return new VirtualDriveShareVertex(edges.concat(realVertex.getEdges()), realVertex)
   }
 
-  private getShareEdges() {
+  private getShareEdges(): Promise<Edge[]> {
     return this.getView(COMM_VIEW)
-      .query(Generator.from([<IVertex<GraphObject>>this.socialRoot]))
+      .query(Generator.from([new QueryState(<IVertex<GraphObject>>this.socialRoot, [], [])]))
       .out(COMM_PATHS.COMM_TO_RCV_SHARES)
       .generator()
-      .map((v) => (<VirtualCommShareVertex>v).getContent())
-      .map((c) => this.uniqueEdge(c))
-      .filter(async (e) => e !== null)
       .destruct((err) => console.error('DriveShareView: failed to load share:' + err))
+      .then(vertices => {
+        return vertices.map((v) => (<VirtualCommShareVertex>v).getContent())
+        .map((c) => this.uniqueEdge(c))
+        .filter(async (e) => e !== null)
+      })
   }
 
   private uniqueEdge(share: CommShare): Edge {

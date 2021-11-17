@@ -16,6 +16,7 @@ export enum GraphObjectTypeNames {
 export abstract class DriveGraphObject extends GraphObject {
   filename?: string
   trie?: string
+  timestamp = new Date().getUTCMilliseconds()
 
   constructor(data?: Uint8Array) {
     super()

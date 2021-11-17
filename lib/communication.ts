@@ -1,5 +1,5 @@
 import { CertaCryptGraph, ShareGraphObject, SHARE_GRAPHOBJECT, SHARE_VIEW } from 'certacrypt-graph'
-import { Edge, Generator, GraphObject, GRAPH_VIEW, IVertex, Vertex, VertexQueries, View } from 'hyper-graphdb'
+import { Edge, Generator, GraphObject, GRAPH_VIEW, IVertex, QueryResult, QueryState, ValueGenerator, Vertex, VertexQueries, View } from 'hyper-graphdb'
 import { GraphMessage, JsonGraphObject, MessageType, VirtualGraphObject } from './graphObjects'
 import { User } from './user'
 import { createUrl, URL_TYPES, parseUrl } from './url'
@@ -195,34 +195,42 @@ export class CommunicationView extends View<GraphObject> {
     super(graph.core, contentEncoding, factory, transactions)
   }
 
-  async out(vertex: IVertex<GraphObject>, label?: string): Promise<VertexQueries<GraphObject>> {
+  public async out(state: QueryState<GraphObject>, label?: string):  Promise<QueryResult<GraphObject>> {
+    const vertex = <Vertex<GraphObject>> state.value
     if (!(vertex instanceof Vertex) || !vertex.getFeed()) {
       throw new Error('ContactsView.out does only accept persisted Vertex instances as input')
     }
     const edges = vertex.getEdges(label)
-    let vertices: Array<Promise<IVertex<GraphObject>>>
+    let vertices: QueryResult<GraphObject> = []
     if (label === COMM_PATHS.COMM_TO_RCV_SHARES) {
-      return this.getAllReceivedShares(vertex)
+      const shares = await this.getAllReceivedShares(vertex)
+        .map(v => this.toResult(v, {label, ref: 0}, state))
+        .destruct()
+      return shares.map(async v => v)
     } else if (label === COMM_PATHS.COMM_TO_SENT_SHARES) {
-      return this.getAllSentShares(vertex)
+      const shares = await this.getAllSentShares(vertex)
+        .map(v => this.toResult(v, {label, ref: 0}, state))
+        .destruct()
+      return shares.map(async v => v)
     } else {
-      vertices = []
+      const vertices: QueryResult<GraphObject> = []
       for (const edge of edges) {
         const feed = edge.feed?.toString('hex') || <string>vertex.getFeed()
         // TODO: version pinning does not work yet
-        vertices.push(this.get(feed, edge.ref, /*edge.version*/ undefined, edge.view, edge.metadata))
+        vertices.push(this.get(feed, edge.ref, /*edge.version*/ undefined, edge.view, edge.metadata).then(v => this.toResult(v, edge, state)))
       }
+      return vertices
     }
-    return Generator.from(vertices)
   }
 
-  private getAllReceivedShares(socialRoot: Vertex<GraphObject>): Generator<VirtualCommShareVertex> {
+  private getAllReceivedShares(socialRoot: Vertex<GraphObject>): ValueGenerator<VirtualCommShareVertex> {
     const self = this
     const userUrl = this.user.getPublicUrl()
-    const shares = this.query(Generator.from([socialRoot]))
+    const shares = this.query(Generator.from([new QueryState(socialRoot, [], [])]))
       .out(COMM_PATHS.SOCIAL_ROOT_TO_CHANNELS)
       .out()
       .generator()
+      .values()
       .map((init: Vertex<MsgTypeInit>) => new Communication(this.graph, init, this.cacheDb))
       .map(async (comm: Communication) => {
         const sharedBy = (await comm.getParticipants()).map((p) => p.getContent()?.userUrl)
@@ -231,7 +239,7 @@ export class CommunicationView extends View<GraphObject> {
           return { msg: p, sharedBy: sharedBy.length > 0 ? sharedBy[0] : undefined }
         })
       })
-      .flatMap((msgs) => Generator.from(msgs.map(getShare)))
+      .flatMap<VirtualCommShareVertex>((msgs) => msgs.map(getShare))
     return shares
 
     async function getShare(result: { msg: MsgTypeShare; sharedBy: string }): Promise<VirtualCommShareVertex> {
@@ -251,13 +259,14 @@ export class CommunicationView extends View<GraphObject> {
     }
   }
 
-  private getAllSentShares(socialRoot: Vertex<GraphObject>) {
+  private getAllSentShares(socialRoot: Vertex<GraphObject>): ValueGenerator<VirtualCommShareVertex> {
     const self = this
     const userUrl = this.user.getPublicUrl()
-    const shares = this.query(Generator.from([socialRoot]))
+    const shares = this.query(Generator.from([new QueryState(socialRoot, [], [])]))
       .out(COMM_PATHS.SOCIAL_ROOT_TO_CHANNELS)
       .out()
       .generator()
+      .values()
       .map((init: Vertex<MsgTypeInit>) => new Communication(this.graph, init, this.cacheDb))
       .map(async (comm: Communication) => {
         let sharedWith = (await comm.getParticipants()).map((p) => p.getContent()?.userUrl)
@@ -267,7 +276,7 @@ export class CommunicationView extends View<GraphObject> {
           return { msg: p, sharedWith }
         })
       })
-      .flatMap((msgs) => Generator.from(msgs.map(getShare)))
+      .flatMap<VirtualCommShareVertex>((msgs) => msgs.map(getShare))
     return shares
 
     async function getShare(result: { msg: MsgTypeShare; sharedWith: string[] }): Promise<VirtualCommShareVertex> {
