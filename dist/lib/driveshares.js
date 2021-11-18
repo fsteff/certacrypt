@@ -32,12 +32,11 @@ class DriveShareView extends hyper_graphdb_1.View {
             .query(hyper_graphdb_1.Generator.from([new hyper_graphdb_1.QueryState(this.socialRoot, [], [])]))
             .out(communication_1.COMM_PATHS.COMM_TO_RCV_SHARES)
             .generator()
-            .destruct((err) => console.error('DriveShareView: failed to load share:' + err))
-            .then(vertices => {
-            return vertices.map((v) => v.getContent())
-                .map((c) => this.uniqueEdge(c))
-                .filter(async (e) => e !== null);
-        });
+            .values((err) => console.error('DriveShareView: failed to load share:' + err))
+            .map((v) => v.getContent())
+            .map((c) => this.uniqueEdge(c))
+            .filter(async (e) => e !== null)
+            .destruct();
     }
     uniqueEdge(share) {
         const userParsed = url_1.parseUrl(share.sharedBy);

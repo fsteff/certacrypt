@@ -1,6 +1,6 @@
 import { CB0, Hyperdrive, Stat } from './types'
 import { CertaCryptGraph, SHARE_GRAPHOBJECT } from 'certacrypt-graph'
-import { GraphObject, Vertex } from 'hyper-graphdb'
+import { Generator, GraphObject, GRAPH_VIEW, IVertex, QueryState, Vertex } from 'hyper-graphdb'
 import { Directory, DriveGraphObject, File, GraphObjectTypeNames, Thombstone } from './graphObjects'
 import { FileNotFound, PathAlreadyExists } from 'hyperdrive/lib/errors'
 import { cryptoTrie } from './crypto'
@@ -10,6 +10,7 @@ import { Feed } from 'hyperobjects'
 import { Stat as TrieStat } from 'hyperdrive-schemas'
 import { parseUrl } from './url'
 import { debug } from './debug'
+import {SpaceQueryState} from './space'
 
 export class MetaStorage {
   private readonly drive: Hyperdrive
@@ -120,21 +121,21 @@ export class MetaStorage {
   }
 
   public async createDirectory(name: string, makeStat: (name: string, cb: CB0) => void): Promise<Vertex<Directory>> {
-    const dirs = <Vertex<DriveGraphObject>[]>await this.graph.queryPathAtVertex(name, this.root).vertices()
     let target: Vertex<Directory>
-    for (const vertex of dirs) {
-      const content = vertex.getContent()
-      if (content && content.filename) {
-        throw new PathAlreadyExists(name)
-      }
-      if (vertex.getFeed() === this.root.getFeed()) {
-        target = <Vertex<Directory>>vertex
-      }
+
+    const {state, path} = await this.findWriteablePath(name)
+    const vertex = <Vertex<Directory>> (path.length === 0 ? state.value : undefined)
+    const content = vertex?.getContent()
+    if (content && content.filename) {
+      throw new PathAlreadyExists(name)
     }
 
-    if (!target) {
+    if (vertex?.getFeed() === this.root.getFeed()) {
+      target = vertex
+    } else {
       target = this.graph.create<Directory>()
     }
+
     const feed = this.drive.db.feed.key.toString('hex')
     const mkey = this.crypto.generateEncryptionKey(Cipher.XChaCha20_Blob)
     const fileid = await this.uniqueFileId()
@@ -149,7 +150,7 @@ export class MetaStorage {
     if(this.root.getId() === target.getId() && this.root.getFeed() === target.getFeed()) {
       this.root = target
     } else {
-      await this.graph.createEdgesToPath(name, this.root, target)
+      await this.createPath(name, target)
     }
 
     debug(`created directory ${name} at hyper://${feed}${fileid}`)
@@ -158,7 +159,7 @@ export class MetaStorage {
   }
 
   public async find(path: string) {
-    const vertex = latestWrite(<Vertex<DriveGraphObject>[]>await this.graph.queryPathAtVertex(path, this.root).generator().destruct(onError))
+    const vertex = latestWrite(<Vertex<DriveGraphObject>[]>await this.graph.queryPathAtVertex(path, this.root, undefined, thombstoneReductor).generator().destruct(onError))
     if (!vertex) return null
 
     const file = vertex.getContent()
@@ -171,6 +172,15 @@ export class MetaStorage {
     function onError(err: Error) {
       console.error('failed to find vertex for path ' + path)
       throw err
+    }
+
+    function thombstoneReductor(arr: QueryState<DriveGraphObject>[]): QueryState<DriveGraphObject>[] {
+      arr.sort((a,b) => (a.value.getContent()?.timestamp || 0) - (b.value.getContent()?.timestamp || 0))
+      if(arr[0].value.getContent()?.typeName === GraphObjectTypeNames.THOMBSTONE) {
+        return []
+      } else {
+        return arr
+      }
     }
   }
 
@@ -265,6 +275,45 @@ export class MetaStorage {
     const trie = <MountableHypertrie>await cryptoTrie(this.drive.corestore, this.crypto, feedKey)
     this.tries.set(feedKey, trie)
     return trie
+  }
+
+  async createPath(absolutePath: string, leaf: Vertex<DriveGraphObject>) {
+    const {state} = await this.findWriteablePath(absolutePath)
+    if(!state) {
+      throw new Error('createPath: path is not writeable')
+    }
+    if(state instanceof SpaceQueryState) {
+      const relativePath = state.getPathRelativeToSpace()
+      return state.space.createEdgesToPath(relativePath)
+    } else {
+      return this.graph.createEdgesToPath(absolutePath, this.root, leaf)
+    }
+  }
+
+  async findWriteablePath(absolutePath: string) {
+    const self = this
+    const parts = absolutePath.split('/').filter(p => p.trim().length > 0)
+    const view = this.graph.factory.get(GRAPH_VIEW)
+    return traverse(new QueryState(this.root, [], []), parts)
+
+
+    async function traverse(state: QueryState<GraphObject>, path: string[]): Promise<{state: QueryState<GraphObject>, path: string[]} | undefined> {
+      if(path.length === 0 || state.value.getEdges().length === 0) {
+        const vertex = <Vertex<GraphObject>> state.value
+        if(typeof vertex.getFeed === 'function' && vertex.getFeed() === self.root.getFeed()) {
+          return {state, path}
+        } else {
+          return undefined
+        }
+      }
+
+      const nextStates = await view.query(Generator.from([state])).out(path[0]).states()
+      for(const next of nextStates) {
+        const result = traverse(next, path.slice(1))
+        if(result) return result
+      }
+      return undefined
+    }
   }
 }
 

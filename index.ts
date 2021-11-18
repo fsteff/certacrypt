@@ -15,6 +15,7 @@ import { CacheDB } from './lib/cacheDB'
 import { CONTACTS_VIEW, ContactsView, FriendState, Contacts, ContactProfile } from './lib/contacts'
 import { Communication, CommunicationView, COMM_PATHS, COMM_VIEW, CommShare } from './lib/communication'
 import * as DriveShare from './lib/driveshares'
+import * as Space from './lib/space'
 
 export {
   GraphObjects,
@@ -30,7 +31,8 @@ export {
   ContactProfile,
   FriendState,
   CommShare,
-  DriveShare
+  DriveShare,
+  Space
 }
 
 export class CertaCrypt {
@@ -97,6 +99,7 @@ export class CertaCrypt {
         DriveShare.DRIVE_SHARE_VIEW,
         (_, codec, tr) => new DriveShare.DriveShareView(cache, this.graph, socialRoot, codec, this.graph.factory, tr)
       )
+      this.graph.factory.register(Space.SPACE_VIEW, (_, codec, tr) => new Space.CollaborationSpaceView(user, this.graph, codec, tr))
       resolve(cache)
     })
     this.contacts = Promise.all([this.socialRoot, this.user, this.cacheDb]).then(async ([socialRoot, user, cacheDb]) => {
@@ -268,6 +271,10 @@ export class CertaCrypt {
     const { feed, id, key } = parseUrl(url)
     const root = <Vertex<GraphObjects.UserRoot>>await this.graph.get(id, feed, key)
     return new User(root, this.graph)
+  }
+
+  public async convertToCollaborationSpace(parent: Vertex<GraphObject>, directory: Vertex<GraphObjects.DriveGraphObject>) {
+    return Space.CollaborationSpace.CreateSpace(this.graph, await this.user, parent, directory)
   }
 
   public async debugDrawGraph(root?: Vertex<GraphObject>, currentDepth = 0, label = '/', visited = new Set<string>(), view?: string): Promise<string> {

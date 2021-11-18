@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.VirtualGraphObject = exports.JsonGraphObject = exports.PreSharedGraphObject = exports.UserProfile = exports.UserKey = exports.UserRoot = exports.Thombstone = exports.Directory = exports.File = exports.DriveGraphObject = exports.GraphObjectTypeNames = void 0;
+exports.VirtualGraphObject = exports.JsonGraphObject = exports.SpaceGraphObject = exports.PreSharedGraphObject = exports.UserProfile = exports.UserKey = exports.UserRoot = exports.Thombstone = exports.Directory = exports.File = exports.DriveGraphObject = exports.GraphObjectTypeNames = void 0;
 const hyper_graphdb_1 = require("hyper-graphdb");
 const codecs_1 = require("codecs");
 var GraphObjectTypeNames;
@@ -14,6 +14,7 @@ var GraphObjectTypeNames;
     GraphObjectTypeNames["PRESHARED"] = "CertaCrypt-PreShared";
     GraphObjectTypeNames["JSON"] = "CertaCrypt-Json";
     GraphObjectTypeNames["VIRTUAL"] = "CertaCrypt-Virtual";
+    GraphObjectTypeNames["SPACE"] = "CertaCrypt-Space";
 })(GraphObjectTypeNames = exports.GraphObjectTypeNames || (exports.GraphObjectTypeNames = {}));
 class DriveGraphObject extends hyper_graphdb_1.GraphObject {
     constructor(data) {
@@ -99,6 +100,20 @@ class PreSharedGraphObject extends hyper_graphdb_1.GraphObject {
     }
 }
 exports.PreSharedGraphObject = PreSharedGraphObject;
+class SpaceGraphObject extends hyper_graphdb_1.GraphObject {
+    constructor(data) {
+        super();
+        this.typeName = GraphObjectTypeNames.SPACE;
+        if (data) {
+            const decoded = codecs_1.json.decode(data);
+            Object.assign(this, decoded);
+        }
+    }
+    serialize() {
+        return codecs_1.json.encode({ owner: this.owner });
+    }
+}
+exports.SpaceGraphObject = SpaceGraphObject;
 class JsonGraphObject extends hyper_graphdb_1.GraphObject {
     constructor(data) {
         super();

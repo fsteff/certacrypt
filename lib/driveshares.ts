@@ -36,12 +36,11 @@ export class DriveShareView extends View<GraphObject> {
       .query(Generator.from([new QueryState(<IVertex<GraphObject>>this.socialRoot, [], [])]))
       .out(COMM_PATHS.COMM_TO_RCV_SHARES)
       .generator()
-      .destruct((err) => console.error('DriveShareView: failed to load share:' + err))
-      .then(vertices => {
-        return vertices.map((v) => (<VirtualCommShareVertex>v).getContent())
-        .map((c) => this.uniqueEdge(c))
-        .filter(async (e) => e !== null)
-      })
+      .values((err) => console.error('DriveShareView: failed to load share:' + err))
+      .map((v) => (<VirtualCommShareVertex>v).getContent())
+      .map((c) => this.uniqueEdge(c))
+      .filter(async (e) => e !== null)
+      .destruct()
   }
 
   private uniqueEdge(share: CommShare): Edge {

@@ -19,7 +19,7 @@ var __importStar = (this && this.__importStar) || function (mod) {
     return result;
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.CertaCrypt = exports.DriveShare = exports.CommShare = exports.FriendState = exports.ContactProfile = exports.Contacts = exports.Inbox = exports.User = exports.URL_TYPES = exports.parseUrl = exports.createUrl = exports.enableDebugLogging = exports.ShareGraphObject = exports.GraphObjects = void 0;
+exports.CertaCrypt = exports.Space = exports.DriveShare = exports.CommShare = exports.FriendState = exports.ContactProfile = exports.Contacts = exports.Inbox = exports.User = exports.URL_TYPES = exports.parseUrl = exports.createUrl = exports.enableDebugLogging = exports.ShareGraphObject = exports.GraphObjects = void 0;
 const certacrypt_crypto_1 = require("certacrypt-crypto");
 const certacrypt_graph_1 = require("certacrypt-graph");
 const certacrypt_graph_2 = require("certacrypt-graph");
@@ -48,6 +48,8 @@ const communication_1 = require("./lib/communication");
 Object.defineProperty(exports, "CommShare", { enumerable: true, get: function () { return communication_1.CommShare; } });
 const DriveShare = __importStar(require("./lib/driveshares"));
 exports.DriveShare = DriveShare;
+const Space = __importStar(require("./lib/space"));
+exports.Space = Space;
 class CertaCrypt {
     constructor(corestore, crypto, sessionUrl) {
         var _a;
@@ -96,6 +98,7 @@ class CertaCrypt {
             this.graph.factory.register(contacts_1.CONTACTS_VIEW, (_, codec, tr) => new contacts_1.ContactsView(cache, this.graph, user, codec, this.graph.factory, tr));
             this.graph.factory.register(communication_1.COMM_VIEW, (_, codec, tr) => new communication_1.CommunicationView(cache, this.graph, user, codec, this.graph.factory, tr));
             this.graph.factory.register(DriveShare.DRIVE_SHARE_VIEW, (_, codec, tr) => new DriveShare.DriveShareView(cache, this.graph, socialRoot, codec, this.graph.factory, tr));
+            this.graph.factory.register(Space.SPACE_VIEW, (_, codec, tr) => new Space.CollaborationSpaceView(user, this.graph, codec, tr));
             resolve(cache);
         });
         this.contacts = Promise.all([this.socialRoot, this.user, this.cacheDb]).then(async ([socialRoot, user, cacheDb]) => {
@@ -243,6 +246,9 @@ class CertaCrypt {
         const { feed, id, key } = url_1.parseUrl(url);
         const root = await this.graph.get(id, feed, key);
         return new user_1.User(root, this.graph);
+    }
+    async convertToCollaborationSpace(parent, directory) {
+        return Space.CollaborationSpace.CreateSpace(this.graph, await this.user, parent, directory);
     }
     async debugDrawGraph(root, currentDepth = 0, label = '/', visited = new Set(), view) {
         var _a, _b;

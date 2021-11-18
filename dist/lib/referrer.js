@@ -11,16 +11,27 @@ class ReferrerView extends hyper_graphdb_1.View {
         this.viewName = exports.REFERRER_VIEW;
         this.crypto = db.crypto;
     }
+    filterUser(user) {
+        this.user = user;
+        return this;
+    }
     async out(state, label) {
-        var _a;
+        var _a, _b;
         const vertex = state.value;
         if (!(vertex.getContent() instanceof graphObjects_1.PreSharedGraphObject)) {
             throw new Error('Vertex is not a a physical one, cannot use it for a PreSharedVertexView');
         }
+        if (this.user) {
+            // if filter mode is set, only apply referrers of this user
+            const owner = (_a = vertex.getContent()) === null || _a === void 0 ? void 0 : _a.owner;
+            if (owner !== this.user) {
+                return [];
+            }
+        }
         const edges = vertex.getEdges(label);
         const vertices = [];
         for (const edge of edges) {
-            const feed = ((_a = edge.feed) === null || _a === void 0 ? void 0 : _a.toString('hex')) || vertex.getFeed();
+            const feed = ((_b = edge.feed) === null || _b === void 0 ? void 0 : _b.toString('hex')) || vertex.getFeed();
             const meta = edge.metadata;
             if (meta.refKey && meta.refLabel) {
                 vertices.push(this.get(feed, edge.ref, undefined, edge.view, meta).then(v => this.toResult(v, edge, state)));

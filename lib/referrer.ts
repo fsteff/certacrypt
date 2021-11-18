@@ -17,10 +17,16 @@ export interface ReferrerEdge extends Edge {
 export class ReferrerView extends View<GraphObject> {
   public viewName = REFERRER_VIEW
   private crypto: ICrypto
+  private user?: string
 
   constructor(db: CryptoCore, contentEncoding, factory, transactions?) {
     super(db, contentEncoding, factory, transactions)
     this.crypto = db.crypto
+  }
+
+  filterUser(user: string) {
+    this.user = user
+    return this
   }
 
   public async out(state: QueryState<PreSharedGraphObject>, label?: string):  Promise<QueryResult<GraphObject>> {
@@ -28,6 +34,15 @@ export class ReferrerView extends View<GraphObject> {
     if (!(vertex.getContent() instanceof PreSharedGraphObject)) {
       throw new Error('Vertex is not a a physical one, cannot use it for a PreSharedVertexView')
     }
+
+    if(this.user) {
+      // if filter mode is set, only apply referrers of this user
+      const owner = vertex.getContent()?.owner
+      if(owner !== this.user) {
+        return []
+      }
+    }
+
     const edges = vertex.getEdges(label)
     const vertices: QueryResult<GraphObject> = []
     for (const edge of edges) {

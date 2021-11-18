@@ -108,9 +108,12 @@ class User {
             const psv1 = this.graph.create();
             const psv2 = this.graph.create();
             const psv3 = this.graph.create();
-            psv1.setContent(new graphObjects_1.PreSharedGraphObject());
-            psv2.setContent(new graphObjects_1.PreSharedGraphObject());
-            psv3.setContent(new graphObjects_1.PreSharedGraphObject());
+            const me = this.getPublicUrl();
+            const psvObj = new graphObjects_1.PreSharedGraphObject();
+            psvObj.owner = me;
+            psv1.setContent(psvObj);
+            psv2.setContent(psvObj);
+            psv3.setContent(psvObj);
             await this.graph.put([psv1, psv2, psv3]);
             this.publicRoot.addEdgeTo(psv1, exports.USER_PATHS.PUBLIC_TO_PSV);
             this.publicRoot.addEdgeTo(psv2, exports.USER_PATHS.PUBLIC_TO_PSV);
@@ -173,7 +176,7 @@ class User {
         }
         return vertices[Math.floor(Math.random() * vertices.length)];
     }
-    async referToPresharedVertex(from, label) {
+    async referToPresharedVertex(from, label, restrictions) {
         if (!from.getWriteable())
             throw new Error('Cannot refer to preshared vertex, referring vertex is not writeable');
         const target = await this.choosePreSharedVertice();
@@ -186,7 +189,8 @@ class User {
             ref: target.getId(),
             feed: Buffer.from(target.getFeed(), 'hex'),
             view: referrer_1.REFERRER_VIEW,
-            metadata: { key: this.graph.getKey(target), refKey, refLabel }
+            metadata: { key: this.graph.getKey(target), refKey, refLabel },
+            restrictions
         };
         from.addEdge(edge);
         await this.graph.put(from);

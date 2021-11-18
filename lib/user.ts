@@ -1,4 +1,4 @@
-import { GraphObject, HyperGraphDB, SimpleGraphObject, Vertex } from 'hyper-graphdb'
+import { GraphObject, HyperGraphDB, Restriction, SimpleGraphObject, Vertex } from 'hyper-graphdb'
 import { Cipher, ICrypto, Primitives } from 'certacrypt-crypto'
 import { CertaCryptGraph, CryptoCore } from 'certacrypt-graph'
 import { GraphObjectTypeNames, PreSharedGraphObject, UserKey, UserProfile, UserRoot } from './graphObjects'
@@ -121,9 +121,12 @@ export class User {
       const psv2 = this.graph.create<PreSharedGraphObject>()
       const psv3 = this.graph.create<PreSharedGraphObject>()
 
-      psv1.setContent(new PreSharedGraphObject())
-      psv2.setContent(new PreSharedGraphObject())
-      psv3.setContent(new PreSharedGraphObject())
+      const me = this.getPublicUrl()
+      const psvObj = new PreSharedGraphObject()
+      psvObj.owner = me
+      psv1.setContent(psvObj)
+      psv2.setContent(psvObj)
+      psv3.setContent(psvObj)
       await this.graph.put([psv1, psv2, psv3])
 
       this.publicRoot.addEdgeTo(psv1, USER_PATHS.PUBLIC_TO_PSV)
@@ -191,7 +194,7 @@ export class User {
     return vertices[Math.floor(Math.random() * vertices.length)]
   }
 
-  async referToPresharedVertex(from: Vertex<GraphObject>, label: string) {
+  async referToPresharedVertex(from: Vertex<GraphObject>, label: string, restrictions?: Restriction[]) {
     if (!from.getWriteable()) throw new Error('Cannot refer to preshared vertex, referring vertex is not writeable')
 
     const target = await this.choosePreSharedVertice()
@@ -204,7 +207,8 @@ export class User {
       ref: target.getId(),
       feed: Buffer.from(target.getFeed(), 'hex'),
       view: REFERRER_VIEW,
-      metadata: { key: this.graph.getKey(target), refKey, refLabel }
+      metadata: { key: this.graph.getKey(target), refKey, refLabel },
+      restrictions
     }
     from.addEdge(edge)
     await this.graph.put(from)

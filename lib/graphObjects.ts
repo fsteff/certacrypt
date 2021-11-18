@@ -10,7 +10,8 @@ export enum GraphObjectTypeNames {
   USERPROFILE = 'CertaCrypt-Profile',
   PRESHARED = 'CertaCrypt-PreShared',
   JSON = 'CertaCrypt-Json',
-  VIRTUAL = 'CertaCrypt-Virtual'
+  VIRTUAL = 'CertaCrypt-Virtual',
+  SPACE = 'CertaCrypt-Space'
 }
 
 export abstract class DriveGraphObject extends GraphObject {
@@ -84,6 +85,7 @@ export class UserProfile extends GraphObject {
 export class PreSharedGraphObject extends GraphObject {
   readonly typeName = GraphObjectTypeNames.PRESHARED
   expiryDate: number
+  owner?: string
 
   constructor(data?: Uint8Array) {
     super()
@@ -98,6 +100,24 @@ export class PreSharedGraphObject extends GraphObject {
 
   serialize(): Buffer {
     return json.encode({ expiryDate: this.expiryDate })
+  }
+}
+
+export class SpaceGraphObject extends GraphObject {
+  readonly typeName = GraphObjectTypeNames.SPACE
+  owner: string
+
+  constructor(data?: Uint8Array) {
+    super()
+
+    if (data) {
+      const decoded = json.decode(data)
+      Object.assign(this, decoded)
+    }
+  }
+
+  serialize(): Buffer {
+    return json.encode({ owner: this.owner })
   }
 }
 
