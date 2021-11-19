@@ -16,7 +16,6 @@ The whole process can be arranged using the following strategy:
 1. User A has to get the public key of user B in order to create an *envelope*. This can happen over multiple channels:
    - being in the same group / collaboration space
    - sending a friend request link over any other channel (which are URLs to one user's *Inbox*)
-   - at a later stage probably over CTZN
 2. User A modifies a [Collaboration Space](https://github.com/fsteff/certacrypt/blob/master/docs/multiwriter.md) (used as Private Communication Channel) root vertex to refer to the Pre-Shared Vertex using the referrer and encryption key that has been specified in the *envelope*
 3. User B can then check if user A has put an *envelope* into its *Inbox*
    - if user B knows of user A, it will periodically query A's *Inbox*
