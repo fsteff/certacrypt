@@ -23,6 +23,7 @@ async function createCertaCrypt(client) {
 tape_1.default('preshared vertex & inbox', async (t) => {
     const { client, server, cleanup } = await simulator_1.default();
     await client.ready();
+    t.teardown(cleanup);
     // init users
     const alice = await createCertaCrypt(client);
     const bob = await createCertaCrypt(client);
@@ -64,12 +65,12 @@ tape_1.default('preshared vertex & inbox', async (t) => {
     t.ok(resultSpaceFromBob.length > 0);
     t.ok(resultSpaceFromAlice[0].equals(bobSpace));
     t.ok(resultSpaceFromBob[0].equals(aliceSpace));
-    cleanup();
     t.end();
 });
 tape_1.default('communication', async (t) => {
     const { client, server, cleanup } = await simulator_1.default();
     await client.ready();
+    t.teardown(cleanup);
     // init users
     const alice = await createCertaCrypt(client);
     const bob = await createCertaCrypt(client);
@@ -103,13 +104,13 @@ tape_1.default('communication', async (t) => {
     await bobContacts.addFriend(aliceSeenFromBob);
     t.equals(await aliceContacts.getFriendState(bobSeenFromAlice), contacts_1.FriendState.FRIENDS);
     t.equals(await bobContacts.getFriendState(aliceSeenFromBob), contacts_1.FriendState.FRIENDS);
-    cleanup();
     t.end();
 });
 tape_1.default('contacts', async (t) => {
     var _a, _b, _c, _d, _e, _f, _g, _h, _j, _k;
     const { client, server, cleanup } = await simulator_1.default();
     await client.ready();
+    t.teardown(cleanup);
     // init users
     const alice = await createCertaCrypt(client);
     const bob = await createCertaCrypt(client);
@@ -150,13 +151,13 @@ tape_1.default('contacts', async (t) => {
     const contacts = await bobContacts.getAllContacts();
     t.equals(contacts.length, 2);
     t.equals(contacts.map((c) => c.username).join(', '), ['Alice', 'Caesar'].join(', '));
-    cleanup();
     t.end();
 });
 tape_1.default('shares', async (t) => {
     var _a, _b, _c, _d;
     const { client, server, cleanup } = await simulator_1.default();
     await client.ready();
+    t.teardown(cleanup);
     // init users
     const alice = await createCertaCrypt(client);
     const bob = await createCertaCrypt(client);
@@ -199,7 +200,6 @@ tape_1.default('shares', async (t) => {
     t.true(aliceSentShares[0].target.equals(aliceHome));
     t.equals(aliceSentShares[0].sharedWith.length, 1);
     t.equals(aliceSentShares[0].sharedWith[0], bobUser.getPublicUrl());
-    cleanup();
     t.end();
 });
 //# sourceMappingURL=users.js.map

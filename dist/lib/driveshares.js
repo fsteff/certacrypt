@@ -16,20 +16,21 @@ class DriveShareView extends hyper_graphdb_1.View {
     async out(state, label) {
         return this.getView(hyper_graphdb_1.GRAPH_VIEW).out(state, label);
     }
-    async get(feed, id, version, viewDesc, metadata) {
-        feed = Buffer.isBuffer(feed) ? feed.toString('hex') : feed;
-        if (viewDesc) {
-            const view = this.getView(viewDesc);
-            return view.get(feed, id, version, undefined, metadata);
+    async get(edge, state) {
+        const feed = edge.feed.toString('hex');
+        if (edge.view) {
+            const view = this.getView(edge.view);
+            return view.get(Object.assign(Object.assign({}, edge), { view: undefined }), state);
         }
         const edges = await this.getShareEdges();
-        const tr = await this.getTransaction(feed, version);
-        const realVertex = await this.db.getInTransaction(id, this.codec, tr, feed);
-        return new VirtualDriveShareVertex(edges.concat(realVertex.getEdges()), realVertex);
+        const tr = await this.getTransaction(feed);
+        const realVertex = await this.db.getInTransaction(edge.ref, this.codec, tr, feed);
+        return this.toResult(new VirtualDriveShareVertex(edges.concat(realVertex.getEdges()), realVertex), edge, state);
     }
     getShareEdges() {
-        return this.getView(communication_1.COMM_VIEW)
-            .query(hyper_graphdb_1.Generator.from([new hyper_graphdb_1.QueryState(this.socialRoot, [], [])]))
+        const view = this.getView(communication_1.COMM_VIEW);
+        return view
+            .query(hyper_graphdb_1.Generator.from([new hyper_graphdb_1.QueryState(this.socialRoot, [], [], view)]))
             .out(communication_1.COMM_PATHS.COMM_TO_RCV_SHARES)
             .generator()
             .values((err) => console.error('DriveShareView: failed to load share:' + err))

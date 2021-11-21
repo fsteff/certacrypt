@@ -215,9 +215,9 @@ export class CommunicationView extends View<GraphObject> {
     } else {
       const vertices: QueryResult<GraphObject> = []
       for (const edge of edges) {
-        const feed = edge.feed?.toString('hex') || <string>vertex.getFeed()
+        const feed = edge.feed || Buffer.from(<string>vertex.getFeed(), 'hex')
         // TODO: version pinning does not work yet
-        vertices.push(this.get(feed, edge.ref, /*edge.version*/ undefined, edge.view, edge.metadata).then(v => this.toResult(v, edge, state)))
+        vertices.push(this.get({...edge, feed}, state))
       }
       return vertices
     }
@@ -226,34 +226,39 @@ export class CommunicationView extends View<GraphObject> {
   private getAllReceivedShares(socialRoot: Vertex<GraphObject>): ValueGenerator<VirtualCommShareVertex> {
     const self = this
     const userUrl = this.user.getPublicUrl()
-    const shares = this.query(Generator.from([new QueryState(socialRoot, [], [])]))
+    const gen = <Generator<MsgTypeInit>> this.query(Generator.from([new QueryState(socialRoot, [], [], this)]))
       .out(COMM_PATHS.SOCIAL_ROOT_TO_CHANNELS)
       .out()
       .generator()
-      .values()
+    const shares = gen.values()
       .map((init: Vertex<MsgTypeInit>) => new Communication(this.graph, init, this.cacheDb))
       .map(async (comm: Communication) => {
         const sharedBy = (await comm.getParticipants()).map((p) => p.getContent()?.userUrl)
         const provisions = await comm.getProvisions()
-        return provisions.map((p) => {
+        const msgs = provisions.map((p: MsgTypeShare) => {
           return { msg: p, sharedBy: sharedBy.length > 0 ? sharedBy[0] : undefined }
         })
+        return msgs
       })
-      .flatMap<VirtualCommShareVertex>((msgs) => msgs.map(getShare))
+      .flatMap<VirtualCommShareVertex>((msgs: { msg: MsgTypeShare, sharedBy: string }[]) => (msgs).map(getShare))
     return shares
 
-    async function getShare(result: { msg: MsgTypeShare; sharedBy: string }): Promise<VirtualCommShareVertex> {
+    async function getShare(result: { msg: MsgTypeShare, sharedBy: string }): Promise<VirtualCommShareVertex> {
       const parsed = parseUrl(result.msg.shareUrl)
       if (parsed.type && parsed.type !== URL_TYPES.SHARE) {
         throw new Error('URL does not have type share: ' + result.msg.shareUrl)
       }
 
       self.graph.registerVertexKey(parsed.id, parsed.feed, parsed.key)
-      const shareVertex = <Vertex<ShareGraphObject>>await self.get(parsed.feed, parsed.id, undefined, GRAPH_VIEW)
+      // fake query state and edge...
+      const state = new QueryState(socialRoot, [], [], self)
+      const edge = {ref: parsed.id, feed: Buffer.from(parsed.feed, 'hex'), label: ''}
+      
+      const shareVertex = <Vertex<ShareGraphObject>> (await self.get({...edge, view: GRAPH_VIEW}, state)).result
       if (shareVertex.getContent()?.typeName !== SHARE_GRAPHOBJECT || shareVertex.getEdges().length !== 1) {
         throw new Error('invalid share vertex: type=' + shareVertex.getContent()?.typeName + ' #edges=' + shareVertex.getEdges().length)
       }
-      const targetVertex = await self.get(parsed.feed, parsed.id, undefined, SHARE_VIEW)
+      const targetVertex = (await self.get({...edge, view: SHARE_VIEW}, state)).result
       const content = shareVertex.getContent()
       return new VirtualCommShareVertex(content.owner, content.info, parsed.name, shareVertex, targetVertex, result.sharedBy, [userUrl])
     }
@@ -262,7 +267,7 @@ export class CommunicationView extends View<GraphObject> {
   private getAllSentShares(socialRoot: Vertex<GraphObject>): ValueGenerator<VirtualCommShareVertex> {
     const self = this
     const userUrl = this.user.getPublicUrl()
-    const shares = this.query(Generator.from([new QueryState(socialRoot, [], [])]))
+    const shares = this.query(Generator.from([new QueryState(socialRoot, [], [], this)]))
       .out(COMM_PATHS.SOCIAL_ROOT_TO_CHANNELS)
       .out()
       .generator()
@@ -286,11 +291,15 @@ export class CommunicationView extends View<GraphObject> {
       }
 
       self.graph.registerVertexKey(parsed.id, parsed.feed, parsed.key)
-      const shareVertex = <Vertex<ShareGraphObject>>await self.get(parsed.feed, parsed.id, undefined, GRAPH_VIEW)
+      // fake query state and edge...
+      const state = new QueryState(socialRoot, [], [], self)
+      const edge = {ref: parsed.id, feed: Buffer.from(parsed.feed, 'hex'), label: ''}
+     
+      const shareVertex = <Vertex<ShareGraphObject>> (await self.get({...edge, view: GRAPH_VIEW}, state)).result
       if (shareVertex.getContent()?.typeName !== SHARE_GRAPHOBJECT || shareVertex.getEdges().length !== 1) {
         throw new Error('invalid share vertex: type=' + shareVertex.getContent()?.typeName + ' #edges=' + shareVertex.getEdges().length)
       }
-      const targetVertex = await self.get(parsed.feed, parsed.id, undefined, SHARE_VIEW)
+      const targetVertex = (await self.get({...edge, view: SHARE_VIEW}, state)).result
       const content = shareVertex.getContent()
       return new VirtualCommShareVertex(content.owner, content.info, parsed.name, shareVertex, targetVertex, userUrl, result.sharedWith)
     }

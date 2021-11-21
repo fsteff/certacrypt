@@ -183,12 +183,12 @@ export class CertaCrypt {
       // checks if exists + loads the keys into the crypto key store
       const view = this.graph.factory.get(STATIC_VIEW)
       const matching = await view
-        .query(Generator.from([new QueryState(shares, [], [])]))
+        .query(Generator.from([new QueryState(shares, [], [], view)]))
         .out('url', view)
         .generator()
         .filter(async (share) => {
           const target = await view
-            .query(Generator.from([new QueryState(share, [], [])]))
+            .query(Generator.from([new QueryState(share, [], [], view)]))
             .out('share')
             .matches((v) => v.equals(vertex))
             .generator()
@@ -202,7 +202,11 @@ export class CertaCrypt {
     }
 
     if (!shareVertex) {
-      shareVertex = await this.graph.createShare(vertex, { info: 'share by URL', owner: (await this.user).getPublicUrl() })
+      let shareView = GRAPH_VIEW
+      if(vertex.getContent()?.typeName === GraphObjects.GraphObjectTypeNames.SPACE) {
+        shareView = Space.SPACE_VIEW
+      }
+      shareVertex = await this.graph.createShare(vertex, { info: 'share by URL', owner: (await this.user).getPublicUrl(), view: shareView })
       shares.addEdgeTo(shareVertex, 'url', {view: SHARE_VIEW})
       await this.graph.put(shares)
 

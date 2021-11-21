@@ -148,7 +148,6 @@ class ContactsView extends hyper_graphdb_1.View {
         this.viewName = exports.CONTACTS_VIEW;
     }
     async out(state, label) {
-        var _a;
         const vertex = state.value;
         if (!(vertex instanceof hyper_graphdb_1.Vertex) || !vertex.getFeed()) {
             throw new Error('ContactsView.out does only accept persisted Vertex instances as input');
@@ -163,9 +162,8 @@ class ContactsView extends hyper_graphdb_1.View {
         else {
             const vertices = [];
             for (const edge of edges) {
-                const feed = ((_a = edge.feed) === null || _a === void 0 ? void 0 : _a.toString('hex')) || vertex.getFeed();
-                // TODO: version pinning does not work yet
-                vertices.push(this.get(feed, edge.ref, /*edge.version*/ undefined, edge.view, edge.metadata).then(v => this.toResult(v, edge, state)));
+                const feed = edge.feed || Buffer.from(vertex.getFeed(), 'hex');
+                vertices.push(this.get(Object.assign(Object.assign({}, edge), { feed }), state));
             }
             return vertices;
         }
@@ -193,7 +191,8 @@ class ContactsView extends hyper_graphdb_1.View {
                     throw new Error('URL is not of type Contacts: ' + type);
                 // load vertex from url - TODO: use existing transactions(?)
                 this.graph.registerVertexKey(id, feed, key);
-                const userFriendsRoot = await this.get(feed, id);
+                const tr = await this.getTransaction(feed);
+                const userFriendsRoot = await this.graph.core.getInTransaction(id, this.graph.codec, tr, feed);
                 // get friends from list and instantiate users
                 debug_1.debug('loading friends of user ' + channel.userInit.getContent().userUrl);
                 const userFriends = this.graph

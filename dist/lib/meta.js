@@ -159,6 +159,8 @@ class MetaStorage {
         }
         function thombstoneReductor(arr) {
             var _a;
+            if (!arr || arr.length === 0)
+                return [];
             arr.sort((a, b) => { var _a, _b; return (((_a = a.value.getContent()) === null || _a === void 0 ? void 0 : _a.timestamp) || 0) - (((_b = b.value.getContent()) === null || _b === void 0 ? void 0 : _b.timestamp) || 0); });
             if (((_a = arr[0].value.getContent()) === null || _a === void 0 ? void 0 : _a.typeName) === graphObjects_1.GraphObjectTypeNames.THOMBSTONE) {
                 return [];
@@ -277,7 +279,7 @@ class MetaStorage {
         const self = this;
         const parts = absolutePath.split('/').filter(p => p.trim().length > 0);
         const view = this.graph.factory.get(hyper_graphdb_1.GRAPH_VIEW);
-        return traverse(new hyper_graphdb_1.QueryState(this.root, [], []), parts);
+        return traverse(new hyper_graphdb_1.QueryState(this.root, [], [], view), parts);
         async function traverse(state, path) {
             if (path.length === 0 || state.value.getEdges().length === 0) {
                 const vertex = state.value;

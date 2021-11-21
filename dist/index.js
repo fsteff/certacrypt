@@ -167,18 +167,19 @@ class CertaCrypt {
         });
     }
     async createShare(vertex, reuseIfExists = true) {
+        var _a;
         const shares = await this.path('/shares');
         let shareVertex;
         if (reuseIfExists) {
             // checks if exists + loads the keys into the crypto key store
             const view = this.graph.factory.get(hyper_graphdb_1.STATIC_VIEW);
             const matching = await view
-                .query(hyper_graphdb_1.Generator.from([new hyper_graphdb_1.QueryState(shares, [], [])]))
+                .query(hyper_graphdb_1.Generator.from([new hyper_graphdb_1.QueryState(shares, [], [], view)]))
                 .out('url', view)
                 .generator()
                 .filter(async (share) => {
                 const target = await view
-                    .query(hyper_graphdb_1.Generator.from([new hyper_graphdb_1.QueryState(share, [], [])]))
+                    .query(hyper_graphdb_1.Generator.from([new hyper_graphdb_1.QueryState(share, [], [], view)]))
                     .out('share')
                     .matches((v) => v.equals(vertex))
                     .generator()
@@ -191,7 +192,11 @@ class CertaCrypt {
             }
         }
         if (!shareVertex) {
-            shareVertex = await this.graph.createShare(vertex, { info: 'share by URL', owner: (await this.user).getPublicUrl() });
+            let shareView = hyper_graphdb_1.GRAPH_VIEW;
+            if (((_a = vertex.getContent()) === null || _a === void 0 ? void 0 : _a.typeName) === GraphObjects.GraphObjectTypeNames.SPACE) {
+                shareView = Space.SPACE_VIEW;
+            }
+            shareVertex = await this.graph.createShare(vertex, { info: 'share by URL', owner: (await this.user).getPublicUrl(), view: shareView });
             shares.addEdgeTo(shareVertex, 'url', { view: certacrypt_graph_2.SHARE_VIEW });
             await this.graph.put(shares);
             debug_1.debug(`created share to vertex ${vertex.getFeed()}/${vertex.getId()} at ${shareVertex.getFeed()}/${shareVertex.getId()}`);

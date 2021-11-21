@@ -166,9 +166,8 @@ export class ContactsView extends View<GraphObject> {
     } else {
       const vertices: QueryResult<GraphObject> = []
       for (const edge of edges) {
-        const feed = edge.feed?.toString('hex') || <string>vertex.getFeed()
-        // TODO: version pinning does not work yet
-        vertices.push(this.get(feed, edge.ref, /*edge.version*/ undefined, edge.view, edge.metadata).then(v => this.toResult(v, edge, state)))
+        const feed = edge.feed || Buffer.from(<string>vertex.getFeed(), 'hex')
+        vertices.push(this.get({...edge, feed}, state))
       }
       return vertices
     }
@@ -176,7 +175,7 @@ export class ContactsView extends View<GraphObject> {
 
   private getAllContacts(socialRoot: Vertex<GraphObject>): ValueGenerator<VirtualContactVertex> {
     const self = this
-    const friends = this.graph
+    const friends: ValueGenerator<User> = this.graph
       .queryAtVertex(socialRoot)
       .out(CONTACTS_PATHS.SOCIAL_TO_FRIENDS)
       .out() // each <vertexId>@<feed>
@@ -197,7 +196,8 @@ export class ContactsView extends View<GraphObject> {
           if (type !== URL_TYPES.CONTACTS) throw new Error('URL is not of type Contacts: ' + type)
           // load vertex from url - TODO: use existing transactions(?)
           this.graph.registerVertexKey(id, feed, key)
-          const userFriendsRoot = <Vertex<GraphObject>>await this.get(feed, id)
+          const tr = await this.getTransaction(feed)
+          const userFriendsRoot = <Vertex<GraphObject>>await this.graph.core.getInTransaction(id, this.graph.codec, tr, feed)
           // get friends from list and instantiate users
           debug('loading friends of user ' + channel.userInit.getContent().userUrl)
           const userFriends = this.graph

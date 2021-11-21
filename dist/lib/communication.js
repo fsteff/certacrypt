@@ -224,7 +224,6 @@ class CommunicationView extends hyper_graphdb_1.View {
         this.viewName = exports.COMM_VIEW;
     }
     async out(state, label) {
-        var _a;
         const vertex = state.value;
         if (!(vertex instanceof hyper_graphdb_1.Vertex) || !vertex.getFeed()) {
             throw new Error('ContactsView.out does only accept persisted Vertex instances as input');
@@ -246,9 +245,9 @@ class CommunicationView extends hyper_graphdb_1.View {
         else {
             const vertices = [];
             for (const edge of edges) {
-                const feed = ((_a = edge.feed) === null || _a === void 0 ? void 0 : _a.toString('hex')) || vertex.getFeed();
+                const feed = edge.feed || Buffer.from(vertex.getFeed(), 'hex');
                 // TODO: version pinning does not work yet
-                vertices.push(this.get(feed, edge.ref, /*edge.version*/ undefined, edge.view, edge.metadata).then(v => this.toResult(v, edge, state)));
+                vertices.push(this.get(Object.assign(Object.assign({}, edge), { feed }), state));
             }
             return vertices;
         }
@@ -256,20 +255,21 @@ class CommunicationView extends hyper_graphdb_1.View {
     getAllReceivedShares(socialRoot) {
         const self = this;
         const userUrl = this.user.getPublicUrl();
-        const shares = this.query(hyper_graphdb_1.Generator.from([new hyper_graphdb_1.QueryState(socialRoot, [], [])]))
+        const gen = this.query(hyper_graphdb_1.Generator.from([new hyper_graphdb_1.QueryState(socialRoot, [], [], this)]))
             .out(exports.COMM_PATHS.SOCIAL_ROOT_TO_CHANNELS)
             .out()
-            .generator()
-            .values()
+            .generator();
+        const shares = gen.values()
             .map((init) => new Communication(this.graph, init, this.cacheDb))
             .map(async (comm) => {
             const sharedBy = (await comm.getParticipants()).map((p) => { var _a; return (_a = p.getContent()) === null || _a === void 0 ? void 0 : _a.userUrl; });
             const provisions = await comm.getProvisions();
-            return provisions.map((p) => {
+            const msgs = provisions.map((p) => {
                 return { msg: p, sharedBy: sharedBy.length > 0 ? sharedBy[0] : undefined };
             });
+            return msgs;
         })
-            .flatMap((msgs) => msgs.map(getShare));
+            .flatMap((msgs) => (msgs).map(getShare));
         return shares;
         async function getShare(result) {
             var _a, _b;
@@ -278,11 +278,14 @@ class CommunicationView extends hyper_graphdb_1.View {
                 throw new Error('URL does not have type share: ' + result.msg.shareUrl);
             }
             self.graph.registerVertexKey(parsed.id, parsed.feed, parsed.key);
-            const shareVertex = await self.get(parsed.feed, parsed.id, undefined, hyper_graphdb_1.GRAPH_VIEW);
+            // fake query state and edge...
+            const state = new hyper_graphdb_1.QueryState(socialRoot, [], [], self);
+            const edge = { ref: parsed.id, feed: Buffer.from(parsed.feed, 'hex'), label: '' };
+            const shareVertex = (await self.get(Object.assign(Object.assign({}, edge), { view: hyper_graphdb_1.GRAPH_VIEW }), state)).result;
             if (((_a = shareVertex.getContent()) === null || _a === void 0 ? void 0 : _a.typeName) !== certacrypt_graph_1.SHARE_GRAPHOBJECT || shareVertex.getEdges().length !== 1) {
                 throw new Error('invalid share vertex: type=' + ((_b = shareVertex.getContent()) === null || _b === void 0 ? void 0 : _b.typeName) + ' #edges=' + shareVertex.getEdges().length);
             }
-            const targetVertex = await self.get(parsed.feed, parsed.id, undefined, certacrypt_graph_1.SHARE_VIEW);
+            const targetVertex = (await self.get(Object.assign(Object.assign({}, edge), { view: certacrypt_graph_1.SHARE_VIEW }), state)).result;
             const content = shareVertex.getContent();
             return new VirtualCommShareVertex(content.owner, content.info, parsed.name, shareVertex, targetVertex, result.sharedBy, [userUrl]);
         }
@@ -290,7 +293,7 @@ class CommunicationView extends hyper_graphdb_1.View {
     getAllSentShares(socialRoot) {
         const self = this;
         const userUrl = this.user.getPublicUrl();
-        const shares = this.query(hyper_graphdb_1.Generator.from([new hyper_graphdb_1.QueryState(socialRoot, [], [])]))
+        const shares = this.query(hyper_graphdb_1.Generator.from([new hyper_graphdb_1.QueryState(socialRoot, [], [], this)]))
             .out(exports.COMM_PATHS.SOCIAL_ROOT_TO_CHANNELS)
             .out()
             .generator()
@@ -315,11 +318,14 @@ class CommunicationView extends hyper_graphdb_1.View {
                 throw new Error('URL does not have type share: ' + result.msg.shareUrl);
             }
             self.graph.registerVertexKey(parsed.id, parsed.feed, parsed.key);
-            const shareVertex = await self.get(parsed.feed, parsed.id, undefined, hyper_graphdb_1.GRAPH_VIEW);
+            // fake query state and edge...
+            const state = new hyper_graphdb_1.QueryState(socialRoot, [], [], self);
+            const edge = { ref: parsed.id, feed: Buffer.from(parsed.feed, 'hex'), label: '' };
+            const shareVertex = (await self.get(Object.assign(Object.assign({}, edge), { view: hyper_graphdb_1.GRAPH_VIEW }), state)).result;
             if (((_a = shareVertex.getContent()) === null || _a === void 0 ? void 0 : _a.typeName) !== certacrypt_graph_1.SHARE_GRAPHOBJECT || shareVertex.getEdges().length !== 1) {
                 throw new Error('invalid share vertex: type=' + ((_b = shareVertex.getContent()) === null || _b === void 0 ? void 0 : _b.typeName) + ' #edges=' + shareVertex.getEdges().length);
             }
-            const targetVertex = await self.get(parsed.feed, parsed.id, undefined, certacrypt_graph_1.SHARE_VIEW);
+            const targetVertex = (await self.get(Object.assign(Object.assign({}, edge), { view: certacrypt_graph_1.SHARE_VIEW }), state)).result;
             const content = shareVertex.getContent();
             return new VirtualCommShareVertex(content.owner, content.info, parsed.name, shareVertex, targetVertex, userUrl, result.sharedWith);
         }

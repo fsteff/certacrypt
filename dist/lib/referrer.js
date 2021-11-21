@@ -16,7 +16,7 @@ class ReferrerView extends hyper_graphdb_1.View {
         return this;
     }
     async out(state, label) {
-        var _a, _b;
+        var _a;
         const vertex = state.value;
         if (!(vertex.getContent() instanceof graphObjects_1.PreSharedGraphObject)) {
             throw new Error('Vertex is not a a physical one, cannot use it for a PreSharedVertexView');
@@ -31,24 +31,24 @@ class ReferrerView extends hyper_graphdb_1.View {
         const edges = vertex.getEdges(label);
         const vertices = [];
         for (const edge of edges) {
-            const feed = ((_b = edge.feed) === null || _b === void 0 ? void 0 : _b.toString('hex')) || vertex.getFeed();
+            const feed = edge.feed || Buffer.from(vertex.getFeed(), 'hex');
             const meta = edge.metadata;
             if (meta.refKey && meta.refLabel) {
-                vertices.push(this.get(feed, edge.ref, undefined, edge.view, meta).then(v => this.toResult(v, edge, state)));
+                vertices.push(this.get(Object.assign(Object.assign({}, edge), { feed, metadata: meta }), state));
             }
         }
         return vertices;
     }
     // within a query getting the PSV actually returns the one on the referred edge
-    async get(feed, id, version, _, metadata) {
+    async get(edge, state) {
         var _a;
-        feed = Buffer.isBuffer(feed) ? feed.toString('hex') : feed;
-        if (!metadata || !Buffer.isBuffer(metadata.refKey) || !Buffer.isBuffer(metadata.refLabel) || metadata.refLabel.length === 0) {
+        const feed = edge.feed.toString('hex');
+        if (!edge.metadata || !Buffer.isBuffer(edge.metadata.refKey) || !Buffer.isBuffer(edge.metadata.refLabel) || edge.metadata.refLabel.length === 0) {
             throw new Error('PreSharedVertexView.get requires metadata.refKey and .refLabel to be set');
         }
-        const tr = await this.getTransaction(feed, version);
-        const vertex = await this.db.getInTransaction(id, this.codec, tr, feed);
-        const edges = vertex.getEdges(metadata.refLabel.toString('base64'));
+        const tr = await this.getTransaction(feed);
+        const vertex = await this.db.getInTransaction(edge.ref, this.codec, tr, feed);
+        const edges = vertex.getEdges(edge.metadata.refLabel.toString('base64'));
         if (edges.length === 0)
             return Promise.reject('empty pre-shared vertex');
         const ref = {
@@ -56,14 +56,14 @@ class ReferrerView extends hyper_graphdb_1.View {
             version: edges[0].version,
             view: edges[0].view || hyper_graphdb_1.GRAPH_VIEW,
             id: edges[0].ref,
-            label: metadata.refLabel.toString('base64')
+            label: edge.metadata.refLabel.toString('base64')
         };
-        this.crypto.registerKey(metadata.refKey, { feed: ref.feed, index: ref.id, type: certacrypt_crypto_1.Cipher.ChaCha20_Stream });
+        this.crypto.registerKey(edge.metadata.refKey, { feed: ref.feed, index: ref.id, type: certacrypt_crypto_1.Cipher.ChaCha20_Stream });
         const view = this.getView(ref.view);
-        const next = await view.query(hyper_graphdb_1.Generator.from([new hyper_graphdb_1.QueryState(vertex, [], [])])).out(ref.label).vertices();
+        const next = await view.query(hyper_graphdb_1.Generator.from([new hyper_graphdb_1.QueryState(vertex, [], [], view)])).out(ref.label).vertices();
         if (next.length === 0)
             throw new Error('vertex has no share edge, cannot use ShareView');
-        return next[0];
+        return this.toResult(next[0], edge, state);
     }
 }
 exports.ReferrerView = ReferrerView;

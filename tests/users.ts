@@ -23,6 +23,7 @@ async function createCertaCrypt(client) {
 tape('preshared vertex & inbox', async (t) => {
   const { client, server, cleanup } = await simulator()
   await client.ready()
+  t.teardown(cleanup)
 
   // init users
   const alice = await createCertaCrypt(client)
@@ -75,13 +76,13 @@ tape('preshared vertex & inbox', async (t) => {
   t.ok(resultSpaceFromAlice[0].equals(bobSpace))
   t.ok(resultSpaceFromBob[0].equals(aliceSpace))
 
-  cleanup()
   t.end()
 })
 
 tape('communication', async (t) => {
   const { client, server, cleanup } = await simulator()
   await client.ready()
+  t.teardown(cleanup)
 
   // init users
   const alice = await createCertaCrypt(client)
@@ -138,13 +139,13 @@ tape('communication', async (t) => {
   t.equals(await aliceContacts.getFriendState(bobSeenFromAlice), FriendState.FRIENDS)
   t.equals(await bobContacts.getFriendState(aliceSeenFromBob), FriendState.FRIENDS)
 
-  cleanup()
   t.end()
 })
 
 tape('contacts', async (t) => {
   const { client, server, cleanup } = await simulator()
   await client.ready()
+  t.teardown(cleanup)
 
   // init users
   const alice = await createCertaCrypt(client)
@@ -196,13 +197,13 @@ tape('contacts', async (t) => {
   t.equals(contacts.length, 2)
   t.equals(contacts.map((c) => c.username).join(', '), ['Alice', 'Caesar'].join(', '))
 
-  cleanup()
   t.end()
 })
 
 tape('shares', async (t) => {
   const { client, server, cleanup } = await simulator()
   await client.ready()
+  t.teardown(cleanup)
 
   // init users
   const alice = await createCertaCrypt(client)
@@ -258,6 +259,5 @@ tape('shares', async (t) => {
   t.equals(aliceSentShares[0].sharedWith.length, 1)
   t.equals(aliceSentShares[0].sharedWith[0], bobUser.getPublicUrl())
 
-  cleanup()
   t.end()
 })

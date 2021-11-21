@@ -1,4 +1,4 @@
-import {IVertex, QueryState, QueryPath, QueryRule, Restriction, Vertex, GRAPH_VIEW, GraphObject, View, QueryResult, Edge, Errors, Generator} from 'hyper-graphdb'
+import {IVertex, QueryState, QueryPath, QueryRule, Restriction, Vertex, GRAPH_VIEW, GraphObject, View, QueryResult, Edge, Errors, Generator, ViewGetResult} from 'hyper-graphdb'
 import {CertaCryptGraph} from 'certacrypt-graph'
 import {DriveGraphObject, GraphObjectTypeNames, PreSharedGraphObject, SpaceGraphObject, UserRoot} from './graphObjects'
 import {User} from './user'
@@ -9,21 +9,21 @@ import { parseUrl } from './url'
 export const SPACE_VIEW = 'SpaceView'
 
 export class SpaceQueryState extends QueryState<GraphObject> {
-    constructor(value: IVertex<GraphObject>, path: QueryPath<GraphObject>, rules: QueryRule<GraphObject>[], readonly space: CollaborationSpace) {
-        super(value, path, rules)
+    constructor(value: IVertex<GraphObject>, path: QueryPath<GraphObject>, rules: QueryRule<GraphObject>[], view: View<GraphObject> ,readonly space: CollaborationSpace) {
+        super(value, path, rules, view)
     }
 
     nextState(vertex: IVertex<GraphObject>, label: string, feed: string): SpaceQueryState {
-        return new SpaceQueryState(vertex, this.path.concat([{label, vertex, feed}]), this.rules, this.space)
+        return new SpaceQueryState(vertex, this.path.concat([{label, vertex, feed}]), this.rules, this.view,this.space)
     }
 
     addRestrictions(vertex: IVertex<GraphObject>, restrictions: Restriction[]): SpaceQueryState {
         const newRules = new QueryRule<GraphObject>(vertex, restrictions)
-        return new SpaceQueryState(this.value, this.path, this.rules.concat(newRules), this.space)
+        return new SpaceQueryState(this.value, this.path, this.rules.concat(newRules), this.view,this.space)
     }
 
     setSpace(space: CollaborationSpace) {
-        return new SpaceQueryState(this.value, this.path, this.rules, space)
+        return new SpaceQueryState(this.value, this.path, this.rules, this.view, space)
     }
 
     getPathRelativeToSpace() {
@@ -140,39 +140,62 @@ export class CollaborationSpaceView extends View<GraphObject> {
         super(graph.core, contentEncoding, factory, transactions)
     }
 
-    public async out(state: QueryState<GraphObject>, label?: string): Promise<QueryResult<GraphObject>> {
-        const vertex = <IVertex<GraphObject>> state.value
-        if(vertex.getContent()?.typeName === GraphObjectTypeNames.SPACE) {
-            let space = new CollaborationSpace(this.graph, <Vertex<SpaceGraphObject>>vertex, this.user)
-            state = new SpaceQueryState(state.value, state.path, state.rules, space)
-        }
-
-        const view = this.factory.get(GRAPH_VIEW)
-        const results = await view.query(Generator.from([state])).out('.').out(label).states()
-        return results.map(async res => this.toResult(res.value, {label: res.path[res.path.length-1].label, ref: 0}, state))
+    protected getView(name?: string): View<GraphObject> {
+        if(!name) return this // do not fall back to GRAPH_VIEW as default view
+        else return this.factory.get(name, this.transactions)
     }
 
-    public async get(feed: string|Buffer, id: number, version?: number, viewDesc?: string, metadata?: Object) : Promise<IVertex<GraphObject>>{
-        feed = Buffer.isBuffer(feed) ? feed.toString('hex') : feed
 
-        if(viewDesc) {
-            const view = this.getView(viewDesc)
-            return view.get(feed, id, version, undefined, metadata)
-                .catch(err => {throw new Errors.VertexLoadingError(err, <string>feed, id, version)})
+    public async out(state: QueryState<GraphObject>, label?: string): Promise<QueryResult<GraphObject>> {
+        const vertex = <Vertex<GraphObject>> state.value
+        if(vertex.getContent()?.typeName === GraphObjectTypeNames.SPACE) {
+            let space = new CollaborationSpace(this.graph, <Vertex<SpaceGraphObject>>vertex, this.user)
+            state = new SpaceQueryState(state.value, state.path, state.rules, this, space)
+
+            const view = this.factory.get(GRAPH_VIEW)
+            const results = await view.query(Generator.from([state])).out('.').out(label).states()
+            return results.map(async res => this.toResult(res.value, {label: res.path[res.path.length-1].label, ref: 0}, state))
+        } else {
+            if(typeof vertex.getId !== 'function' || typeof vertex.getFeed !== 'function' || !vertex.getFeed()) {
+                throw new Error('GraphView.out does only accept persisted Vertex instances as input')
+            }
+            const edges = vertex.getEdges(label)
+            const vertices: QueryResult<GraphObject> = []
+            for(const edge of edges) {
+                const feed =  edge.feed || Buffer.from(<string>vertex.getFeed(), 'hex')
+                const promise = this.get({...edge, feed}, state)
+                promise.catch(err => {throw new Errors.EdgeTraversingError({id: vertex.getId(), feed: <string>vertex.getFeed()}, edge, new Error('key is ' + edge.metadata?.['key']?.toString('hex').substr(0,2) + '...'))})
+                vertices.push(promise)
+            }
+            return vertices
+        }
+    }
+
+    public async get(edge: Edge & {feed: Buffer}, state: QueryState<GraphObject>): ViewGetResult<GraphObject> {
+        const feed = edge.feed.toString('hex')
+
+        if(edge.view) {
+            const view = this.getView(edge.view)
+            return view.get({...edge, view: undefined}, state)
+                .catch(err => {throw new Errors.VertexLoadingError(err, <string>feed, edge.ref, edge.version)})
         }
 
-        const tr = await this.getTransaction(feed, version)
-        const vertex = await this.db.getInTransaction<GraphObject>(id, this.codec, tr, feed)
-         .catch(err => {throw new Errors.VertexLoadingError(err, <string>feed, id, version, viewDesc)})
-        
-        // every space MUST have a root directory that's stored on the same feed as the space root
-        const edge = vertex.getEdges().find(e => !e.feed || e.feed.toString('hex') === feed)
-        if(!edge){
-            throw new Error('CollaborationSpace does not have a root directory')
-        }
-        const promise = this.db.getInTransaction<GraphObject>(edge.ref, this.codec, tr, feed)
-        promise.catch(err => {throw new Errors.VertexLoadingError(err, <string>feed, id, version, viewDesc)})
-        return promise
+        const tr = await this.getTransaction(feed)
+        const vertex = await this.db.getInTransaction<GraphObject>(edge.ref, this.codec, tr, feed)
+         .catch(err => {throw new Errors.VertexLoadingError(err, <string>feed, edge.ref, edge.version, edge.view)})
 
+         if(vertex.getContent()?.typeName === GraphObjectTypeNames.SPACE) {
+            let space = new CollaborationSpace(this.graph, <Vertex<SpaceGraphObject>>vertex, this.user)
+            state = new SpaceQueryState(state.value, state.path, state.rules, this, space)
+
+            // every space MUST have a root directory that's stored on the same feed as the space root
+            const rootDirEdge = vertex.getEdges().find(e => !e.feed || e.feed.toString('hex') === feed)
+            if(!edge){
+                throw new Error('CollaborationSpace does not have a root directory')
+            }
+            return this.get({...rootDirEdge, feed: (rootDirEdge.feed || edge.feed)}, state)
+         } else {
+             return this.toResult(vertex, edge, state)
+         }
     }
 }

@@ -175,6 +175,7 @@ export class MetaStorage {
     }
 
     function thombstoneReductor(arr: QueryState<DriveGraphObject>[]): QueryState<DriveGraphObject>[] {
+      if(!arr || arr.length === 0) return []
       arr.sort((a,b) => (a.value.getContent()?.timestamp || 0) - (b.value.getContent()?.timestamp || 0))
       if(arr[0].value.getContent()?.typeName === GraphObjectTypeNames.THOMBSTONE) {
         return []
@@ -294,7 +295,7 @@ export class MetaStorage {
     const self = this
     const parts = absolutePath.split('/').filter(p => p.trim().length > 0)
     const view = this.graph.factory.get(GRAPH_VIEW)
-    return traverse(new QueryState(this.root, [], []), parts)
+    return traverse(new QueryState(this.root, [], [], view), parts)
 
 
     async function traverse(state: QueryState<GraphObject>, path: string[]): Promise<{state: QueryState<GraphObject>, path: string[]} | undefined> {
