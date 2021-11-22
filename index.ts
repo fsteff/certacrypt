@@ -99,7 +99,7 @@ export class CertaCrypt {
         DriveShare.DRIVE_SHARE_VIEW,
         (_, codec, tr) => new DriveShare.DriveShareView(cache, this.graph, socialRoot, codec, this.graph.factory, tr)
       )
-      this.graph.factory.register(Space.SPACE_VIEW, (_, codec, tr) => new Space.CollaborationSpaceView(user, this.graph, codec, tr))
+      this.graph.factory.register(Space.SPACE_VIEW, (_, codec, tr) => new Space.CollaborationSpaceView(user, this.graph, codec, this.graph.factory, tr))
       resolve(cache)
     })
     this.contacts = Promise.all([this.socialRoot, this.user, this.cacheDb]).then(async ([socialRoot, user, cacheDb]) => {

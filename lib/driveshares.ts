@@ -1,4 +1,4 @@
-import { Edge, Generator, GraphObject, GRAPH_VIEW, IVertex, QueryResult, QueryState, Vertex, VertexQueries, View, ViewGetResult } from 'hyper-graphdb'
+import { Edge, Generator, GraphObject, GRAPH_VIEW, IVertex, QueryResult, QueryState, Vertex, VertexQueries, View } from 'hyper-graphdb'
 import { CertaCryptGraph } from 'certacrypt-graph'
 import { CacheDB } from './cacheDB'
 import { CommShare, COMM_PATHS, COMM_VIEW, VirtualCommShareVertex } from './communication'
@@ -17,7 +17,7 @@ export class DriveShareView extends View<GraphObject> {
     return this.getView(GRAPH_VIEW).out(state, label)
   }
 
-  public async get(edge: Edge & {feed: Buffer}, state: QueryState<GraphObject>): ViewGetResult<GraphObject> {
+  public async get(edge: Edge & {feed: Buffer}, state: QueryState<GraphObject>): Promise<QueryResult<GraphObject>> {
     const feed = edge.feed.toString('hex')
 
     if (edge.view) {
@@ -28,7 +28,7 @@ export class DriveShareView extends View<GraphObject> {
 
     const tr = await this.getTransaction(feed)
     const realVertex = await this.db.getInTransaction<GraphObject>(edge.ref, this.codec, tr, feed)
-    return this.toResult(new VirtualDriveShareVertex(edges.concat(realVertex.getEdges()), realVertex), edge, state)
+    return [Promise.resolve(this.toResult(new VirtualDriveShareVertex(edges.concat(realVertex.getEdges()), realVertex), edge, state))]
   }
 
   private getShareEdges(): Promise<Edge[]> {

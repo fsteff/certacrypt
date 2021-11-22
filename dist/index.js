@@ -98,7 +98,7 @@ class CertaCrypt {
             this.graph.factory.register(contacts_1.CONTACTS_VIEW, (_, codec, tr) => new contacts_1.ContactsView(cache, this.graph, user, codec, this.graph.factory, tr));
             this.graph.factory.register(communication_1.COMM_VIEW, (_, codec, tr) => new communication_1.CommunicationView(cache, this.graph, user, codec, this.graph.factory, tr));
             this.graph.factory.register(DriveShare.DRIVE_SHARE_VIEW, (_, codec, tr) => new DriveShare.DriveShareView(cache, this.graph, socialRoot, codec, this.graph.factory, tr));
-            this.graph.factory.register(Space.SPACE_VIEW, (_, codec, tr) => new Space.CollaborationSpaceView(user, this.graph, codec, tr));
+            this.graph.factory.register(Space.SPACE_VIEW, (_, codec, tr) => new Space.CollaborationSpaceView(user, this.graph, codec, this.graph.factory, tr));
             resolve(cache);
         });
         this.contacts = Promise.all([this.socialRoot, this.user, this.cacheDb]).then(async ([socialRoot, user, cacheDb]) => {

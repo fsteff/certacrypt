@@ -98,19 +98,19 @@ class CollaborationSpace {
             if (edges.length === 0) {
                 return undefined;
             }
-            return (await graphView.get(edges[0], new hyper_graphdb_1.QueryState(this.root, [], [], this.graph.factory.get(exports.SPACE_VIEW)))).result;
+            return await hyper_graphdb_1.ValueGenerator.from(await graphView.get(edges[0], new hyper_graphdb_1.QueryState(this.root, [], [], this.graph.factory.get(exports.SPACE_VIEW)))).map(async (r) => (await r).result).first();
         }
         const referrerView = this.graph.factory.get(referrer_1.REFERRER_VIEW);
         const edges = this.root.getEdges('.').filter(e => { var _a; return e.metadata.refKey && ((_a = e.feed) === null || _a === void 0 ? void 0 : _a.toString('hex')) === feed; });
         if (edges.length === 0) {
             return undefined;
         }
-        try {
-            return (await referrerView.get(edges[0], new hyper_graphdb_1.QueryState(this.root, [], [], this.graph.factory.get(exports.SPACE_VIEW)))).result;
-        }
-        catch (_err) {
+        const dirs = await referrerView.get(edges[0], new hyper_graphdb_1.QueryState(this.root, [], [], this.graph.factory.get(exports.SPACE_VIEW)));
+        if (dirs.length === 0) {
             debug_1.debug('tryGetWriteableRoot: empty referrer for feed ' + feed);
+            return undefined;
         }
+        return (await dirs[0]).result;
     }
     async createWriteableRoot() {
         const feed = await this.defaultFeed;
@@ -142,31 +142,33 @@ class CollaborationSpaceView extends hyper_graphdb_1.View {
         else
             return this.factory.get(name, this.transactions);
     }
-    async out(state, label) {
-        var _a;
-        const vertex = state.value;
-        if (((_a = vertex.getContent()) === null || _a === void 0 ? void 0 : _a.typeName) === graphObjects_1.GraphObjectTypeNames.SPACE) {
-            let space = new CollaborationSpace(this.graph, vertex, this.user);
-            state = new SpaceQueryState(state.value, state.path, state.rules, this, space);
-            const view = this.factory.get(hyper_graphdb_1.GRAPH_VIEW);
-            const results = await view.query(hyper_graphdb_1.Generator.from([state])).out('.').out(label).states();
-            return results.map(async (res) => this.toResult(res.value, { label: res.path[res.path.length - 1].label, ref: 0 }, state));
-        }
-        else {
-            if (typeof vertex.getId !== 'function' || typeof vertex.getFeed !== 'function' || !vertex.getFeed()) {
-                throw new Error('GraphView.out does only accept persisted Vertex instances as input');
+    /*
+        public async out(state: QueryState<GraphObject>, label?: string): Promise<QueryResult<GraphObject>> {
+            const vertex = <Vertex<GraphObject>> state.value
+            if(vertex.getContent()?.typeName === GraphObjectTypeNames.SPACE) {
+                let space = new CollaborationSpace(this.graph, <Vertex<SpaceGraphObject>>vertex, this.user)
+                state = new SpaceQueryState(state.value, state.path, state.rules, this, space)
+    
+                const view = this.factory.get(GRAPH_VIEW)
+                const results = await view.query(Generator.from([state])).out('.').out(label).states()
+                return results.map(async res => this.toResult(res.value, {label: res.path[res.path.length-1].label, ref: 0}, state))
+            } else {
+                if(typeof vertex.getId !== 'function' || typeof vertex.getFeed !== 'function' || !vertex.getFeed()) {
+                    throw new Error('GraphView.out does only accept persisted Vertex instances as input')
+                }
+                const edges = vertex.getEdges(label)
+                const vertices: QueryResult<GraphObject> = []
+                for(const edge of edges) {
+                    const feed =  edge.feed || Buffer.from(<string>vertex.getFeed(), 'hex')
+                    const promise = this.get({...edge, feed}, state)
+                    promise.catch(err => {throw new Errors.EdgeTraversingError({id: vertex.getId(), feed: <string>vertex.getFeed()}, edge, new Error('key is ' + edge.metadata?.['key']?.toString('hex').substr(0,2) + '...'))})
+                    for(const res of await promise) {
+                        vertices.push(res)
+                    }
+                }
+                return vertices
             }
-            const edges = vertex.getEdges(label);
-            const vertices = [];
-            for (const edge of edges) {
-                const feed = edge.feed || Buffer.from(vertex.getFeed(), 'hex');
-                const promise = this.get(Object.assign(Object.assign({}, edge), { feed }), state);
-                promise.catch(err => { var _a, _b; throw new hyper_graphdb_1.Errors.EdgeTraversingError({ id: vertex.getId(), feed: vertex.getFeed() }, edge, new Error('key is ' + ((_b = (_a = edge.metadata) === null || _a === void 0 ? void 0 : _a['key']) === null || _b === void 0 ? void 0 : _b.toString('hex').substr(0, 2)) + '...')); });
-                vertices.push(promise);
-            }
-            return vertices;
-        }
-    }
+        }*/
     async get(edge, state) {
         var _a;
         const feed = edge.feed.toString('hex');
@@ -180,16 +182,16 @@ class CollaborationSpaceView extends hyper_graphdb_1.View {
             .catch(err => { throw new hyper_graphdb_1.Errors.VertexLoadingError(err, feed, edge.ref, edge.version, edge.view); });
         if (((_a = vertex.getContent()) === null || _a === void 0 ? void 0 : _a.typeName) === graphObjects_1.GraphObjectTypeNames.SPACE) {
             let space = new CollaborationSpace(this.graph, vertex, this.user);
-            state = new SpaceQueryState(state.value, state.path, state.rules, this, space);
+            state = new SpaceQueryState(vertex, state.path, state.rules, this, space);
             // every space MUST have a root directory that's stored on the same feed as the space root
-            const rootDirEdge = vertex.getEdges().find(e => !e.feed || e.feed.toString('hex') === feed);
+            //const rootDirEdge = vertex.getEdges().find(e => !e.feed || e.feed.toString('hex') === feed)
             if (!edge) {
                 throw new Error('CollaborationSpace does not have a root directory');
             }
-            return this.get(Object.assign(Object.assign({}, rootDirEdge), { feed: (rootDirEdge.feed || edge.feed) }), state);
+            return this.out(state, '.'); //this.get({...rootDirEdge, feed: (rootDirEdge.feed || edge.feed)}, state)
         }
         else {
-            return this.toResult(vertex, edge, state);
+            return [Promise.resolve(this.toResult(vertex, edge, state))];
         }
     }
 }

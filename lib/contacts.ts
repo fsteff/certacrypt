@@ -167,7 +167,9 @@ export class ContactsView extends View<GraphObject> {
       const vertices: QueryResult<GraphObject> = []
       for (const edge of edges) {
         const feed = edge.feed || Buffer.from(<string>vertex.getFeed(), 'hex')
-        vertices.push(this.get({...edge, feed}, state))
+        for(const res of await this.get({...edge, feed}, state)) {
+          vertices.push(res)
+        }
       }
       return vertices
     }

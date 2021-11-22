@@ -247,7 +247,9 @@ class CommunicationView extends hyper_graphdb_1.View {
             for (const edge of edges) {
                 const feed = edge.feed || Buffer.from(vertex.getFeed(), 'hex');
                 // TODO: version pinning does not work yet
-                vertices.push(this.get(Object.assign(Object.assign({}, edge), { feed }), state));
+                for (const res of await this.get(Object.assign(Object.assign({}, edge), { feed }), state)) {
+                    vertices.push(res);
+                }
             }
             return vertices;
         }
@@ -281,11 +283,11 @@ class CommunicationView extends hyper_graphdb_1.View {
             // fake query state and edge...
             const state = new hyper_graphdb_1.QueryState(socialRoot, [], [], self);
             const edge = { ref: parsed.id, feed: Buffer.from(parsed.feed, 'hex'), label: '' };
-            const shareVertex = (await self.get(Object.assign(Object.assign({}, edge), { view: hyper_graphdb_1.GRAPH_VIEW }), state)).result;
+            const shareVertex = await hyper_graphdb_1.ValueGenerator.from(await self.get(Object.assign(Object.assign({}, edge), { view: hyper_graphdb_1.GRAPH_VIEW }), state)).map(async (r) => (await r).result).first();
             if (((_a = shareVertex.getContent()) === null || _a === void 0 ? void 0 : _a.typeName) !== certacrypt_graph_1.SHARE_GRAPHOBJECT || shareVertex.getEdges().length !== 1) {
                 throw new Error('invalid share vertex: type=' + ((_b = shareVertex.getContent()) === null || _b === void 0 ? void 0 : _b.typeName) + ' #edges=' + shareVertex.getEdges().length);
             }
-            const targetVertex = (await self.get(Object.assign(Object.assign({}, edge), { view: certacrypt_graph_1.SHARE_VIEW }), state)).result;
+            const targetVertex = await hyper_graphdb_1.ValueGenerator.from(self.get(Object.assign(Object.assign({}, edge), { view: certacrypt_graph_1.SHARE_VIEW }), state)).map(async (r) => (await r).result).first();
             const content = shareVertex.getContent();
             return new VirtualCommShareVertex(content.owner, content.info, parsed.name, shareVertex, targetVertex, result.sharedBy, [userUrl]);
         }
@@ -321,11 +323,11 @@ class CommunicationView extends hyper_graphdb_1.View {
             // fake query state and edge...
             const state = new hyper_graphdb_1.QueryState(socialRoot, [], [], self);
             const edge = { ref: parsed.id, feed: Buffer.from(parsed.feed, 'hex'), label: '' };
-            const shareVertex = (await self.get(Object.assign(Object.assign({}, edge), { view: hyper_graphdb_1.GRAPH_VIEW }), state)).result;
+            const shareVertex = await hyper_graphdb_1.ValueGenerator.from(await self.get(Object.assign(Object.assign({}, edge), { view: hyper_graphdb_1.GRAPH_VIEW }), state)).map(async (r) => (await r).result).first();
             if (((_a = shareVertex.getContent()) === null || _a === void 0 ? void 0 : _a.typeName) !== certacrypt_graph_1.SHARE_GRAPHOBJECT || shareVertex.getEdges().length !== 1) {
                 throw new Error('invalid share vertex: type=' + ((_b = shareVertex.getContent()) === null || _b === void 0 ? void 0 : _b.typeName) + ' #edges=' + shareVertex.getEdges().length);
             }
-            const targetVertex = (await self.get(Object.assign(Object.assign({}, edge), { view: certacrypt_graph_1.SHARE_VIEW }), state)).result;
+            const targetVertex = await hyper_graphdb_1.ValueGenerator.from(await self.get(Object.assign(Object.assign({}, edge), { view: certacrypt_graph_1.SHARE_VIEW }), state)).map(async (r) => (await r).result).first();
             const content = shareVertex.getContent();
             return new VirtualCommShareVertex(content.owner, content.info, parsed.name, shareVertex, targetVertex, userUrl, result.sharedWith);
         }

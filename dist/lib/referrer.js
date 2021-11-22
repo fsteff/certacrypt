@@ -23,7 +23,9 @@ class ReferrerView extends hyper_graphdb_1.View {
             if (meta.refKey && meta.refLabel) {
                 try {
                     const result = await this.get(Object.assign(Object.assign({}, edge), { feed, metadata: meta }), state);
-                    vertices.push(Promise.resolve(result));
+                    for (const res of await result) {
+                        vertices.push(res);
+                    }
                 }
                 catch (err) {
                     // referred might not yet exist
@@ -43,8 +45,10 @@ class ReferrerView extends hyper_graphdb_1.View {
         const tr = await this.getTransaction(feed);
         const vertex = await this.db.getInTransaction(edge.ref, this.codec, tr, feed);
         const edges = vertex.getEdges(edge.metadata.refLabel.toString('base64'));
-        if (edges.length === 0)
-            throw new Error('ReferrerView: empty pre-shared vertex');
+        if (edges.length === 0) {
+            console.warn('ReferrerView: empty pre-shared vertex');
+            return [];
+        }
         const ref = {
             feed: ((_a = edges[0].feed) === null || _a === void 0 ? void 0 : _a.toString('hex')) || feed,
             version: edges[0].version,
@@ -54,11 +58,13 @@ class ReferrerView extends hyper_graphdb_1.View {
         };
         this.crypto.registerKey(edge.metadata.refKey, { feed: ref.feed, index: ref.id, type: certacrypt_crypto_1.Cipher.ChaCha20_Stream });
         const view = this.getView(ref.view);
-        const next = await view.query(hyper_graphdb_1.Generator.from([new hyper_graphdb_1.QueryState(vertex, [], [], view)])).out(ref.label).states();
-        if (next.length === 0)
+        const nextStates = await view.query(hyper_graphdb_1.Generator.from([new hyper_graphdb_1.QueryState(vertex, [], [], view)])).out(ref.label).states();
+        if (nextStates.length === 0)
             throw new Error('vertex has no share edge, cannot use ShareView');
-        const mergedState = next[0].mergeStates(next[0].value, state.path, state.rules, next[0].view);
-        return this.toResult(next[0].value, edge, mergedState);
+        return nextStates.map(async (next) => {
+            const mergedState = next.mergeStates(next.value, state.path, state.rules, next.view);
+            return this.toResult(next.value, edge, mergedState);
+        });
     }
 }
 exports.ReferrerView = ReferrerView;

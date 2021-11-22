@@ -163,7 +163,9 @@ class ContactsView extends hyper_graphdb_1.View {
             const vertices = [];
             for (const edge of edges) {
                 const feed = edge.feed || Buffer.from(vertex.getFeed(), 'hex');
-                vertices.push(this.get(Object.assign(Object.assign({}, edge), { feed }), state));
+                for (const res of await this.get(Object.assign(Object.assign({}, edge), { feed }), state)) {
+                    vertices.push(res);
+                }
             }
             return vertices;
         }

@@ -217,7 +217,9 @@ export class CommunicationView extends View<GraphObject> {
       for (const edge of edges) {
         const feed = edge.feed || Buffer.from(<string>vertex.getFeed(), 'hex')
         // TODO: version pinning does not work yet
-        vertices.push(this.get({...edge, feed}, state))
+        for(const res of await this.get({...edge, feed}, state)) {
+          vertices.push(res)
+        }
       }
       return vertices
     }
@@ -254,11 +256,11 @@ export class CommunicationView extends View<GraphObject> {
       const state = new QueryState(socialRoot, [], [], self)
       const edge = {ref: parsed.id, feed: Buffer.from(parsed.feed, 'hex'), label: ''}
       
-      const shareVertex = <Vertex<ShareGraphObject>> (await self.get({...edge, view: GRAPH_VIEW}, state)).result
+      const shareVertex = <Vertex<ShareGraphObject>> await ValueGenerator.from(await self.get({...edge, view: GRAPH_VIEW}, state)).map(async r => (await r).result).first()
       if (shareVertex.getContent()?.typeName !== SHARE_GRAPHOBJECT || shareVertex.getEdges().length !== 1) {
         throw new Error('invalid share vertex: type=' + shareVertex.getContent()?.typeName + ' #edges=' + shareVertex.getEdges().length)
       }
-      const targetVertex = (await self.get({...edge, view: SHARE_VIEW}, state)).result
+      const targetVertex = <Vertex<ShareGraphObject>> await ValueGenerator.from(self.get({...edge, view: SHARE_VIEW}, state)).map(async r => (await r).result).first()
       const content = shareVertex.getContent()
       return new VirtualCommShareVertex(content.owner, content.info, parsed.name, shareVertex, targetVertex, result.sharedBy, [userUrl])
     }
@@ -295,11 +297,11 @@ export class CommunicationView extends View<GraphObject> {
       const state = new QueryState(socialRoot, [], [], self)
       const edge = {ref: parsed.id, feed: Buffer.from(parsed.feed, 'hex'), label: ''}
      
-      const shareVertex = <Vertex<ShareGraphObject>> (await self.get({...edge, view: GRAPH_VIEW}, state)).result
+      const shareVertex = <Vertex<ShareGraphObject>> await ValueGenerator.from(await self.get({...edge, view: GRAPH_VIEW}, state)).map(async r => (await r).result).first()
       if (shareVertex.getContent()?.typeName !== SHARE_GRAPHOBJECT || shareVertex.getEdges().length !== 1) {
         throw new Error('invalid share vertex: type=' + shareVertex.getContent()?.typeName + ' #edges=' + shareVertex.getEdges().length)
       }
-      const targetVertex = (await self.get({...edge, view: SHARE_VIEW}, state)).result
+      const targetVertex = await ValueGenerator.from(await self.get({...edge, view: SHARE_VIEW}, state)).map(async r => (await r).result).first()
       const content = shareVertex.getContent()
       return new VirtualCommShareVertex(content.owner, content.info, parsed.name, shareVertex, targetVertex, userUrl, result.sharedWith)
     }

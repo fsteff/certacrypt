@@ -1,6 +1,6 @@
 import { Cipher, ICrypto } from 'certacrypt-crypto'
 import { CryptoCore } from 'certacrypt-graph'
-import { Edge, Generator, GraphObject, GRAPH_VIEW, IVertex, QueryResult, QueryState, Vertex, View, ViewGetResult } from 'hyper-graphdb'
+import { Edge, Generator, GraphObject, GRAPH_VIEW, IVertex, QueryResult, QueryState, Vertex, View } from 'hyper-graphdb'
 import { PreSharedGraphObject } from './graphObjects'
 
 export const REFERRER_VIEW = 'ReferrerView'
@@ -37,7 +37,9 @@ export class ReferrerView extends View<GraphObject> {
       if (meta.refKey && meta.refLabel) {
         try {
           const result = await this.get({...edge, feed, metadata: meta}, state)
-          vertices.push(Promise.resolve(result))
+          for(const res of await result) {
+            vertices.push(res)
+          }
         } catch(err) {
           // referred might not yet exist
           console.error(err)
@@ -49,7 +51,7 @@ export class ReferrerView extends View<GraphObject> {
   }
 
   // within a query getting the PSV actually returns the one on the referred edge
-  public async get(edge: Edge & {feed: Buffer, metadata?: {refKey: Buffer, refLabel: Buffer}}, state: QueryState<GraphObject>): ViewGetResult<GraphObject> {
+  public async get(edge: Edge & {feed: Buffer, metadata?: {refKey: Buffer, refLabel: Buffer}}, state: QueryState<GraphObject>): Promise<QueryResult<GraphObject>> {
     const feed = edge.feed.toString('hex')
 
     if (!edge.metadata || !Buffer.isBuffer(edge.metadata.refKey) || !Buffer.isBuffer(edge.metadata.refLabel) || edge.metadata.refLabel.length === 0) {
@@ -59,7 +61,10 @@ export class ReferrerView extends View<GraphObject> {
     const tr = await this.getTransaction(feed)
     const vertex = await this.db.getInTransaction<GraphObject>(edge.ref, this.codec, tr, feed)
     const edges = vertex.getEdges(edge.metadata.refLabel.toString('base64'))
-    if (edges.length === 0) throw new Error('ReferrerView: empty pre-shared vertex')
+    if (edges.length === 0) {
+      console.warn('ReferrerView: empty pre-shared vertex')
+      return []
+    } 
 
     const ref = {
       feed: edges[0].feed?.toString('hex') || feed,
@@ -72,9 +77,11 @@ export class ReferrerView extends View<GraphObject> {
     this.crypto.registerKey(edge.metadata.refKey, { feed: ref.feed, index: ref.id, type: Cipher.ChaCha20_Stream })
 
     const view = this.getView(ref.view)
-    const next = await view.query(Generator.from([new QueryState<GraphObject>(vertex, [], [], view)])).out(ref.label).states()
-    if (next.length === 0) throw new Error('vertex has no share edge, cannot use ShareView')
-    const mergedState = next[0].mergeStates(next[0].value, state.path, state.rules, next[0].view)
-    return this.toResult(next[0].value, edge, mergedState)
+    const nextStates = await view.query(Generator.from([new QueryState<GraphObject>(vertex, [], [], view)])).out(ref.label).states()
+    if (nextStates.length === 0) throw new Error('vertex has no share edge, cannot use ShareView')
+    return nextStates.map(async next => {
+      const mergedState = next.mergeStates(next.value, state.path, state.rules, next.view)
+      return this.toResult(next.value, edge, mergedState)
+    })
   }
 }

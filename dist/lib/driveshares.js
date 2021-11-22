@@ -25,7 +25,7 @@ class DriveShareView extends hyper_graphdb_1.View {
         const edges = await this.getShareEdges();
         const tr = await this.getTransaction(feed);
         const realVertex = await this.db.getInTransaction(edge.ref, this.codec, tr, feed);
-        return this.toResult(new VirtualDriveShareVertex(edges.concat(realVertex.getEdges()), realVertex), edge, state);
+        return [Promise.resolve(this.toResult(new VirtualDriveShareVertex(edges.concat(realVertex.getEdges()), realVertex), edge, state))];
     }
     getShareEdges() {
         const view = this.getView(communication_1.COMM_VIEW);
