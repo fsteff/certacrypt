@@ -3,7 +3,6 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.ReferrerView = exports.REFERRER_VIEW = void 0;
 const certacrypt_crypto_1 = require("certacrypt-crypto");
 const hyper_graphdb_1 = require("hyper-graphdb");
-const graphObjects_1 = require("./graphObjects");
 exports.REFERRER_VIEW = 'ReferrerView';
 class ReferrerView extends hyper_graphdb_1.View {
     constructor(db, contentEncoding, factory, transactions) {
@@ -11,22 +10,10 @@ class ReferrerView extends hyper_graphdb_1.View {
         this.viewName = exports.REFERRER_VIEW;
         this.crypto = db.crypto;
     }
-    filterUser(user) {
-        this.user = user;
-        return this;
-    }
     async out(state, label) {
-        var _a;
         const vertex = state.value;
-        if (!(vertex.getContent() instanceof graphObjects_1.PreSharedGraphObject)) {
-            throw new Error('Vertex is not a a physical one, cannot use it for a PreSharedVertexView');
-        }
-        if (this.user) {
-            // if filter mode is set, only apply referrers of this user
-            const owner = (_a = vertex.getContent()) === null || _a === void 0 ? void 0 : _a.owner;
-            if (owner !== this.user) {
-                return [];
-            }
+        if (typeof vertex.getId !== 'function' || typeof vertex.getFeed !== 'function' || !vertex.getFeed()) {
+            throw new Error('Vertex is not a a physical one, cannot use it for a ReferrerView');
         }
         const edges = vertex.getEdges(label);
         const vertices = [];
@@ -34,7 +21,14 @@ class ReferrerView extends hyper_graphdb_1.View {
             const feed = edge.feed || Buffer.from(vertex.getFeed(), 'hex');
             const meta = edge.metadata;
             if (meta.refKey && meta.refLabel) {
-                vertices.push(this.get(Object.assign(Object.assign({}, edge), { feed, metadata: meta }), state));
+                try {
+                    const result = await this.get(Object.assign(Object.assign({}, edge), { feed, metadata: meta }), state);
+                    vertices.push(Promise.resolve(result));
+                }
+                catch (err) {
+                    // referred might not yet exist
+                    console.error(err);
+                }
             }
         }
         return vertices;
@@ -44,13 +38,13 @@ class ReferrerView extends hyper_graphdb_1.View {
         var _a;
         const feed = edge.feed.toString('hex');
         if (!edge.metadata || !Buffer.isBuffer(edge.metadata.refKey) || !Buffer.isBuffer(edge.metadata.refLabel) || edge.metadata.refLabel.length === 0) {
-            throw new Error('PreSharedVertexView.get requires metadata.refKey and .refLabel to be set');
+            throw new Error('ReferrerView.get requires metadata.refKey and .refLabel to be set');
         }
         const tr = await this.getTransaction(feed);
         const vertex = await this.db.getInTransaction(edge.ref, this.codec, tr, feed);
         const edges = vertex.getEdges(edge.metadata.refLabel.toString('base64'));
         if (edges.length === 0)
-            return Promise.reject('empty pre-shared vertex');
+            throw new Error('ReferrerView: empty pre-shared vertex');
         const ref = {
             feed: ((_a = edges[0].feed) === null || _a === void 0 ? void 0 : _a.toString('hex')) || feed,
             version: edges[0].version,
@@ -60,10 +54,11 @@ class ReferrerView extends hyper_graphdb_1.View {
         };
         this.crypto.registerKey(edge.metadata.refKey, { feed: ref.feed, index: ref.id, type: certacrypt_crypto_1.Cipher.ChaCha20_Stream });
         const view = this.getView(ref.view);
-        const next = await view.query(hyper_graphdb_1.Generator.from([new hyper_graphdb_1.QueryState(vertex, [], [], view)])).out(ref.label).vertices();
+        const next = await view.query(hyper_graphdb_1.Generator.from([new hyper_graphdb_1.QueryState(vertex, [], [], view)])).out(ref.label).states();
         if (next.length === 0)
             throw new Error('vertex has no share edge, cannot use ShareView');
-        return this.toResult(next[0], edge, state);
+        const mergedState = next[0].mergeStates(next[0].value, state.path, state.rules, next[0].view);
+        return this.toResult(next[0].value, edge, mergedState);
     }
 }
 exports.ReferrerView = ReferrerView;

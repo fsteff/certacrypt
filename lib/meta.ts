@@ -10,7 +10,7 @@ import { Feed } from 'hyperobjects'
 import { Stat as TrieStat } from 'hyperdrive-schemas'
 import { parseUrl } from './url'
 import { debug } from './debug'
-import {SpaceQueryState} from './space'
+import {SpaceQueryState, SPACE_VIEW} from './space'
 
 export class MetaStorage {
   private readonly drive: Hyperdrive
@@ -29,7 +29,6 @@ export class MetaStorage {
   }
 
   private async uniqueFileId() {
-    console.log(await new Promise((resolve, reject) => this.drive.db.list('', (err, res) => (err ? reject(err) : resolve(res)))))
     const nodes = <{ seq: number; key: string; value: Buffer }[]>(
       await new Promise((resolve, reject) => this.drive.db.list('.enc', { hidden: true }, (err, res) => (err ? reject(err) : resolve(res))))
     )
@@ -123,8 +122,8 @@ export class MetaStorage {
   public async createDirectory(name: string, makeStat: (name: string, cb: CB0) => void): Promise<Vertex<Directory>> {
     let target: Vertex<Directory>
 
-    const {state, path} = await this.findWriteablePath(name)
-    const vertex = <Vertex<Directory>> (path.length === 0 ? state.value : undefined)
+    const writeable = await this.findWriteablePath(name)
+    const vertex = <Vertex<Directory>> (writeable?.path.length === 0 ? writeable?.state.value : undefined)
     const content = vertex?.getContent()
     if (content && content.filename) {
       throw new PathAlreadyExists(name)
@@ -279,13 +278,13 @@ export class MetaStorage {
   }
 
   async createPath(absolutePath: string, leaf: Vertex<DriveGraphObject>) {
-    const {state} = await this.findWriteablePath(absolutePath)
-    if(!state) {
+    const path = await this.findWriteablePath(absolutePath)
+    if(!path) {
       throw new Error('createPath: path is not writeable')
     }
-    if(state instanceof SpaceQueryState) {
-      const relativePath = state.getPathRelativeToSpace()
-      return state.space.createEdgesToPath(relativePath)
+    if(path.state instanceof SpaceQueryState) {
+      const relativePath = path.state.getPathRelativeToSpace()
+      return path.state.space.createEdgesToPath(relativePath)
     } else {
       return this.graph.createEdgesToPath(absolutePath, this.root, leaf)
     }
@@ -294,8 +293,7 @@ export class MetaStorage {
   async findWriteablePath(absolutePath: string) {
     const self = this
     const parts = absolutePath.split('/').filter(p => p.trim().length > 0)
-    const view = this.graph.factory.get(GRAPH_VIEW)
-    return traverse(new QueryState(this.root, [], [], view), parts)
+    return traverse(new QueryState(this.root, [], [], this.graph.factory.get(GRAPH_VIEW)), parts)
 
 
     async function traverse(state: QueryState<GraphObject>, path: string[]): Promise<{state: QueryState<GraphObject>, path: string[]} | undefined> {
@@ -308,12 +306,40 @@ export class MetaStorage {
         }
       }
 
-      const nextStates = await view.query(Generator.from([state])).out(path[0]).states()
-      for(const next of nextStates) {
-        const result = traverse(next, path.slice(1))
+      const nextStates = await state.view.query(Generator.from([state])).out(path[0]).states()
+      let spaceWriteable: SpaceQueryState
+      for(let i = 0; i < nextStates.length; i++) {
+        const next = nextStates[i]
+        const result = await traverse(next, path.slice(1))
         if(result) return result
+
+        if(next instanceof SpaceQueryState && (<Vertex<GraphObject>>next.value).getFeed() !== self.root.getFeed() && !spaceWriteable) {
+          const created = await getOrCreateWriteable(next, path, state)
+          if(created) {
+            spaceWriteable = created
+          }
+        }
       }
+      if(spaceWriteable) {
+        return await traverse(spaceWriteable, path.slice(1))
+      }
+
       return undefined
+    }
+
+    async function getOrCreateWriteable(next: SpaceQueryState, path: string[], state: QueryState<GraphObject>) {
+      const space = (<SpaceQueryState>next).space
+      let writeable: Vertex<GraphObject>
+      try {
+        writeable = await space.tryGetWriteableRoot()
+        // if PSV has not been written to, this creates an empty vertex
+        if(!writeable) {
+          writeable = await space.createWriteableRoot()
+        }
+        return new SpaceQueryState(writeable, state.path, state.rules, state.view, space).nextState(writeable, path[0], writeable.getFeed(), state.view)
+      } catch(err) {
+        debug('findWriteablePath: no permissions to write to space ' + space.root.getId() + '@' + space.root.getFeed())
+      }
     }
   }
 }

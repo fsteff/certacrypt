@@ -7,8 +7,10 @@ const simulator_1 = __importDefault(require("hyperspace/simulator"));
 const tape_1 = __importDefault(require("tape"));
 const certacrypt_crypto_1 = require("certacrypt-crypto");
 const __1 = require("..");
+const debug_1 = require("../lib/debug");
 const space_1 = require("../lib/space");
-//enableDebugLogging()
+const certacrypt_graph_1 = require("certacrypt-graph");
+debug_1.enableDebugLogging();
 const encryptedOpts = { db: { encrypted: true }, encoding: 'utf-8' };
 async function createCertaCrypt(client) {
     const store = client.corestore();
@@ -58,16 +60,28 @@ tape_1.default('write to collaboration space', async (t) => {
     t.ok(states[0].space.root.equals(aliceSpace.root));
     // test write & read of owned space
     await aliceDrive.promises.writeFile('/space/readme2.txt', 'Hi, I am Alice, #2', encryptedOpts);
-    const readme = await aliceDrive.promises.readFile('/space/readme2.txt', encryptedOpts);
+    let readme = await aliceDrive.promises.readFile('/space/readme2.txt', encryptedOpts);
     t.same(readme, 'Hi, I am Alice, #2');
-    // test write access
+    // share with bob
     const sharedSpace = await alice.certacrypt.createShare(aliceSpace.root);
     await alice.certacrypt.sendShare(sharedSpace, [bobSeenFromAlice]);
     await aliceSpace.addWriter(bobSeenFromAlice);
     const bobShares = await (await bob.certacrypt.contacts).getAllReceivedShares();
     t.same(bobShares.length, 1);
-    const bobShare = bobShares[0].target;
+    const bobShare = bobShares[0].share;
+    bobDriveRoot.addEdgeTo(bobShare, 'alice', { view: certacrypt_graph_1.SHARE_VIEW });
+    await bob.certacrypt.graph.put(bobDriveRoot);
+    readme = await bobDrive.promises.readFile('/alice/readme.txt', encryptedOpts);
+    t.same(readme, 'Hi, I am Alice');
+    console.log(await bob.certacrypt.debugDrawGraph(bobDriveRoot));
+    // test write access
+    await bobDrive.promises.mkdir('/alice/bobs/', encryptedOpts);
+    const files = await bobDrive.promises.readdir('/alice', encryptedOpts);
+    console.log(files);
+    //await bobDrive.promises.writeFile('/alice/hello.txt', 'Hello, I am Bob',encryptedOpts)
+    //let helloFile = await bobDrive.readFile('/alice/hello.txt', encryptedOpts)
+    //t.same(helloFile, 'Hello, I am Bob')
     // TODO: .getAllReceivedShares() already follows the space '.' edges - how to circumvent that?
-    t.ok(bobShare.getId() === aliceSpace.root.getId() && bobShare.getFeed() === aliceSpace.root.getFeed());
+    //t.ok(bobShare.getId() === aliceSpace.root.getId() && bobShare.getFeed() === aliceSpace.root.getFeed())
 });
 //# sourceMappingURL=collab.js.map

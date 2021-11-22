@@ -9,8 +9,9 @@ import { FriendState } from '../lib/contacts'
 import { Directory, SpaceGraphObject, UserProfile } from '../lib/graphObjects'
 import { enableDebugLogging } from '../lib/debug'
 import { CollaborationSpace, SpaceQueryState } from '../lib/space'
+import { ShareGraphObject, SHARE_VIEW } from 'certacrypt-graph'
 
-//enableDebugLogging()
+enableDebugLogging()
 const encryptedOpts = { db: { encrypted: true }, encoding: 'utf-8' }
 
 async function createCertaCrypt(client) {
@@ -68,16 +69,34 @@ tape('write to collaboration space', async (t) => {
 
   // test write & read of owned space
   await aliceDrive.promises.writeFile('/space/readme2.txt', 'Hi, I am Alice, #2', encryptedOpts)
-  const readme = await aliceDrive.promises.readFile('/space/readme2.txt', encryptedOpts)
+  let readme = await aliceDrive.promises.readFile('/space/readme2.txt', encryptedOpts)
   t.same(readme, 'Hi, I am Alice, #2')
 
-  // test write access
+  // share with bob
   const sharedSpace = await alice.certacrypt.createShare(aliceSpace.root)
   await alice.certacrypt.sendShare(sharedSpace, [bobSeenFromAlice])
   await aliceSpace.addWriter(bobSeenFromAlice)
   const bobShares = await (await bob.certacrypt.contacts).getAllReceivedShares()
   t.same(bobShares.length, 1)
-  const bobShare = <Vertex<SpaceGraphObject>> bobShares[0].target
+  const bobShare = <Vertex<ShareGraphObject>> bobShares[0].share
+  bobDriveRoot.addEdgeTo(bobShare, 'alice', {view: SHARE_VIEW})
+  await bob.certacrypt.graph.put(bobDriveRoot)
+  readme = await bobDrive.promises.readFile('/alice/readme.txt', encryptedOpts)
+  t.same(readme, 'Hi, I am Alice')
+
+  console.log(await bob.certacrypt.debugDrawGraph(bobDriveRoot))
+
+  // test write access
+  await bobDrive.promises.mkdir('/alice/bobs/', encryptedOpts)
+  const files = await bobDrive.promises.readdir('/alice', encryptedOpts)
+  console.log(files)
+  //await bobDrive.promises.writeFile('/alice/hello.txt', 'Hello, I am Bob',encryptedOpts)
+  //let helloFile = await bobDrive.readFile('/alice/hello.txt', encryptedOpts)
+  //t.same(helloFile, 'Hello, I am Bob')
+  
+
+
+
   // TODO: .getAllReceivedShares() already follows the space '.' edges - how to circumvent that?
-  t.ok(bobShare.getId() === aliceSpace.root.getId() && bobShare.getFeed() === aliceSpace.root.getFeed())
+  //t.ok(bobShare.getId() === aliceSpace.root.getId() && bobShare.getFeed() === aliceSpace.root.getFeed())
 })

@@ -6,18 +6,22 @@ const graphObjects_1 = require("./graphObjects");
 const user_1 = require("./user");
 const referrer_1 = require("./referrer");
 const url_1 = require("./url");
+const debug_1 = require("./debug");
 exports.SPACE_VIEW = 'SpaceView';
 class SpaceQueryState extends hyper_graphdb_1.QueryState {
     constructor(value, path, rules, view, space) {
         super(value, path, rules, view);
         this.space = space;
     }
-    nextState(vertex, label, feed) {
-        return new SpaceQueryState(vertex, this.path.concat([{ label, vertex, feed }]), this.rules, this.view, this.space);
+    nextState(vertex, label, feed, view) {
+        return new SpaceQueryState(vertex, this.path.concat([{ label, vertex, feed }]), this.rules, view || this.view, this.space);
     }
     addRestrictions(vertex, restrictions) {
         const newRules = new hyper_graphdb_1.QueryRule(vertex, restrictions);
         return new SpaceQueryState(this.value, this.path, this.rules.concat(newRules), this.view, this.space);
+    }
+    mergeStates(value, path, rules, view) {
+        return new SpaceQueryState(value || this.value, path || this.path, rules || this.rules, view || this.view, this.space);
     }
     setSpace(space) {
         return new SpaceQueryState(this.value, this.path, this.rules, this.view, space);
@@ -56,7 +60,10 @@ class CollaborationSpace {
         return new CollaborationSpace(graph, root, user);
     }
     async createEdgesToPath(path, leaf) {
-        const writeable = await this.getWriteableRoot();
+        let writeable = await this.tryGetWriteableRoot();
+        if (!writeable) {
+            writeable = await this.createWriteableRoot();
+        }
         return this.graph.createEdgesToPath(path, writeable, leaf);
     }
     async createThombstoneAtPath(path) {
@@ -83,27 +90,37 @@ class CollaborationSpace {
     async getOwner() {
         return this.getUserByUrl(this.root.getContent().owner);
     }
-    async getWriteableRoot() {
-        const self = this;
+    async tryGetWriteableRoot() {
         const feed = await this.defaultFeed;
-        const referrerView = this.graph.factory.get(referrer_1.REFERRER_VIEW).filterUser(this.user.getPublicUrl());
-        const writeable = await this.graph.queryAtVertex(this.root)
-            .out('.', referrerView)
-            //.matches(v => (<Vertex<GraphObject>>v).getFeed() === feed) // not needed when filtering for user(?)
-            .generator()
-            .destruct(onError);
-        if (writeable.length === 0) {
-            const edge = this.root.getEdges('.').filter(e => { var _a; return ((_a = e.feed) === null || _a === void 0 ? void 0 : _a.toString('hex')) === feed; })[0];
-            if (!edge) {
-                throw new Error('Insufficient permissions to write to space');
+        if (feed === this.root.getFeed()) {
+            const graphView = this.graph.factory.get(hyper_graphdb_1.GRAPH_VIEW);
+            const edges = this.root.getEdges('.').filter(e => { var _a; return !e.feed || ((_a = e.feed) === null || _a === void 0 ? void 0 : _a.toString('hex')) === feed; });
+            if (edges.length === 0) {
+                return undefined;
             }
-            const created = await this.user.writeToPresharedVertex(edge);
-            writeable.push(created);
+            return (await graphView.get(edges[0], new hyper_graphdb_1.QueryState(this.root, [], [], this.graph.factory.get(exports.SPACE_VIEW)))).result;
         }
-        return writeable[0];
-        function onError(err) {
-            console.error(`findWriteablePath: Failed to get Vertex in Space ${self.root.getId()}@${self.root.getFeed()}: ${err}`);
+        const referrerView = this.graph.factory.get(referrer_1.REFERRER_VIEW);
+        const edges = this.root.getEdges('.').filter(e => { var _a; return e.metadata.refKey && ((_a = e.feed) === null || _a === void 0 ? void 0 : _a.toString('hex')) === feed; });
+        if (edges.length === 0) {
+            return undefined;
         }
+        try {
+            return (await referrerView.get(edges[0], new hyper_graphdb_1.QueryState(this.root, [], [], this.graph.factory.get(exports.SPACE_VIEW)))).result;
+        }
+        catch (_err) {
+            debug_1.debug('tryGetWriteableRoot: empty referrer for feed ' + feed);
+        }
+    }
+    async createWriteableRoot() {
+        const feed = await this.defaultFeed;
+        const edge = this.root.getEdges('.').filter(e => { var _a; return ((_a = e.feed) === null || _a === void 0 ? void 0 : _a.toString('hex')) === feed; })[0];
+        if (!edge) {
+            throw new Error('Insufficient permissions to write to space');
+        }
+        const created = await this.user.writeToPresharedVertex(edge);
+        debug_1.debug('createWriteableRoot: created for space ' + this.root.getId() + '@' + this.root.getFeed() + ' and feed ' + feed);
+        return created;
     }
     async getUserByUrl(url) {
         const { feed, id, key } = url_1.parseUrl(url);

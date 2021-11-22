@@ -21,7 +21,6 @@ class MetaStorage {
         this.tries = new Map();
     }
     async uniqueFileId() {
-        console.log(await new Promise((resolve, reject) => this.drive.db.list('', (err, res) => (err ? reject(err) : resolve(res)))));
         const nodes = (await new Promise((resolve, reject) => this.drive.db.list('.enc', { hidden: true }, (err, res) => (err ? reject(err) : resolve(res)))));
         let idCtr = this.currentIdCtr + 1;
         nodes.map((node) => parseInt(node.key.split('/', 2)[1])).forEach((id) => (idCtr = Math.max(idCtr, id + 1)));
@@ -109,8 +108,8 @@ class MetaStorage {
     }
     async createDirectory(name, makeStat) {
         let target;
-        const { state, path } = await this.findWriteablePath(name);
-        const vertex = (path.length === 0 ? state.value : undefined);
+        const writeable = await this.findWriteablePath(name);
+        const vertex = ((writeable === null || writeable === void 0 ? void 0 : writeable.path.length) === 0 ? writeable === null || writeable === void 0 ? void 0 : writeable.state.value : undefined);
         const content = vertex === null || vertex === void 0 ? void 0 : vertex.getContent();
         if (content && content.filename) {
             throw new errors_1.PathAlreadyExists(name);
@@ -263,13 +262,13 @@ class MetaStorage {
         return trie;
     }
     async createPath(absolutePath, leaf) {
-        const { state } = await this.findWriteablePath(absolutePath);
-        if (!state) {
+        const path = await this.findWriteablePath(absolutePath);
+        if (!path) {
             throw new Error('createPath: path is not writeable');
         }
-        if (state instanceof space_1.SpaceQueryState) {
-            const relativePath = state.getPathRelativeToSpace();
-            return state.space.createEdgesToPath(relativePath);
+        if (path.state instanceof space_1.SpaceQueryState) {
+            const relativePath = path.state.getPathRelativeToSpace();
+            return path.state.space.createEdgesToPath(relativePath);
         }
         else {
             return this.graph.createEdgesToPath(absolutePath, this.root, leaf);
@@ -278,8 +277,7 @@ class MetaStorage {
     async findWriteablePath(absolutePath) {
         const self = this;
         const parts = absolutePath.split('/').filter(p => p.trim().length > 0);
-        const view = this.graph.factory.get(hyper_graphdb_1.GRAPH_VIEW);
-        return traverse(new hyper_graphdb_1.QueryState(this.root, [], [], view), parts);
+        return traverse(new hyper_graphdb_1.QueryState(this.root, [], [], this.graph.factory.get(hyper_graphdb_1.GRAPH_VIEW)), parts);
         async function traverse(state, path) {
             if (path.length === 0 || state.value.getEdges().length === 0) {
                 const vertex = state.value;
@@ -290,13 +288,39 @@ class MetaStorage {
                     return undefined;
                 }
             }
-            const nextStates = await view.query(hyper_graphdb_1.Generator.from([state])).out(path[0]).states();
-            for (const next of nextStates) {
-                const result = traverse(next, path.slice(1));
+            const nextStates = await state.view.query(hyper_graphdb_1.Generator.from([state])).out(path[0]).states();
+            let spaceWriteable;
+            for (let i = 0; i < nextStates.length; i++) {
+                const next = nextStates[i];
+                const result = await traverse(next, path.slice(1));
                 if (result)
                     return result;
+                if (next instanceof space_1.SpaceQueryState && next.value.getFeed() !== self.root.getFeed() && !spaceWriteable) {
+                    const created = await getOrCreateWriteable(next, path, state);
+                    if (created) {
+                        spaceWriteable = created;
+                    }
+                }
+            }
+            if (spaceWriteable) {
+                return await traverse(spaceWriteable, path.slice(1));
             }
             return undefined;
+        }
+        async function getOrCreateWriteable(next, path, state) {
+            const space = next.space;
+            let writeable;
+            try {
+                writeable = await space.tryGetWriteableRoot();
+                // if PSV has not been written to, this creates an empty vertex
+                if (!writeable) {
+                    writeable = await space.createWriteableRoot();
+                }
+                return new space_1.SpaceQueryState(writeable, state.path, state.rules, state.view, space).nextState(writeable, path[0], writeable.getFeed(), state.view);
+            }
+            catch (err) {
+                debug_1.debug('findWriteablePath: no permissions to write to space ' + space.root.getId() + '@' + space.root.getFeed());
+            }
         }
     }
 }

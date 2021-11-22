@@ -1,9 +1,11 @@
-import {IVertex, QueryState, QueryPath, QueryRule, Restriction, Vertex, GRAPH_VIEW, GraphObject, View, QueryResult, Edge, Errors, Generator, ViewGetResult} from 'hyper-graphdb'
+import {IVertex, QueryState, QueryPath, QueryRule, Restriction, Vertex, GRAPH_VIEW, GraphObject, View, QueryResult, Edge, Errors, Generator, ViewGetResult, STATIC_VIEW} from 'hyper-graphdb'
 import {CertaCryptGraph} from 'certacrypt-graph'
 import {DriveGraphObject, GraphObjectTypeNames, PreSharedGraphObject, SpaceGraphObject, UserRoot} from './graphObjects'
 import {User} from './user'
 import { ReferrerEdge, REFERRER_VIEW , ReferrerView} from './referrer'
 import { parseUrl } from './url'
+import { debug } from './debug'
+import { Space } from '..'
 
 
 export const SPACE_VIEW = 'SpaceView'
@@ -13,13 +15,17 @@ export class SpaceQueryState extends QueryState<GraphObject> {
         super(value, path, rules, view)
     }
 
-    nextState(vertex: IVertex<GraphObject>, label: string, feed: string): SpaceQueryState {
-        return new SpaceQueryState(vertex, this.path.concat([{label, vertex, feed}]), this.rules, this.view,this.space)
+    nextState(vertex: IVertex<GraphObject>, label: string, feed: string, view: View<GraphObject>): SpaceQueryState {
+        return new SpaceQueryState(vertex, this.path.concat([{label, vertex, feed}]), this.rules, view || this.view, this.space)
     }
 
     addRestrictions(vertex: IVertex<GraphObject>, restrictions: Restriction[]): SpaceQueryState {
         const newRules = new QueryRule<GraphObject>(vertex, restrictions)
         return new SpaceQueryState(this.value, this.path, this.rules.concat(newRules), this.view,this.space)
+    }
+
+    mergeStates(value?: IVertex<GraphObject>, path?: QueryPath<GraphObject>, rules?: QueryRule<GraphObject>[], view?: View<GraphObject>) {
+        return new SpaceQueryState(value || this.value, path || this.path, rules || this.rules, view || this.view, this.space)
     }
 
     setSpace(space: CollaborationSpace) {
@@ -68,7 +74,10 @@ export class CollaborationSpace {
     }
 
     async createEdgesToPath(path: string, leaf?: Vertex<DriveGraphObject>) {
-        const writeable = await this.getWriteableRoot()
+        let writeable = await this.tryGetWriteableRoot()
+        if(!writeable) {
+            writeable = await this.createWriteableRoot()
+        }
         return this.graph.createEdgesToPath(path, writeable, leaf)
     }
 
@@ -102,28 +111,38 @@ export class CollaborationSpace {
         return this.getUserByUrl(this.root.getContent().owner)
     }
 
-    async getWriteableRoot() {
-        const self = this
+    async tryGetWriteableRoot() : Promise<Vertex<GraphObject>>{
         const feed = await this.defaultFeed
-        const referrerView = (<ReferrerView>this.graph.factory.get(REFERRER_VIEW)).filterUser(this.user.getPublicUrl())
-        const writeable = <Vertex<GraphObject>[]> await this.graph.queryAtVertex(this.root)
-            .out('.', referrerView)
-            //.matches(v => (<Vertex<GraphObject>>v).getFeed() === feed) // not needed when filtering for user(?)
-            .generator()
-            .destruct(onError)
-        if(writeable.length === 0) {
-            const edge = <ReferrerEdge|undefined> this.root.getEdges('.').filter(e => e.feed?.toString('hex') === feed)[0]
-            if(!edge) {
-                throw new Error('Insufficient permissions to write to space')
+        if(feed === this.root.getFeed()) {
+            const graphView = this.graph.factory.get(GRAPH_VIEW)
+            const edges = this.root.getEdges('.').filter(e => !e.feed || e.feed?.toString('hex') === feed)
+            if(edges.length === 0) {
+                return undefined
             }
-            const created = await this.user.writeToPresharedVertex(edge)
-            writeable.push(created)
+            return <Vertex<GraphObject>> (await graphView.get(<Edge & {feed: Buffer}>edges[0], new QueryState(this.root, [], [], this.graph.factory.get(SPACE_VIEW)))).result
         }
-        return writeable[0]
+        
+        const referrerView = this.graph.factory.get(REFERRER_VIEW)
+        const edges = (<ReferrerEdge[]>this.root.getEdges('.')).filter(e => e.metadata.refKey && e.feed?.toString('hex') === feed)
+        if(edges.length === 0) {
+            return undefined
+        }
+        try {
+            return <Vertex<GraphObject>> (await referrerView.get(<Edge & {feed: Buffer}>edges[0], new QueryState(this.root, [], [], this.graph.factory.get(SPACE_VIEW)))).result
+        } catch(_err) {
+            debug('tryGetWriteableRoot: empty referrer for feed ' + feed)
+        }
+    }
 
-        function onError(err: Error) {
-            console.error(`findWriteablePath: Failed to get Vertex in Space ${self.root.getId()}@${self.root.getFeed()}: ${err}`)
+    async createWriteableRoot() {
+        const feed = await this.defaultFeed
+        const edge = <ReferrerEdge|undefined> this.root.getEdges('.').filter(e => e.feed?.toString('hex') === feed)[0]
+        if(!edge) {
+            throw new Error('Insufficient permissions to write to space')
         }
+        const created = await this.user.writeToPresharedVertex(edge)
+        debug('createWriteableRoot: created for space ' + this.root.getId() + '@' + this.root.getFeed() + ' and feed ' + feed)
+        return created
     }
 
     private async getUserByUrl(url: string) {
