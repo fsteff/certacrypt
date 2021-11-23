@@ -41,7 +41,6 @@ tape_1.default('write to collaboration space', async (t) => {
     await aliceDrive.promises.mkdir('/space', encryptedOpts);
     await aliceDrive.promises.writeFile('/space/readme.txt', 'Hi, I am Alice', encryptedOpts);
     // convert to space
-    // FIXME: in memory this aliceDrive root is the directory, not the space!!!!
     aliceDriveRoot = await aliceDrive.updateRoot();
     const aliceSpaceRoot = await alice.certacrypt.path('/apps/drive/space');
     const aliceSpace = await alice.certacrypt.convertToCollaborationSpace(aliceDriveRoot, aliceSpaceRoot);
@@ -93,5 +92,10 @@ tape_1.default('write to collaboration space', async (t) => {
     t.same(states.length, 2);
     readme = await bobDrive.promises.readFile('/alice/readme.txt', encryptedOpts);
     t.same(readme, 'Hehe, I overwrote it');
+    // check readdir stat results for writers
+    let stats = await aliceDrive.promises.readdir('/space', Object.assign(Object.assign({}, encryptedOpts), { includeStats: true }));
+    t.same(stats[0].writers, [aliceUser.getPublicUrl(), bobUser.getPublicUrl()]);
+    stats = await bobDrive.promises.readdir('/alice/bobs', Object.assign(Object.assign({}, encryptedOpts), { includeStats: true }));
+    t.same(stats[0].writers, [aliceUser.getPublicUrl(), bobUser.getPublicUrl()]);
 });
 //# sourceMappingURL=collab.js.map

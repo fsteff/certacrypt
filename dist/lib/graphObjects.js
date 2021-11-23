@@ -96,7 +96,7 @@ class PreSharedGraphObject extends hyper_graphdb_1.GraphObject {
         }
     }
     serialize() {
-        return codecs_1.json.encode({ expiryDate: this.expiryDate });
+        return codecs_1.json.encode({ expiryDate: this.expiryDate, owner: this.owner });
     }
 }
 exports.PreSharedGraphObject = PreSharedGraphObject;

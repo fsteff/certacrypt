@@ -67,7 +67,7 @@ class CollaborationSpace {
         const self = this;
         const writers = await this.graph
             .queryAtVertex(this.root)
-            .out('.', this.graph.factory.get(hyper_graphdb_1.GRAPH_VIEW))
+            .out('.', this.graph.factory.get(hyper_graphdb_1.STATIC_VIEW))
             .matches((v) => { var _a; return ((_a = v.getContent()) === null || _a === void 0 ? void 0 : _a.typeName) === graphObjects_1.GraphObjectTypeNames.PRESHARED; })
             .generator()
             .values(onError)

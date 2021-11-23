@@ -99,7 +99,7 @@ export class PreSharedGraphObject extends GraphObject {
   }
 
   serialize(): Buffer {
-    return json.encode({ expiryDate: this.expiryDate })
+    return json.encode({ expiryDate: this.expiryDate, owner: this.owner })
   }
 }
 

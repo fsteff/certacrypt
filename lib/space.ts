@@ -110,7 +110,7 @@ export class CollaborationSpace {
     const self = this
     const writers = await this.graph
       .queryAtVertex(this.root)
-      .out('.', this.graph.factory.get(GRAPH_VIEW))
+      .out('.', this.graph.factory.get(STATIC_VIEW))
       .matches((v) => v.getContent()?.typeName === GraphObjectTypeNames.PRESHARED)
       .generator()
       .values(onError)

@@ -13,7 +13,7 @@ import { ReadStream, WriteStream } from 'fs'
 import { IVertex } from 'hyper-graphdb/lib/Vertex'
 import { debug } from './debug'
 import { parseUrl } from '..'
-import { CollaborationSpace } from './space'
+import { CollaborationSpace, SpaceQueryState } from './space'
 
 export type DriveCryptoApi = {
   updateRoot(vertex?: Vertex<Directory>): Promise<Vertex<Directory>>
@@ -179,9 +179,14 @@ export async function cryptoDrive(
     const files = await graph
       .queryPathAtVertex(name, await meta.updateRoot())
       .generator()
-      .destruct(onError)
-    for (const vertex of files) {
-      const labels = distinct((<IVertex<DriveGraphObject>>vertex).getEdges().map((edge) => edge.label))
+      .rawQueryStates(onError)
+    for (const state of files) {
+      const labels = distinct((<IVertex<DriveGraphObject>>state.value).getEdges().map((edge) => edge.label))
+      const space = (<SpaceQueryState>state).space
+      let writers = []
+      if(space && opts.includeStats) {
+        writers = (await space.getWriters()).map(user => user.getPublicUrl())
+      }
       const children = (
         await Promise.all(
           labels
@@ -206,7 +211,7 @@ export async function cryptoDrive(
 
       for (const child of children) {
         if (opts.includeStats) {
-          results.push({ name: child.label, path: child.path, stat: child.stat })
+          results.push({ name: child.label, path: child.path, writers, stat: child.stat })
         } else {
           results.push(child.label)
         }

@@ -7,6 +7,7 @@ import { enableDebugLogging } from '../lib/debug'
 import { SpaceQueryState } from '../lib/space'
 import { ShareGraphObject, SHARE_VIEW } from 'certacrypt-graph'
 import { Vertex } from 'hyper-graphdb'
+import { readdirResult, Stat } from '../lib/types'
 
 const encryptedOpts = { db: { encrypted: true }, encoding: 'utf-8' }
 
@@ -46,7 +47,6 @@ tape('write to collaboration space', async (t) => {
   await aliceDrive.promises.writeFile('/space/readme.txt', 'Hi, I am Alice', encryptedOpts)
   // convert to space
 
-  // FIXME: in memory this aliceDrive root is the directory, not the space!!!!
   aliceDriveRoot = await aliceDrive.updateRoot()
   const aliceSpaceRoot = <Vertex<Directory>>await alice.certacrypt.path('/apps/drive/space')
   const aliceSpace = await alice.certacrypt.convertToCollaborationSpace(aliceDriveRoot, aliceSpaceRoot)
@@ -106,4 +106,10 @@ tape('write to collaboration space', async (t) => {
   t.same(states.length, 2)
   readme = await bobDrive.promises.readFile('/alice/readme.txt', encryptedOpts)
   t.same(readme, 'Hehe, I overwrote it')
+
+    // check readdir stat results for writers
+  let stats = <{ name: string; path: string; writers: string[]; stat: Stat }[]> await aliceDrive.promises.readdir('/space', {...encryptedOpts, includeStats: true})
+  t.same(stats[0].writers, [aliceUser.getPublicUrl(), bobUser.getPublicUrl()])
+  stats = <{ name: string; path: string; writers: string[]; stat: Stat }[]> await bobDrive.promises.readdir('/alice/bobs', {...encryptedOpts, includeStats: true})
+  t.same(stats[0].writers, [aliceUser.getPublicUrl(), bobUser.getPublicUrl()])
 })
