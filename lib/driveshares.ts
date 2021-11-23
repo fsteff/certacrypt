@@ -13,16 +13,16 @@ export class DriveShareView extends View<GraphObject> {
     super(graph.core, contentEncoding, factory, transactions)
   }
 
-  public async out(state: QueryState<GraphObject>, label?: string):  Promise<QueryResult<GraphObject>> {
+  public async out(state: QueryState<GraphObject>, label?: string): Promise<QueryResult<GraphObject>> {
     return this.getView(GRAPH_VIEW).out(state, label)
   }
 
-  public async get(edge: Edge & {feed: Buffer}, state: QueryState<GraphObject>): Promise<QueryResult<GraphObject>> {
+  public async get(edge: Edge & { feed: Buffer }, state: QueryState<GraphObject>): Promise<QueryResult<GraphObject>> {
     const feed = edge.feed.toString('hex')
 
     if (edge.view) {
       const view = this.getView(edge.view)
-      return view.get({...edge, view: undefined}, state)
+      return view.get({ ...edge, view: undefined }, state)
     }
     const edges = await this.getShareEdges()
 

@@ -155,7 +155,7 @@ class ContactsView extends hyper_graphdb_1.View {
         const edges = vertex.getEdges(label);
         if (label === exports.CONTACTS_PATHS.CONTACTS_TO_PROFILES) {
             const contacts = await this.getAllContacts(vertex)
-                .map(v => this.toResult(v, { label, ref: 0 }, state))
+                .map((v) => this.toResult(v, { label, ref: 0 }, state))
                 .destruct();
             return contacts.map(async (v) => v);
         }

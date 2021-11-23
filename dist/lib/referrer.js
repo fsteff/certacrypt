@@ -3,6 +3,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.ReferrerView = exports.REFERRER_VIEW = void 0;
 const certacrypt_crypto_1 = require("certacrypt-crypto");
 const hyper_graphdb_1 = require("hyper-graphdb");
+const debug_1 = require("./debug");
 exports.REFERRER_VIEW = 'ReferrerView';
 class ReferrerView extends hyper_graphdb_1.View {
     constructor(db, contentEncoding, factory, transactions) {
@@ -46,7 +47,7 @@ class ReferrerView extends hyper_graphdb_1.View {
         const vertex = await this.db.getInTransaction(edge.ref, this.codec, tr, feed);
         const edges = vertex.getEdges(edge.metadata.refLabel.toString('base64'));
         if (edges.length === 0) {
-            console.warn('ReferrerView: empty pre-shared vertex');
+            debug_1.debug('ReferrerView: empty pre-shared vertex');
             return [];
         }
         const ref = {
@@ -58,11 +59,14 @@ class ReferrerView extends hyper_graphdb_1.View {
         };
         this.crypto.registerKey(edge.metadata.refKey, { feed: ref.feed, index: ref.id, type: certacrypt_crypto_1.Cipher.ChaCha20_Stream });
         const view = this.getView(ref.view);
-        const nextStates = await view.query(hyper_graphdb_1.Generator.from([new hyper_graphdb_1.QueryState(vertex, [], [], view)])).out(ref.label).states();
+        const nextStates = await view
+            .query(hyper_graphdb_1.Generator.from([state.mergeStates(vertex, state.path, state.rules, state.view)]))
+            .out(ref.label)
+            .states();
         if (nextStates.length === 0)
             throw new Error('vertex has no share edge, cannot use ShareView');
         return nextStates.map(async (next) => {
-            const mergedState = next.mergeStates(next.value, state.path, state.rules, next.view);
+            const mergedState = next.mergeStates(next.value, state.path.concat(next.path.slice(1)), state.rules, next.view);
             return this.toResult(next.value, edge, mergedState);
         });
     }

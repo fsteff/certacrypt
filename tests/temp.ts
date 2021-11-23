@@ -34,7 +34,7 @@ tape('temp drive write and read', async (t) => {
   const drive = await certacrypt.drive(root)
   await drive.promises.writeFile('test.txt', 'test', encryptedOpts)
 
-  let url = certacrypt.getFileUrl(<Vertex<DriveGraphObject>> await certacrypt.path('/apps/test/test.txt'), 'test.txt')
+  let url = certacrypt.getFileUrl(<Vertex<DriveGraphObject>>await certacrypt.path('/apps/test/test.txt'), 'test.txt')
   const file = await certacrypt.getFileByUrl(url)
   const content = await file.readFile(encryptedOpts)
 

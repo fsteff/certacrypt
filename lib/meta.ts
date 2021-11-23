@@ -10,7 +10,7 @@ import { Feed } from 'hyperobjects'
 import { Stat as TrieStat } from 'hyperdrive-schemas'
 import { parseUrl } from './url'
 import { debug } from './debug'
-import {SpaceQueryState, SPACE_VIEW} from './space'
+import { SpaceQueryState, SPACE_VIEW } from './space'
 
 export class MetaStorage {
   private readonly drive: Hyperdrive
@@ -28,6 +28,15 @@ export class MetaStorage {
     this.tries = new Map<string, MountableHypertrie>()
   }
 
+  async updateRoot(root?: Vertex<Directory>) {
+    if (root) {
+      this.root = root
+    } else {
+      this.root = <Vertex<Directory>>await this.graph.get(this.root.getId(), this.root.getFeed())
+    }
+    return <Vertex<Directory>>this.root
+  }
+
   private async uniqueFileId() {
     const nodes = <{ seq: number; key: string; value: Buffer }[]>(
       await new Promise((resolve, reject) => this.drive.db.list('.enc', { hidden: true }, (err, res) => (err ? reject(err) : resolve(res))))
@@ -39,7 +48,7 @@ export class MetaStorage {
   }
 
   async readableFile(filename: string, encrypted = true) {
-    const file = await this.find(filename)
+    const file = await this.find(filename, false)
     if (!file) throw new FileNotFound(filename)
 
     const { vertex, feed, path, mkey, fkey } = file
@@ -67,7 +76,7 @@ export class MetaStorage {
   }
 
   async writeableFile(filename: string, encrypted = true): Promise<{ path: string; fkey?: Buffer }> {
-    let parsedFile = await this.find(filename)
+    let parsedFile = await this.find(filename, true)
     let fileid: string
     let vertex: Vertex<DriveGraphObject> = parsedFile?.vertex
     const feed = this.drive.key.toString('hex')
@@ -101,9 +110,9 @@ export class MetaStorage {
 
     debug(`created writeableFile ${filename} as ${encrypted ? 'encrypted' : 'public'} file hyper://${feed}${fileid}`)
 
-    const created = await this.graph.createEdgesToPath(filename, this.root, vertex)
+    const created = await this.createPath(filename, vertex) //this.graph.createEdgesToPath(filename, this.root, vertex)
     // reload root to be sure
-    this.root = <Vertex<DriveGraphObject>> await this.graph.get(this.root.getId(), this.root.getFeed())
+    this.root = <Vertex<DriveGraphObject>>await this.graph.get(this.root.getId(), this.root.getFeed())
 
     for (const { path } of created) {
       const dirs = await this.graph
@@ -123,7 +132,7 @@ export class MetaStorage {
     let target: Vertex<Directory>
 
     const writeable = await this.findWriteablePath(name)
-    const vertex = <Vertex<Directory>> (writeable?.path.length === 0 ? writeable?.state.value : undefined)
+    const vertex = <Vertex<Directory>>(writeable?.remainingPath.length === 0 ? writeable?.state.value : undefined)
     const content = vertex?.getContent()
     if (content && content.filename) {
       throw new PathAlreadyExists(name)
@@ -146,7 +155,7 @@ export class MetaStorage {
 
     await new Promise((resolve, reject) => makeStat.call(null, fileid, (err) => (err ? reject(err) : resolve(undefined))))
     await this.graph.put(target)
-    if(this.root.getId() === target.getId() && this.root.getFeed() === target.getFeed()) {
+    if (this.root.getId() === target.getId() && this.root.getFeed() === target.getFeed()) {
       this.root = target
     } else {
       await this.createPath(name, target)
@@ -157,8 +166,19 @@ export class MetaStorage {
     return target
   }
 
-  public async find(path: string) {
-    const vertex = latestWrite(<Vertex<DriveGraphObject>[]>await this.graph.queryPathAtVertex(path, this.root, undefined, thombstoneReductor).generator().destruct(onError))
+  public async find(path: string, writeable: boolean) {
+    let vertex: Vertex<DriveGraphObject>
+    if (writeable) {
+      const writeablePath = await this.findWriteablePath(path)
+      if (writeablePath && writeablePath.remainingPath.length === 0) {
+        vertex = <Vertex<DriveGraphObject>>writeablePath.state.value
+      }
+    } else {
+      vertex = latestWrite(
+        <Vertex<DriveGraphObject>[]>await this.graph.queryPathAtVertex(path, this.root, undefined, thombstoneReductor).generator().destruct(onError)
+      )
+    }
+
     if (!vertex) return null
 
     const file = vertex.getContent()
@@ -174,9 +194,9 @@ export class MetaStorage {
     }
 
     function thombstoneReductor(arr: QueryState<DriveGraphObject>[]): QueryState<DriveGraphObject>[] {
-      if(!arr || arr.length === 0) return []
-      arr.sort((a,b) => (a.value.getContent()?.timestamp || 0) - (b.value.getContent()?.timestamp || 0))
-      if(arr[0].value.getContent()?.typeName === GraphObjectTypeNames.THOMBSTONE) {
+      if (!arr || arr.length === 0) return []
+      arr.sort((a, b) => (a.value.getContent()?.timestamp || 0) - (b.value.getContent()?.timestamp || 0))
+      if (arr[0].value.getContent()?.typeName === GraphObjectTypeNames.THOMBSTONE) {
         return []
       } else {
         return arr
@@ -279,49 +299,51 @@ export class MetaStorage {
 
   async createPath(absolutePath: string, leaf: Vertex<DriveGraphObject>) {
     const path = await this.findWriteablePath(absolutePath)
-    if(!path) {
+    if (!path) {
       throw new Error('createPath: path is not writeable')
     }
-    if(path.state instanceof SpaceQueryState) {
-      const relativePath = path.state.getPathRelativeToSpace()
-      return path.state.space.createEdgesToPath(relativePath)
-    } else {
-      return this.graph.createEdgesToPath(absolutePath, this.root, leaf)
-    }
+    const writeable = <Vertex<GraphObject>>path.state.value
+    return this.graph.createEdgesToPath(path.remainingPath.join('/'), writeable, leaf)
   }
 
   async findWriteablePath(absolutePath: string) {
     const self = this
-    const parts = absolutePath.split('/').filter(p => p.trim().length > 0)
+    const parts = absolutePath.split('/').filter((p) => p.trim().length > 0)
     return traverse(new QueryState(this.root, [], [], this.graph.factory.get(GRAPH_VIEW)), parts)
 
-
-    async function traverse(state: QueryState<GraphObject>, path: string[]): Promise<{state: QueryState<GraphObject>, path: string[]} | undefined> {
-      if(path.length === 0 || state.value.getEdges().length === 0) {
-        const vertex = <Vertex<GraphObject>> state.value
-        if(typeof vertex.getFeed === 'function' && vertex.getFeed() === self.root.getFeed()) {
-          return {state, path}
+    async function traverse(state: QueryState<GraphObject>, path: string[]): Promise<{ state: QueryState<GraphObject>; remainingPath: string[] } | undefined> {
+      let nextStates = path.length > 0 ? await out(state, path[0]) : []
+      if (nextStates.length === 0) {
+        const vertex = <Vertex<GraphObject>>state.value
+        if (typeof vertex.getFeed === 'function' && vertex.getFeed() === self.root.getFeed()) {
+          return { state, remainingPath: path }
         } else {
           return undefined
         }
       }
 
-      const nextStates = await state.view.query(Generator.from([state])).out(path[0]).states()
-      let spaceWriteable: SpaceQueryState
-      for(let i = 0; i < nextStates.length; i++) {
-        const next = nextStates[i]
+      for (const next of nextStates) {
         const result = await traverse(next, path.slice(1))
-        if(result) return result
-
-        if(next instanceof SpaceQueryState && (<Vertex<GraphObject>>next.value).getFeed() !== self.root.getFeed() && !spaceWriteable) {
-          const created = await getOrCreateWriteable(next, path, state)
-          if(created) {
-            spaceWriteable = created
-          }
-        }
+        if (result) return result
       }
-      if(spaceWriteable) {
-        return await traverse(spaceWriteable, path.slice(1))
+
+      // in case the user's PSV has not been written to (yet), create a root dir
+      for (const next of nextStates) {
+        if (!(next instanceof SpaceQueryState)) continue
+        // get the owner's root dir id+feed
+        const spaceOwnerEdge = next.space.root
+          .getEdges('.')
+          .map((edge) => {
+            return { id: edge.ref, feed: edge.feed?.toString() || next.space.root.getFeed() }
+          })
+          .filter((e) => e.feed === next.space.root.getFeed())[0]
+        if (!spaceOwnerEdge) continue
+        // check if current vertex is the owner's root dir
+        const v = <Vertex<GraphObject>>next.value
+        if (v.getId() !== spaceOwnerEdge.id || v.getFeed() !== spaceOwnerEdge.feed) continue
+        // get writer root dir
+        const writeable = await getOrCreateWriteable(next, path, state)
+        if (writeable) return await traverse(writeable, path.slice(1))
       }
 
       return undefined
@@ -333,13 +355,20 @@ export class MetaStorage {
       try {
         writeable = await space.tryGetWriteableRoot()
         // if PSV has not been written to, this creates an empty vertex
-        if(!writeable) {
+        if (!writeable) {
           writeable = await space.createWriteableRoot()
         }
         return new SpaceQueryState(writeable, state.path, state.rules, state.view, space).nextState(writeable, path[0], writeable.getFeed(), state.view)
-      } catch(err) {
+      } catch (err) {
         debug('findWriteablePath: no permissions to write to space ' + space.root.getId() + '@' + space.root.getFeed())
       }
+    }
+
+    async function out(state: QueryState<GraphObject>, label: string) {
+      return state.view
+        .query(Generator.from([state]))
+        .out(label)
+        .states()
     }
   }
 }
@@ -348,7 +377,7 @@ function latestWrite(vertices: Vertex<DriveGraphObject>[]) {
   // TODO: use more sophisticated method - e.g. a view that makes sure there is only one vertex
   if (!vertices || vertices.length === 0) return null
   else if (vertices.length === 1) return vertices[0]
-  else return vertices.sort((a, b) => a.getTimestamp() - b.getTimestamp())[0]
+  else return vertices.sort((a, b) => b.getTimestamp() - a.getTimestamp())[0]
 }
 
 function isDriveObjectOrShare(vertex: Vertex<GraphObject>): boolean {

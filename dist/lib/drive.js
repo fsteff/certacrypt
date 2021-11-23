@@ -46,6 +46,7 @@ async function cryptoDrive(corestore, graph, crypto, root) {
     drive.mkdir = mkdir;
     drive.unlink = unlink;
     drive.promises.unlink = unlink;
+    drive.updateRoot = (dir) => meta.updateRoot(dir);
     return drive;
     function createReadStream(name, opts) {
         name = unixify_1.default(name);
@@ -123,7 +124,7 @@ async function cryptoDrive(corestore, graph, crypto, root) {
         }
         else {
             return meta
-                .find(name)
+                .find(name, false)
                 .then(async ({ path, feed, vertex }) => {
                 const feedTrie = await meta.getTrie(feed);
                 const { stat, trie } = await meta.lstat(vertex, path, !!opts.db.encrypted, feedTrie, !!opts.file);
@@ -140,7 +141,11 @@ async function cryptoDrive(corestore, graph, crypto, root) {
         if (!encrypted)
             return oldReaddir.call(drive, name, opts, cb);
         const results = new Array();
-        for (const vertex of await graph.queryPathAtVertex(name, root).generator().destruct(onError)) {
+        const files = await graph
+            .queryPathAtVertex(name, await meta.updateRoot())
+            .generator()
+            .destruct(onError);
+        for (const vertex of files) {
             const labels = distinct(vertex.getEdges().map((edge) => edge.label));
             const children = (await Promise.all(labels
                 .map((label) => {

@@ -195,8 +195,8 @@ export class CommunicationView extends View<GraphObject> {
     super(graph.core, contentEncoding, factory, transactions)
   }
 
-  public async out(state: QueryState<GraphObject>, label?: string):  Promise<QueryResult<GraphObject>> {
-    const vertex = <Vertex<GraphObject>> state.value
+  public async out(state: QueryState<GraphObject>, label?: string): Promise<QueryResult<GraphObject>> {
+    const vertex = <Vertex<GraphObject>>state.value
     if (!(vertex instanceof Vertex) || !vertex.getFeed()) {
       throw new Error('ContactsView.out does only accept persisted Vertex instances as input')
     }
@@ -204,20 +204,20 @@ export class CommunicationView extends View<GraphObject> {
     let vertices: QueryResult<GraphObject> = []
     if (label === COMM_PATHS.COMM_TO_RCV_SHARES) {
       const shares = await this.getAllReceivedShares(vertex)
-        .map(v => this.toResult(v, {label, ref: 0}, state))
+        .map((v) => this.toResult(v, { label, ref: 0 }, state))
         .destruct()
-      return shares.map(async v => v)
+      return shares.map(async (v) => v)
     } else if (label === COMM_PATHS.COMM_TO_SENT_SHARES) {
       const shares = await this.getAllSentShares(vertex)
-        .map(v => this.toResult(v, {label, ref: 0}, state))
+        .map((v) => this.toResult(v, { label, ref: 0 }, state))
         .destruct()
-      return shares.map(async v => v)
+      return shares.map(async (v) => v)
     } else {
       const vertices: QueryResult<GraphObject> = []
       for (const edge of edges) {
         const feed = edge.feed || Buffer.from(<string>vertex.getFeed(), 'hex')
         // TODO: version pinning does not work yet
-        for(const res of await this.get({...edge, feed}, state)) {
+        for (const res of await this.get({ ...edge, feed }, state)) {
           vertices.push(res)
         }
       }
@@ -228,11 +228,12 @@ export class CommunicationView extends View<GraphObject> {
   private getAllReceivedShares(socialRoot: Vertex<GraphObject>): ValueGenerator<VirtualCommShareVertex> {
     const self = this
     const userUrl = this.user.getPublicUrl()
-    const gen = <Generator<MsgTypeInit>> this.query(Generator.from([new QueryState(socialRoot, [], [], this)]))
+    const gen = <Generator<MsgTypeInit>>this.query(Generator.from([new QueryState(socialRoot, [], [], this)]))
       .out(COMM_PATHS.SOCIAL_ROOT_TO_CHANNELS)
       .out()
       .generator()
-    const shares = gen.values()
+    const shares = gen
+      .values()
       .map((init: Vertex<MsgTypeInit>) => new Communication(this.graph, init, this.cacheDb))
       .map(async (comm: Communication) => {
         const sharedBy = (await comm.getParticipants()).map((p) => p.getContent()?.userUrl)
@@ -242,10 +243,10 @@ export class CommunicationView extends View<GraphObject> {
         })
         return msgs
       })
-      .flatMap<VirtualCommShareVertex>((msgs: { msg: MsgTypeShare, sharedBy: string }[]) => (msgs).map(getShare))
+      .flatMap<VirtualCommShareVertex>((msgs: { msg: MsgTypeShare; sharedBy: string }[]) => msgs.map(getShare))
     return shares
 
-    async function getShare(result: { msg: MsgTypeShare, sharedBy: string }): Promise<VirtualCommShareVertex> {
+    async function getShare(result: { msg: MsgTypeShare; sharedBy: string }): Promise<VirtualCommShareVertex> {
       const parsed = parseUrl(result.msg.shareUrl)
       if (parsed.type && parsed.type !== URL_TYPES.SHARE) {
         throw new Error('URL does not have type share: ' + result.msg.shareUrl)
@@ -254,13 +255,17 @@ export class CommunicationView extends View<GraphObject> {
       self.graph.registerVertexKey(parsed.id, parsed.feed, parsed.key)
       // fake query state and edge...
       const state = new QueryState(socialRoot, [], [], self)
-      const edge = {ref: parsed.id, feed: Buffer.from(parsed.feed, 'hex'), label: ''}
-      
-      const shareVertex = <Vertex<ShareGraphObject>> await ValueGenerator.from(await self.get({...edge, view: GRAPH_VIEW}, state)).map(async r => (await r).result).first()
+      const edge = { ref: parsed.id, feed: Buffer.from(parsed.feed, 'hex'), label: '' }
+
+      const shareVertex = <Vertex<ShareGraphObject>>await ValueGenerator.from(await self.get({ ...edge, view: GRAPH_VIEW }, state))
+        .map(async (r) => (await r).result)
+        .first()
       if (shareVertex.getContent()?.typeName !== SHARE_GRAPHOBJECT || shareVertex.getEdges().length !== 1) {
         throw new Error('invalid share vertex: type=' + shareVertex.getContent()?.typeName + ' #edges=' + shareVertex.getEdges().length)
       }
-      const targetVertex = <Vertex<ShareGraphObject>> await ValueGenerator.from(self.get({...edge, view: SHARE_VIEW}, state)).map(async r => (await r).result).first()
+      const targetVertex = <Vertex<ShareGraphObject>>await ValueGenerator.from(self.get({ ...edge, view: SHARE_VIEW }, state))
+        .map(async (r) => (await r).result)
+        .first()
       const content = shareVertex.getContent()
       return new VirtualCommShareVertex(content.owner, content.info, parsed.name, shareVertex, targetVertex, result.sharedBy, [userUrl])
     }
@@ -295,13 +300,17 @@ export class CommunicationView extends View<GraphObject> {
       self.graph.registerVertexKey(parsed.id, parsed.feed, parsed.key)
       // fake query state and edge...
       const state = new QueryState(socialRoot, [], [], self)
-      const edge = {ref: parsed.id, feed: Buffer.from(parsed.feed, 'hex'), label: ''}
-     
-      const shareVertex = <Vertex<ShareGraphObject>> await ValueGenerator.from(await self.get({...edge, view: GRAPH_VIEW}, state)).map(async r => (await r).result).first()
+      const edge = { ref: parsed.id, feed: Buffer.from(parsed.feed, 'hex'), label: '' }
+
+      const shareVertex = <Vertex<ShareGraphObject>>await ValueGenerator.from(await self.get({ ...edge, view: GRAPH_VIEW }, state))
+        .map(async (r) => (await r).result)
+        .first()
       if (shareVertex.getContent()?.typeName !== SHARE_GRAPHOBJECT || shareVertex.getEdges().length !== 1) {
         throw new Error('invalid share vertex: type=' + shareVertex.getContent()?.typeName + ' #edges=' + shareVertex.getEdges().length)
       }
-      const targetVertex = await ValueGenerator.from(await self.get({...edge, view: SHARE_VIEW}, state)).map(async r => (await r).result).first()
+      const targetVertex = await ValueGenerator.from(await self.get({ ...edge, view: SHARE_VIEW }, state))
+        .map(async (r) => (await r).result)
+        .first()
       const content = shareVertex.getContent()
       return new VirtualCommShareVertex(content.owner, content.info, parsed.name, shareVertex, targetVertex, userUrl, result.sharedWith)
     }

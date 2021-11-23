@@ -7,10 +7,8 @@ const simulator_1 = __importDefault(require("hyperspace/simulator"));
 const tape_1 = __importDefault(require("tape"));
 const certacrypt_crypto_1 = require("certacrypt-crypto");
 const __1 = require("..");
-const debug_1 = require("../lib/debug");
 const space_1 = require("../lib/space");
 const certacrypt_graph_1 = require("certacrypt-graph");
-debug_1.enableDebugLogging();
 const encryptedOpts = { db: { encrypted: true }, encoding: 'utf-8' };
 async function createCertaCrypt(client) {
     const store = client.corestore();
@@ -34,7 +32,7 @@ tape_1.default('write to collaboration space', async (t) => {
     await (await bob.certacrypt.contacts).addFriend(aliceSeenFromBob);
     // preparing alice
     const appRootAlice = await alice.certacrypt.path('/apps');
-    const aliceDriveRoot = alice.certacrypt.graph.create();
+    let aliceDriveRoot = alice.certacrypt.graph.create();
     await alice.certacrypt.graph.put(aliceDriveRoot);
     appRootAlice.addEdgeTo(aliceDriveRoot, 'drive');
     await alice.certacrypt.graph.put(appRootAlice);
@@ -42,9 +40,12 @@ tape_1.default('write to collaboration space', async (t) => {
     await aliceDrive.promises.mkdir('/', encryptedOpts);
     await aliceDrive.promises.mkdir('/space', encryptedOpts);
     await aliceDrive.promises.writeFile('/space/readme.txt', 'Hi, I am Alice', encryptedOpts);
-    // conbert to space
+    // convert to space
+    // FIXME: in memory this aliceDrive root is the directory, not the space!!!!
+    aliceDriveRoot = await aliceDrive.updateRoot();
     const aliceSpaceRoot = await alice.certacrypt.path('/apps/drive/space');
     const aliceSpace = await alice.certacrypt.convertToCollaborationSpace(aliceDriveRoot, aliceSpaceRoot);
+    aliceDriveRoot = await aliceDrive.updateRoot();
     // preparing bob
     const appRootBob = await bob.certacrypt.path('/apps');
     const bobDriveRoot = bob.certacrypt.graph.create();
@@ -54,7 +55,7 @@ tape_1.default('write to collaboration space', async (t) => {
     const bobDrive = await bob.certacrypt.drive(bobDriveRoot);
     await bobDrive.promises.mkdir('/', encryptedOpts);
     // test if the converted directory queries work
-    const states = await alice.certacrypt.graph.queryPathAtVertex('/space/readme.txt', aliceDriveRoot).states();
+    let states = await alice.certacrypt.graph.queryPathAtVertex('/space/readme.txt', aliceDriveRoot).states();
     t.same(states.length, 1);
     t.ok(states[0] instanceof space_1.SpaceQueryState);
     t.ok(states[0].space.root.equals(aliceSpace.root));
@@ -62,6 +63,8 @@ tape_1.default('write to collaboration space', async (t) => {
     await aliceDrive.promises.writeFile('/space/readme2.txt', 'Hi, I am Alice, #2', encryptedOpts);
     let readme = await aliceDrive.promises.readFile('/space/readme2.txt', encryptedOpts);
     t.same(readme, 'Hi, I am Alice, #2');
+    let files = await aliceDrive.promises.readdir('/space', encryptedOpts);
+    t.same(files, ['readme.txt', 'readme2.txt']);
     // share with bob
     const sharedSpace = await alice.certacrypt.createShare(aliceSpace.root);
     await alice.certacrypt.sendShare(sharedSpace, [bobSeenFromAlice]);
@@ -73,15 +76,22 @@ tape_1.default('write to collaboration space', async (t) => {
     await bob.certacrypt.graph.put(bobDriveRoot);
     readme = await bobDrive.promises.readFile('/alice/readme.txt', encryptedOpts);
     t.same(readme, 'Hi, I am Alice');
-    console.log(await bob.certacrypt.debugDrawGraph(bobDriveRoot));
     // test write access
     await bobDrive.promises.mkdir('/alice/bobs/', encryptedOpts);
-    const files = await bobDrive.promises.readdir('/alice', encryptedOpts);
-    console.log(files);
-    //await bobDrive.promises.writeFile('/alice/hello.txt', 'Hello, I am Bob',encryptedOpts)
-    //let helloFile = await bobDrive.readFile('/alice/hello.txt', encryptedOpts)
-    //t.same(helloFile, 'Hello, I am Bob')
-    // TODO: .getAllReceivedShares() already follows the space '.' edges - how to circumvent that?
-    //t.ok(bobShare.getId() === aliceSpace.root.getId() && bobShare.getFeed() === aliceSpace.root.getFeed())
+    files = await bobDrive.promises.readdir('/alice', encryptedOpts);
+    t.same(files, ['readme.txt', 'readme2.txt', 'bobs']);
+    files = await aliceDrive.promises.readdir('/space', encryptedOpts);
+    t.same(files, ['readme.txt', 'readme2.txt', 'bobs']);
+    await bobDrive.promises.writeFile('/alice/bobs/hello.txt', 'Hello, I am Bob', encryptedOpts);
+    let helloFile = await bobDrive.promises.readFile('/alice/bobs/hello.txt', encryptedOpts);
+    t.same(helloFile, 'Hello, I am Bob');
+    helloFile = await aliceDrive.promises.readFile('/space/bobs/hello.txt', encryptedOpts);
+    t.same(helloFile, 'Hello, I am Bob');
+    // test conflicts
+    await bobDrive.promises.writeFile('/alice/readme.txt', 'Hehe, I overwrote it', encryptedOpts);
+    states = await bob.certacrypt.graph.queryPathAtVertex('/alice/readme.txt', await bobDrive.updateRoot()).states();
+    t.same(states.length, 2);
+    readme = await bobDrive.promises.readFile('/alice/readme.txt', encryptedOpts);
+    t.same(readme, 'Hehe, I overwrote it');
 });
 //# sourceMappingURL=collab.js.map

@@ -13,8 +13,18 @@ import { ReadStream, WriteStream } from 'fs'
 import { IVertex } from 'hyper-graphdb/lib/Vertex'
 import { debug } from './debug'
 import { parseUrl } from '..'
+import { CollaborationSpace } from './space'
 
-export async function cryptoDrive(corestore: Corestore, graph: CertaCryptGraph, crypto: ICrypto, root: Vertex<Directory>): Promise<Hyperdrive> {
+export type DriveCryptoApi = {
+  updateRoot(vertex?: Vertex<Directory>): Promise<Vertex<Directory>>
+}
+
+export async function cryptoDrive(
+  corestore: Corestore,
+  graph: CertaCryptGraph,
+  crypto: ICrypto,
+  root: Vertex<Directory>
+): Promise<Hyperdrive & DriveCryptoApi> {
   let metadataFeed = root.getContent()?.trie
   let metadataRootFile = root.getContent()?.filename
   if (!metadataFeed && metadataRootFile) {
@@ -24,7 +34,7 @@ export async function cryptoDrive(corestore: Corestore, graph: CertaCryptGraph, 
 
   const seed = Primitives.hash(Buffer.concat([Buffer.from('cryptoDrive'), Buffer.from(root.getFeed(), 'hex'), Buffer.from([root.getId()])]))
   corestore = cryptoCorestore(corestore.namespace(seed.toString('hex')), crypto)
-  const drive = <Hyperdrive>(<unknown>createHyperdrive(corestore, metadataFeed)) // dirty fix
+  const drive = <Hyperdrive & DriveCryptoApi>(<unknown>createHyperdrive(corestore, metadataFeed)) // dirty fix
   await drive.promises.ready()
 
   if (!metadataFeed && root.getWriteable()) {
@@ -51,6 +61,7 @@ export async function cryptoDrive(corestore: Corestore, graph: CertaCryptGraph, 
   drive.mkdir = mkdir
   drive.unlink = unlink
   drive.promises.unlink = unlink
+  drive.updateRoot = (dir?: Vertex<Directory>) => meta.updateRoot(dir)
 
   return drive
 
@@ -147,7 +158,7 @@ export async function cryptoDrive(corestore: Corestore, graph: CertaCryptGraph, 
       return oldLstat.call(drive, name, opts, cb)
     } else {
       return meta
-        .find(name)
+        .find(name, false)
         .then(async ({ path, feed, vertex }) => {
           const feedTrie = await meta.getTrie(feed)
           const { stat, trie } = await meta.lstat(vertex, path, !!opts.db.encrypted, feedTrie, !!opts.file)
@@ -165,7 +176,11 @@ export async function cryptoDrive(corestore: Corestore, graph: CertaCryptGraph, 
     if (!encrypted) return oldReaddir.call(drive, name, opts, cb)
 
     const results = new Array<readdirResult>()
-    for (const vertex of await graph.queryPathAtVertex(name, root).generator().destruct(onError)) {
+    const files = await graph
+      .queryPathAtVertex(name, await meta.updateRoot())
+      .generator()
+      .destruct(onError)
+    for (const vertex of files) {
       const labels = distinct((<IVertex<DriveGraphObject>>vertex).getEdges().map((edge) => edge.label))
       const children = (
         await Promise.all(

@@ -4,7 +4,7 @@ import { ShareGraphObject, SHARE_VIEW } from 'certacrypt-graph'
 import { Corestore, Generator, GraphObject, GRAPH_VIEW, QueryState, SimpleGraphObject, STATIC_VIEW, Vertex } from 'hyper-graphdb'
 import * as GraphObjects from './lib/graphObjects'
 import { parseUrl, createUrl, URL_TYPES } from './lib/url'
-import { cryptoDrive } from './lib/drive'
+import { cryptoDrive, DriveCryptoApi } from './lib/drive'
 import { Hyperdrive } from './lib/types'
 import { enableDebugLogging, debug } from './lib/debug'
 import { REFERRER_VIEW, ReferrerView } from './lib/referrer'
@@ -149,7 +149,7 @@ export class CertaCrypt {
     root.addEdgeTo(tmp, 'tmp')
     root.addEdgeTo(shares, 'shares')
     root.addEdgeTo(commRoot, COMM_PATHS.SOCIAL)
-    root.addEdgeTo(commRoot, 'contacts',{view: CONTACTS_VIEW})
+    root.addEdgeTo(commRoot, 'contacts', { view: CONTACTS_VIEW })
     await this.graph.put(root)
 
     const user = await User.InitUser(this.graph, root)
@@ -203,11 +203,11 @@ export class CertaCrypt {
 
     if (!shareVertex) {
       let shareView = GRAPH_VIEW
-      if(vertex.getContent()?.typeName === GraphObjects.GraphObjectTypeNames.SPACE) {
+      if (vertex.getContent()?.typeName === GraphObjects.GraphObjectTypeNames.SPACE) {
         shareView = Space.SPACE_VIEW
       }
       shareVertex = await this.graph.createShare(vertex, { info: 'share by URL', owner: (await this.user).getPublicUrl(), view: shareView })
-      shares.addEdgeTo(shareVertex, 'url', {view: SHARE_VIEW})
+      shares.addEdgeTo(shareVertex, 'url', { view: SHARE_VIEW })
       await this.graph.put(shares)
 
       debug(`created share to vertex ${vertex.getFeed()}/${vertex.getId()} at ${shareVertex.getFeed()}/${shareVertex.getId()}`)
@@ -219,7 +219,7 @@ export class CertaCrypt {
   public async mountShare(target: Vertex<GraphObject>, label: string, url: string) {
     const { feed, id, key } = parseUrl(url)
     const vertex = await this.graph.get(id, feed, key)
-    target.addEdgeTo(vertex, label, {view:  SHARE_VIEW})
+    target.addEdgeTo(vertex, label, { view: SHARE_VIEW })
     await this.graph.put(target)
     debug(`mounted share from URL ${url} to ${target.getFeed()}/${target.getId()}->${label}`)
     debug(await this.debugDrawGraph())
@@ -260,7 +260,7 @@ export class CertaCrypt {
     }
   }
 
-  public async drive(rootDir: Vertex<GraphObjects.Directory> | string): Promise<Hyperdrive> {
+  public async drive(rootDir: Vertex<GraphObjects.Directory> | string): Promise<Hyperdrive & DriveCryptoApi> {
     if (typeof rootDir === 'string') {
       const { feed, id, key } = parseUrl(rootDir)
       const vertex = await this.graph.get(id, feed, key)

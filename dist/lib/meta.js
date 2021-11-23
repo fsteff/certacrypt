@@ -20,6 +20,15 @@ class MetaStorage {
         this.crypto = crypto;
         this.tries = new Map();
     }
+    async updateRoot(root) {
+        if (root) {
+            this.root = root;
+        }
+        else {
+            this.root = await this.graph.get(this.root.getId(), this.root.getFeed());
+        }
+        return this.root;
+    }
     async uniqueFileId() {
         const nodes = (await new Promise((resolve, reject) => this.drive.db.list('.enc', { hidden: true }, (err, res) => (err ? reject(err) : resolve(res)))));
         let idCtr = this.currentIdCtr + 1;
@@ -29,7 +38,7 @@ class MetaStorage {
     }
     async readableFile(filename, encrypted = true) {
         var _a;
-        const file = await this.find(filename);
+        const file = await this.find(filename, false);
         if (!file)
             throw new errors_1.FileNotFound(filename);
         const { vertex, feed, path, mkey, fkey } = file;
@@ -56,7 +65,7 @@ class MetaStorage {
         return { path, trie, stat, contentFeed };
     }
     async writeableFile(filename, encrypted = true) {
-        let parsedFile = await this.find(filename);
+        let parsedFile = await this.find(filename, true);
         let fileid;
         let vertex = parsedFile === null || parsedFile === void 0 ? void 0 : parsedFile.vertex;
         const feed = this.drive.key.toString('hex');
@@ -91,7 +100,7 @@ class MetaStorage {
         vertex.setContent(file);
         await this.graph.put(vertex);
         debug_1.debug(`created writeableFile ${filename} as ${encrypted ? 'encrypted' : 'public'} file hyper://${feed}${fileid}`);
-        const created = await this.graph.createEdgesToPath(filename, this.root, vertex);
+        const created = await this.createPath(filename, vertex); //this.graph.createEdgesToPath(filename, this.root, vertex)
         // reload root to be sure
         this.root = await this.graph.get(this.root.getId(), this.root.getFeed());
         for (const { path } of created) {
@@ -109,7 +118,7 @@ class MetaStorage {
     async createDirectory(name, makeStat) {
         let target;
         const writeable = await this.findWriteablePath(name);
-        const vertex = ((writeable === null || writeable === void 0 ? void 0 : writeable.path.length) === 0 ? writeable === null || writeable === void 0 ? void 0 : writeable.state.value : undefined);
+        const vertex = ((writeable === null || writeable === void 0 ? void 0 : writeable.remainingPath.length) === 0 ? writeable === null || writeable === void 0 ? void 0 : writeable.state.value : undefined);
         const content = vertex === null || vertex === void 0 ? void 0 : vertex.getContent();
         if (content && content.filename) {
             throw new errors_1.PathAlreadyExists(name);
@@ -139,8 +148,17 @@ class MetaStorage {
         debug_1.debug(`created directory ${name} at hyper://${feed}${fileid}`);
         return target;
     }
-    async find(path) {
-        const vertex = latestWrite(await this.graph.queryPathAtVertex(path, this.root, undefined, thombstoneReductor).generator().destruct(onError));
+    async find(path, writeable) {
+        let vertex;
+        if (writeable) {
+            const writeablePath = await this.findWriteablePath(path);
+            if (writeablePath && writeablePath.remainingPath.length === 0) {
+                vertex = writeablePath.state.value;
+            }
+        }
+        else {
+            vertex = latestWrite(await this.graph.queryPathAtVertex(path, this.root, undefined, thombstoneReductor).generator().destruct(onError));
+        }
         if (!vertex)
             return null;
         const file = vertex.getContent();
@@ -266,44 +284,51 @@ class MetaStorage {
         if (!path) {
             throw new Error('createPath: path is not writeable');
         }
-        if (path.state instanceof space_1.SpaceQueryState) {
-            const relativePath = path.state.getPathRelativeToSpace();
-            return path.state.space.createEdgesToPath(relativePath);
-        }
-        else {
-            return this.graph.createEdgesToPath(absolutePath, this.root, leaf);
-        }
+        const writeable = path.state.value;
+        return this.graph.createEdgesToPath(path.remainingPath.join('/'), writeable, leaf);
     }
     async findWriteablePath(absolutePath) {
         const self = this;
-        const parts = absolutePath.split('/').filter(p => p.trim().length > 0);
+        const parts = absolutePath.split('/').filter((p) => p.trim().length > 0);
         return traverse(new hyper_graphdb_1.QueryState(this.root, [], [], this.graph.factory.get(hyper_graphdb_1.GRAPH_VIEW)), parts);
         async function traverse(state, path) {
-            if (path.length === 0 || state.value.getEdges().length === 0) {
+            let nextStates = path.length > 0 ? await out(state, path[0]) : [];
+            if (nextStates.length === 0) {
                 const vertex = state.value;
                 if (typeof vertex.getFeed === 'function' && vertex.getFeed() === self.root.getFeed()) {
-                    return { state, path };
+                    return { state, remainingPath: path };
                 }
                 else {
                     return undefined;
                 }
             }
-            const nextStates = await state.view.query(hyper_graphdb_1.Generator.from([state])).out(path[0]).states();
-            let spaceWriteable;
-            for (let i = 0; i < nextStates.length; i++) {
-                const next = nextStates[i];
+            for (const next of nextStates) {
                 const result = await traverse(next, path.slice(1));
                 if (result)
                     return result;
-                if (next instanceof space_1.SpaceQueryState && next.value.getFeed() !== self.root.getFeed() && !spaceWriteable) {
-                    const created = await getOrCreateWriteable(next, path, state);
-                    if (created) {
-                        spaceWriteable = created;
-                    }
-                }
             }
-            if (spaceWriteable) {
-                return await traverse(spaceWriteable, path.slice(1));
+            // in case the user's PSV has not been written to (yet), create a root dir
+            for (const next of nextStates) {
+                if (!(next instanceof space_1.SpaceQueryState))
+                    continue;
+                // get the owner's root dir id+feed
+                const spaceOwnerEdge = next.space.root
+                    .getEdges('.')
+                    .map((edge) => {
+                    var _a;
+                    return { id: edge.ref, feed: ((_a = edge.feed) === null || _a === void 0 ? void 0 : _a.toString()) || next.space.root.getFeed() };
+                })
+                    .filter((e) => e.feed === next.space.root.getFeed())[0];
+                if (!spaceOwnerEdge)
+                    continue;
+                // check if current vertex is the owner's root dir
+                const v = next.value;
+                if (v.getId() !== spaceOwnerEdge.id || v.getFeed() !== spaceOwnerEdge.feed)
+                    continue;
+                // get writer root dir
+                const writeable = await getOrCreateWriteable(next, path, state);
+                if (writeable)
+                    return await traverse(writeable, path.slice(1));
             }
             return undefined;
         }
@@ -322,6 +347,12 @@ class MetaStorage {
                 debug_1.debug('findWriteablePath: no permissions to write to space ' + space.root.getId() + '@' + space.root.getFeed());
             }
         }
+        async function out(state, label) {
+            return state.view
+                .query(hyper_graphdb_1.Generator.from([state]))
+                .out(label)
+                .states();
+        }
     }
 }
 exports.MetaStorage = MetaStorage;
@@ -332,7 +363,7 @@ function latestWrite(vertices) {
     else if (vertices.length === 1)
         return vertices[0];
     else
-        return vertices.sort((a, b) => a.getTimestamp() - b.getTimestamp())[0];
+        return vertices.sort((a, b) => b.getTimestamp() - a.getTimestamp())[0];
 }
 function isDriveObjectOrShare(vertex) {
     if (!vertex.getContent())
