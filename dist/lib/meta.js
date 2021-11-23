@@ -1,7 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.MetaStorage = void 0;
-const certacrypt_graph_1 = require("certacrypt-graph");
 const hyper_graphdb_1 = require("hyper-graphdb");
 const graphObjects_1 = require("./graphObjects");
 const errors_1 = require("hyperdrive/lib/errors");
@@ -157,7 +156,7 @@ class MetaStorage {
             }
         }
         else {
-            vertex = latestWrite(await this.graph.queryPathAtVertex(path, this.root, undefined, thombstoneReductor).generator().destruct(onError));
+            vertex = this.latestWrite(await this.graph.queryPathAtVertex(path, this.root, undefined, thombstoneReductor).generator().destruct(onError));
         }
         if (!vertex)
             return null;
@@ -178,7 +177,7 @@ class MetaStorage {
             var _a;
             if (!arr || arr.length === 0)
                 return [];
-            arr.sort((a, b) => { var _a, _b; return (((_a = a.value.getContent()) === null || _a === void 0 ? void 0 : _a.timestamp) || 0) - (((_b = b.value.getContent()) === null || _b === void 0 ? void 0 : _b.timestamp) || 0); });
+            arr.sort((a, b) => { var _a, _b; return (((_a = b.value.getContent()) === null || _a === void 0 ? void 0 : _a.timestamp) || 0) - (((_b = a.value.getContent()) === null || _b === void 0 ? void 0 : _b.timestamp) || 0); });
             if (((_a = arr[0].value.getContent()) === null || _a === void 0 ? void 0 : _a.typeName) === graphObjects_1.GraphObjectTypeNames.THOMBSTONE) {
                 return [];
             }
@@ -241,34 +240,38 @@ class MetaStorage {
         });
     }
     async unlink(name) {
-        var _a;
         const path = name.split('/').filter((p) => p.length > 0);
         if (path.length === 0)
             throw new Error('cannot unlink root');
-        const parentPath = path.slice(0, path.length - 1).join('/');
         const filename = path[path.length - 1];
-        //const file = await this.find(name)
-        //const db = await this.getTrie(file.feed)
-        //await new Promise((resolve, reject) => db.del(file.path, err => err ? reject(err) : resolve(undefined)))
         const thombstone = this.graph.create();
         thombstone.setContent(new graphObjects_1.Thombstone());
         await this.graph.put(thombstone);
-        let results = await this.graph.queryPathAtVertex(parentPath, this.root).vertices();
-        for (const res of results) {
-            const edges = res.getEdges(filename);
-            for (let i = 0; i < edges.length; i++) {
-                const vfeed = ((_a = edges[i].feed) === null || _a === void 0 ? void 0 : _a.toString('hex')) || res.getFeed();
-                const file = await this.graph.get(edges[i].ref, vfeed, edges[i].metadata.key);
-                if (isDriveObjectOrShare(file)) {
-                    res.removeEdge(edges[i]);
-                    res.addEdgeTo(thombstone, filename);
-                    await this.graph.put(res);
-                    debug_1.debug(`unlinked edge to hyper://${file.getFeed()}/${file.getId()}`);
-                    return;
-                }
-            }
+        let results = await this.graph.queryPathAtVertex(name, this.root).vertices();
+        if (results.length === 0) {
+            throw new Error('File not found, cannot unlink');
         }
-        debug_1.debug('UNEXPECTED: unable to find edge to vertex');
+        const writeable = await this.findWriteablePath(name);
+        if (!writeable) {
+            throw new Error('File is not writeable, cannot unlink');
+        }
+        if (writeable.remainingPath.length === 0) {
+            const file = writeable.state.value;
+            const parent = writeable.state.path[writeable.state.path.length - 2].vertex;
+            parent.replaceEdgeTo(file, (_edge) => {
+                return {
+                    ref: thombstone.getId(),
+                    label: filename,
+                    metadata: { key: this.graph.getKey(thombstone) }
+                };
+            });
+            await this.graph.put(parent);
+            debug_1.debug(`placed thombstone to ${name} and unlinked edge to hyper://${file.getFeed()}/${file.getId()}`);
+        }
+        else {
+            await this.createPath(name, thombstone);
+            debug_1.debug('placed thombstone to ' + name);
+        }
     }
     async getTrie(feedKey) {
         if (feedKey === this.drive.key.toString('hex'))
@@ -284,8 +287,15 @@ class MetaStorage {
         if (!path) {
             throw new Error('createPath: path is not writeable');
         }
-        const writeable = path.state.value;
-        return this.graph.createEdgesToPath(path.remainingPath.join('/'), writeable, leaf);
+        const lastWriteable = path.state.value;
+        // update vertices to update timestamps
+        const pathWriteables = path.state.path
+            .slice(0, path.state.path.length - 1)
+            .map((p) => p.vertex)
+            .filter((p) => typeof p.getFeed === 'function' && p.getFeed() === lastWriteable.getFeed());
+        if (pathWriteables.length > 0)
+            await this.graph.put(pathWriteables);
+        return this.graph.createEdgesToPath(path.remainingPath.join('/'), lastWriteable, leaf);
     }
     async findWriteablePath(absolutePath) {
         const self = this;
@@ -354,21 +364,44 @@ class MetaStorage {
                 .states();
         }
     }
+    latestWrite(vertices) {
+        // TODO: use more sophisticated method - e.g. a view that makes sure there is only one vertex
+        if (!vertices || vertices.length === 0)
+            return null;
+        else if (vertices.length === 1)
+            return vertices[0];
+        return vertices.sort((a, b) => timestamp(b) - timestamp(a))[0];
+        function timestamp(vertex) {
+            if (typeof vertex.getTimestamp === 'function')
+                return vertex.getTimestamp();
+            else
+                return 0;
+        }
+    }
+    latestWrites(states) {
+        if (!states || states.length < 2)
+            return states;
+        const map = new Map();
+        for (const state of states) {
+            const path = state.path.map((p) => p.label).join('/');
+            if (map.has(path)) {
+                const other = map.get(path);
+                const newer = [state, other].sort((a, b) => timestamp(b) - timestamp(a))[0];
+                map.set(path, newer);
+            }
+            else {
+                map.set(path, state);
+            }
+        }
+        return [...map.values()];
+        function timestamp(state) {
+            const vertex = state.value;
+            if (typeof vertex.getTimestamp === 'function')
+                return vertex.getTimestamp();
+            else
+                return 0;
+        }
+    }
 }
 exports.MetaStorage = MetaStorage;
-function latestWrite(vertices) {
-    // TODO: use more sophisticated method - e.g. a view that makes sure there is only one vertex
-    if (!vertices || vertices.length === 0)
-        return null;
-    else if (vertices.length === 1)
-        return vertices[0];
-    else
-        return vertices.sort((a, b) => b.getTimestamp() - a.getTimestamp())[0];
-}
-function isDriveObjectOrShare(vertex) {
-    if (!vertex.getContent())
-        return false;
-    const type = vertex.getContent().typeName;
-    return type === graphObjects_1.GraphObjectTypeNames.DIRECTORY || type === graphObjects_1.GraphObjectTypeNames.FILE || type === graphObjects_1.GraphObjectTypeNames.THOMBSTONE || type === certacrypt_graph_1.SHARE_GRAPHOBJECT;
-}
 //# sourceMappingURL=meta.js.map

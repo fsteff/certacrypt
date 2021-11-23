@@ -100,17 +100,19 @@ export class CollaborationSpace {
     return this.graph.createEdgesToPath(path, writeable, leaf)
   }
 
-  async createThombstoneAtPath(path: string) {}
-
   async addWriter(user: User, restrictions?: Restriction[]) {
+    if (!restrictions) {
+      restrictions = [{ rule: user.publicRoot.getFeed() + '/**/*', except: { rule: user.publicRoot.getFeed() + '/.' } }]
+    }
     await user.referToPresharedVertex(this.root, '.', restrictions)
   }
 
   async getWriters() {
     const self = this
-    const writers = await this.graph
-      .queryAtVertex(this.root)
-      .out('.', this.graph.factory.get(STATIC_VIEW))
+    const view = this.graph.factory.get(STATIC_VIEW)
+    const writers = await view
+      .query(Generator.from([new QueryState(this.root, [], [], view)]))
+      .out('.')
       .matches((v) => v.getContent()?.typeName === GraphObjectTypeNames.PRESHARED)
       .generator()
       .values(onError)

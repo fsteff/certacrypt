@@ -9,6 +9,8 @@ import { ShareGraphObject, SHARE_VIEW } from 'certacrypt-graph'
 import { Vertex } from 'hyper-graphdb'
 import { readdirResult, Stat } from '../lib/types'
 
+//enableDebugLogging()
+
 const encryptedOpts = { db: { encrypted: true }, encoding: 'utf-8' }
 
 async function createCertaCrypt(client) {
@@ -107,9 +109,20 @@ tape('write to collaboration space', async (t) => {
   readme = await bobDrive.promises.readFile('/alice/readme.txt', encryptedOpts)
   t.same(readme, 'Hehe, I overwrote it')
 
-    // check readdir stat results for writers
-  let stats = <{ name: string; path: string; writers: string[]; stat: Stat }[]> await aliceDrive.promises.readdir('/space', {...encryptedOpts, includeStats: true})
+  // check readdir stat results for writers
+  let stats = <{ name: string; path: string; writers: string[]; stat: Stat }[]>(
+    await aliceDrive.promises.readdir('/space', { ...encryptedOpts, includeStats: true })
+  )
   t.same(stats[0].writers, [aliceUser.getPublicUrl(), bobUser.getPublicUrl()])
-  stats = <{ name: string; path: string; writers: string[]; stat: Stat }[]> await bobDrive.promises.readdir('/alice/bobs', {...encryptedOpts, includeStats: true})
+  stats = <{ name: string; path: string; writers: string[]; stat: Stat }[]>(
+    await bobDrive.promises.readdir('/alice/bobs', { ...encryptedOpts, includeStats: true })
+  )
   t.same(stats[0].writers, [aliceUser.getPublicUrl(), bobUser.getPublicUrl()])
+
+  // test deletion
+  await aliceDrive.promises.unlink('/space/bobs', encryptedOpts)
+  files = await bobDrive.promises.readdir('/alice', encryptedOpts)
+  t.same(files, ['readme.txt', 'readme2.txt'])
+  files = await aliceDrive.promises.readdir('/space', encryptedOpts)
+  t.same(files, ['readme.txt', 'readme2.txt'])
 })

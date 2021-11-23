@@ -9,6 +9,7 @@ const certacrypt_crypto_1 = require("certacrypt-crypto");
 const __1 = require("..");
 const space_1 = require("../lib/space");
 const certacrypt_graph_1 = require("certacrypt-graph");
+//enableDebugLogging()
 const encryptedOpts = { db: { encrypted: true }, encoding: 'utf-8' };
 async function createCertaCrypt(client) {
     const store = client.corestore();
@@ -93,9 +94,15 @@ tape_1.default('write to collaboration space', async (t) => {
     readme = await bobDrive.promises.readFile('/alice/readme.txt', encryptedOpts);
     t.same(readme, 'Hehe, I overwrote it');
     // check readdir stat results for writers
-    let stats = await aliceDrive.promises.readdir('/space', Object.assign(Object.assign({}, encryptedOpts), { includeStats: true }));
+    let stats = (await aliceDrive.promises.readdir('/space', Object.assign(Object.assign({}, encryptedOpts), { includeStats: true })));
     t.same(stats[0].writers, [aliceUser.getPublicUrl(), bobUser.getPublicUrl()]);
-    stats = await bobDrive.promises.readdir('/alice/bobs', Object.assign(Object.assign({}, encryptedOpts), { includeStats: true }));
+    stats = (await bobDrive.promises.readdir('/alice/bobs', Object.assign(Object.assign({}, encryptedOpts), { includeStats: true })));
     t.same(stats[0].writers, [aliceUser.getPublicUrl(), bobUser.getPublicUrl()]);
+    // test deletion
+    await aliceDrive.promises.unlink('/space/bobs', encryptedOpts);
+    files = await bobDrive.promises.readdir('/alice', encryptedOpts);
+    t.same(files, ['readme.txt', 'readme2.txt']);
+    files = await aliceDrive.promises.readdir('/space', encryptedOpts);
+    t.same(files, ['readme.txt', 'readme2.txt']);
 });
 //# sourceMappingURL=collab.js.map

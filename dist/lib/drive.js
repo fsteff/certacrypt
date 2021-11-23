@@ -140,17 +140,19 @@ async function cryptoDrive(corestore, graph, crypto, root) {
         const encrypted = opts.db.encrypted;
         if (!encrypted)
             return oldReaddir.call(drive, name, opts, cb);
-        const results = new Array();
+        const resultMap = new Map();
         const files = await graph
             .queryPathAtVertex(name, await meta.updateRoot())
             .generator()
             .rawQueryStates(onError);
         for (const state of files) {
-            const labels = distinct(state.value.getEdges().map((edge) => edge.label));
+            const vertex = state.value;
+            const timestamp = typeof vertex.getTimestamp === 'function' ? vertex.getTimestamp() : 0;
+            const labels = distinct(vertex.getEdges().map((edge) => edge.label));
             const space = state.space;
             let writers = [];
             if (space && opts.includeStats) {
-                writers = (await space.getWriters()).map(user => user.getPublicUrl());
+                writers = (await space.getWriters()).map((user) => user.getPublicUrl());
             }
             const children = (await Promise.all(labels
                 .map((label) => {
@@ -166,7 +168,7 @@ async function cryptoDrive(corestore, graph, crypto, root) {
                     const file = await meta.readableFile(path);
                     if (!file || !file.stat)
                         return null; // might be a thombstone
-                    return { label, path, stat: file.stat };
+                    return { label, path, stat: file.stat, writers, timestamp };
                 }
                 catch (err) {
                     onError(err);
@@ -174,12 +176,23 @@ async function cryptoDrive(corestore, graph, crypto, root) {
                 }
             }))).filter((child) => child !== null);
             for (const child of children) {
-                if (opts.includeStats) {
-                    results.push({ name: child.label, path: child.path, writers, stat: child.stat });
+                if (resultMap.has(child.path)) {
+                    const other = resultMap.get(child.path);
+                    if (other.timestamp < child.timestamp)
+                        resultMap.set(child.path, child);
                 }
                 else {
-                    results.push(child.label);
+                    resultMap.set(child.path, child);
                 }
+            }
+        }
+        const results = new Array();
+        for (const child of resultMap.values()) {
+            if (opts.includeStats) {
+                results.push({ name: child.label, path: child.path, writers: child.writers, stat: child.stat });
+            }
+            else {
+                results.push(child.label);
             }
         }
         return cb(null, results);

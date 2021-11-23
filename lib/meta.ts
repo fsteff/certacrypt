@@ -1,6 +1,6 @@
 import { CB0, Hyperdrive, Stat } from './types'
-import { CertaCryptGraph, SHARE_GRAPHOBJECT } from 'certacrypt-graph'
-import { Generator, GraphObject, GRAPH_VIEW, IVertex, QueryState, Vertex } from 'hyper-graphdb'
+import { CertaCryptGraph } from 'certacrypt-graph'
+import { Generator, GraphObject, GRAPH_VIEW, QueryState, Vertex } from 'hyper-graphdb'
 import { Directory, DriveGraphObject, File, GraphObjectTypeNames, Thombstone } from './graphObjects'
 import { FileNotFound, PathAlreadyExists } from 'hyperdrive/lib/errors'
 import { cryptoTrie } from './crypto'
@@ -10,7 +10,7 @@ import { Feed } from 'hyperobjects'
 import { Stat as TrieStat } from 'hyperdrive-schemas'
 import { parseUrl } from './url'
 import { debug } from './debug'
-import { SpaceQueryState, SPACE_VIEW } from './space'
+import { SpaceQueryState } from './space'
 
 export class MetaStorage {
   private readonly drive: Hyperdrive
@@ -174,7 +174,7 @@ export class MetaStorage {
         vertex = <Vertex<DriveGraphObject>>writeablePath.state.value
       }
     } else {
-      vertex = latestWrite(
+      vertex = this.latestWrite(
         <Vertex<DriveGraphObject>[]>await this.graph.queryPathAtVertex(path, this.root, undefined, thombstoneReductor).generator().destruct(onError)
       )
     }
@@ -195,7 +195,7 @@ export class MetaStorage {
 
     function thombstoneReductor(arr: QueryState<DriveGraphObject>[]): QueryState<DriveGraphObject>[] {
       if (!arr || arr.length === 0) return []
-      arr.sort((a, b) => (a.value.getContent()?.timestamp || 0) - (b.value.getContent()?.timestamp || 0))
+      arr.sort((a, b) => (b.value.getContent()?.timestamp || 0) - (a.value.getContent()?.timestamp || 0))
       if (arr[0].value.getContent()?.typeName === GraphObjectTypeNames.THOMBSTONE) {
         return []
       } else {
@@ -260,33 +260,37 @@ export class MetaStorage {
   public async unlink(name: string) {
     const path = name.split('/').filter((p) => p.length > 0)
     if (path.length === 0) throw new Error('cannot unlink root')
-    const parentPath = path.slice(0, path.length - 1).join('/')
     const filename = path[path.length - 1]
-
-    //const file = await this.find(name)
-    //const db = await this.getTrie(file.feed)
-    //await new Promise((resolve, reject) => db.del(file.path, err => err ? reject(err) : resolve(undefined)))
 
     const thombstone = this.graph.create<Thombstone>()
     thombstone.setContent(new Thombstone())
     await this.graph.put(thombstone)
 
-    let results = <Vertex<DriveGraphObject>[]>await this.graph.queryPathAtVertex(parentPath, this.root).vertices()
-    for (const res of results) {
-      const edges = res.getEdges(filename)
-      for (let i = 0; i < edges.length; i++) {
-        const vfeed = edges[i].feed?.toString('hex') || res.getFeed()
-        const file = await this.graph.get(edges[i].ref, vfeed, (<{ key: Buffer }>edges[i].metadata).key)
-        if (isDriveObjectOrShare(file)) {
-          res.removeEdge(edges[i])
-          res.addEdgeTo(thombstone, filename)
-          await this.graph.put(res)
-          debug(`unlinked edge to hyper://${file.getFeed()}/${file.getId()}`)
-          return
-        }
-      }
+    let results = <Vertex<DriveGraphObject>[]>await this.graph.queryPathAtVertex(name, this.root).vertices()
+    if (results.length === 0) {
+      throw new Error('File not found, cannot unlink')
     }
-    debug('UNEXPECTED: unable to find edge to vertex')
+
+    const writeable = await this.findWriteablePath(name)
+    if (!writeable) {
+      throw new Error('File is not writeable, cannot unlink')
+    }
+    if (writeable.remainingPath.length === 0) {
+      const file = <Vertex<GraphObject>>writeable.state.value
+      const parent = <Vertex<GraphObject>>writeable.state.path[writeable.state.path.length - 2].vertex
+      parent.replaceEdgeTo(file, (_edge) => {
+        return {
+          ref: thombstone.getId(),
+          label: filename,
+          metadata: { key: this.graph.getKey(thombstone) }
+        }
+      })
+      await this.graph.put(parent)
+      debug(`placed thombstone to ${name} and unlinked edge to hyper://${file.getFeed()}/${file.getId()}`)
+    } else {
+      await this.createPath(name, thombstone)
+      debug('placed thombstone to ' + name)
+    }
   }
 
   public async getTrie(feedKey: string): Promise<MountableHypertrie> {
@@ -302,8 +306,15 @@ export class MetaStorage {
     if (!path) {
       throw new Error('createPath: path is not writeable')
     }
-    const writeable = <Vertex<GraphObject>>path.state.value
-    return this.graph.createEdgesToPath(path.remainingPath.join('/'), writeable, leaf)
+    const lastWriteable = <Vertex<GraphObject>>path.state.value
+    // update vertices to update timestamps
+    const pathWriteables = path.state.path
+      .slice(0, path.state.path.length - 1)
+      .map((p) => <Vertex<GraphObject>>p.vertex)
+      .filter((p) => typeof p.getFeed === 'function' && p.getFeed() === lastWriteable.getFeed())
+    if (pathWriteables.length > 0) await this.graph.put(pathWriteables)
+
+    return this.graph.createEdgesToPath(path.remainingPath.join('/'), lastWriteable, leaf)
   }
 
   async findWriteablePath(absolutePath: string) {
@@ -371,17 +382,39 @@ export class MetaStorage {
         .states()
     }
   }
-}
 
-function latestWrite(vertices: Vertex<DriveGraphObject>[]) {
-  // TODO: use more sophisticated method - e.g. a view that makes sure there is only one vertex
-  if (!vertices || vertices.length === 0) return null
-  else if (vertices.length === 1) return vertices[0]
-  else return vertices.sort((a, b) => b.getTimestamp() - a.getTimestamp())[0]
-}
+  latestWrite(vertices: Vertex<DriveGraphObject>[]) {
+    // TODO: use more sophisticated method - e.g. a view that makes sure there is only one vertex
+    if (!vertices || vertices.length === 0) return null
+    else if (vertices.length === 1) return vertices[0]
+    return vertices.sort((a, b) => timestamp(b) - timestamp(a))[0]
 
-function isDriveObjectOrShare(vertex: Vertex<GraphObject>): boolean {
-  if (!vertex.getContent()) return false
-  const type = vertex.getContent().typeName
-  return type === GraphObjectTypeNames.DIRECTORY || type === GraphObjectTypeNames.FILE || type === GraphObjectTypeNames.THOMBSTONE || type === SHARE_GRAPHOBJECT
+    function timestamp(vertex: Vertex<GraphObject>) {
+      if (typeof vertex.getTimestamp === 'function') return vertex.getTimestamp()
+      else return 0
+    }
+  }
+
+  latestWrites(states: QueryState<GraphObject>[]) {
+    if (!states || states.length < 2) return states
+
+    const map = new Map<String, QueryState<GraphObject>>()
+    for (const state of states) {
+      const path = state.path.map((p) => p.label).join('/')
+      if (map.has(path)) {
+        const other = map.get(path)
+        const newer = [state, other].sort((a, b) => timestamp(b) - timestamp(a))[0]
+        map.set(path, newer)
+      } else {
+        map.set(path, state)
+      }
+    }
+    return [...map.values()]
+
+    function timestamp(state: QueryState<GraphObject>) {
+      const vertex = <Vertex<GraphObject>>state.value
+      if (typeof vertex.getTimestamp === 'function') return vertex.getTimestamp()
+      else return 0
+    }
+  }
 }
