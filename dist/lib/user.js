@@ -29,10 +29,11 @@ class User {
             .queryAtVertex(this.publicRoot)
             .out(exports.USER_PATHS.PUBLIC_TO_IDENTITY)
             .matches((v) => !!v.getContent() && v.getContent().typeName === graphObjects_1.GraphObjectTypeNames.USERKEY)
-            .vertices()
+            .generator()
+            .destruct(onError)
             .then((results) => {
             if (results.length === 0) {
-                throw new Error('User Root has no Identity vertex');
+                return Promise.reject(new Error('User Root has no Identity vertex'));
             }
             else {
                 const identity = results[0];
@@ -44,6 +45,9 @@ class User {
                 return identity;
             }
         });
+        function onError(err) {
+            console.error('Failed to load user Identity: ' + err);
+        }
     }
     static async InitUser(graph, sessionRoot) {
         const inboxVertex = graph.create();

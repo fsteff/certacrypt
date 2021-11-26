@@ -10,7 +10,19 @@ export const URL_TYPES = {
   FILE: 'file'
 }
 
-export function parseUrl(url: string) {
+export type parseUrlResults = {
+  feed: string
+  path?: string
+  id: number
+  mkey?: Buffer
+  fkey?: Buffer
+  key?: Buffer
+  version?: number
+  type?: string
+  name?: string
+}
+
+export function parseUrl(url: string): parseUrlResults {
   const parsed = new URL(url)
   const [feed, versionStr] = parsed.host.split('+', 2)
   const path = <string>unixify(parsed.pathname)

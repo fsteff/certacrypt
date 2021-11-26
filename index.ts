@@ -4,7 +4,7 @@ import { ShareGraphObject, SHARE_VIEW } from 'certacrypt-graph'
 import { Corestore, Generator, GraphObject, GRAPH_VIEW, QueryState, SimpleGraphObject, STATIC_VIEW, Vertex } from 'hyper-graphdb'
 import * as GraphObjects from './lib/graphObjects'
 import { parseUrl, createUrl, URL_TYPES } from './lib/url'
-import { cryptoDrive, DriveCryptoApi } from './lib/drive'
+import { cryptoDrive, CryptoHyperdrive } from './lib/drive'
 import { Hyperdrive } from './lib/types'
 import { enableDebugLogging, debug } from './lib/debug'
 import { REFERRER_VIEW, ReferrerView } from './lib/referrer'
@@ -20,7 +20,7 @@ import * as Space from './lib/space'
 export {
   GraphObjects,
   ShareGraphObject,
-  Hyperdrive,
+  CryptoHyperdrive,
   enableDebugLogging,
   createUrl,
   parseUrl,
@@ -260,7 +260,7 @@ export class CertaCrypt {
     }
   }
 
-  public async drive(rootDir: Vertex<GraphObjects.Directory> | string): Promise<Hyperdrive & DriveCryptoApi> {
+  public async drive(rootDir: Vertex<GraphObjects.Directory> | string): Promise<Hyperdrive & CryptoHyperdrive> {
     if (typeof rootDir === 'string') {
       const { feed, id, key } = parseUrl(rootDir)
       const vertex = await this.graph.get(id, feed, key)
@@ -277,7 +277,19 @@ export class CertaCrypt {
     return new User(root, this.graph)
   }
 
-  public async convertToCollaborationSpace(parent: Vertex<GraphObject>, directory: Vertex<GraphObjects.DriveGraphObject>) {
+  public async convertToCollaborationSpace(absolutePath: string) {
+    const states = await this.graph.queryPathAtVertex(absolutePath, await this.sessionRoot).states()
+    if (states.length === 0) {
+      throw new Error('convertToCollaborationSpace: path does not exist: ' + absolutePath)
+    } else if (states.length > 1) {
+      throw new Error('convertToCollaborationSpace: path query requires unique results: ' + absolutePath)
+    }
+    const directory = <Vertex<GraphObjects.Directory>>states[0].value
+    if (directory.getContent()?.typeName !== GraphObjects.GraphObjectTypeNames.DIRECTORY) {
+      throw new Error('convertToCollaborationSpace: vertex must be of type DIRECTORY: ' + absolutePath)
+    }
+    const parent = <Vertex<GraphObject>>states[0].path[states[0].path.length - 2].vertex
+
     return Space.CollaborationSpace.CreateSpace(this.graph, await this.user, parent, directory)
   }
 

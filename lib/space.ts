@@ -21,7 +21,6 @@ import { User } from './user'
 import { ReferrerEdge, REFERRER_VIEW, ReferrerView } from './referrer'
 import { parseUrl } from './url'
 import { debug } from './debug'
-import { Space } from '..'
 
 export const SPACE_VIEW = 'SpaceView'
 
@@ -55,7 +54,7 @@ export class SpaceQueryState extends QueryState<GraphObject> {
 }
 
 export class CollaborationSpace {
-  protected readonly defaultFeed: Promise<String>
+  protected readonly defaultFeed: Promise<string>
 
   constructor(readonly graph: CertaCryptGraph, readonly root: Vertex<SpaceGraphObject>, readonly user: User) {
     this.defaultFeed = graph.core.getDefaultFeedId().then((feed) => feed.toString('hex'))
@@ -101,16 +100,38 @@ export class CollaborationSpace {
   }
 
   async addWriter(user: User, restrictions?: Restriction[]) {
-    if (!restrictions) {
-      restrictions = [{ rule: user.publicRoot.getFeed() + '/**/*', except: { rule: user.publicRoot.getFeed() + '/.' } }]
+    if (this.user.publicRoot.getFeed() !== this.root.getFeed()) {
+      throw new Error('insufficient permissions, user is not the owner of the space')
     }
+
+    if (this.userHasWriteAccess(user)) {
+      throw new Error('user already has write access to space')
+    }
+
+    restrictions = Array.isArray(restrictions)
+      ? restrictions
+      : [{ rule: user.publicRoot.getFeed() + '/**/*', except: { rule: user.publicRoot.getFeed() + '/.' } }]
     await user.referToPresharedVertex(this.root, '.', restrictions)
   }
 
+  userHasWriteAccess(user?: User) {
+    const publicRoot = user?.publicRoot || this.user.publicRoot
+    if (this.root.getFeed() === publicRoot.getFeed()) return true
+    return this.root
+      .getEdges('.')
+      .filter((e) => e.view === REFERRER_VIEW && e.feed)
+      .map((e) => e.feed.toString('hex'))
+      .includes(publicRoot.getFeed())
+  }
+
   async getWriters() {
+    return Promise.all((await this.getWriterUrls()).map((url) => this.getUserByUrl(url)))
+  }
+
+  async getWriterUrls() {
     const self = this
     const view = this.graph.factory.get(STATIC_VIEW)
-    const writers = await view
+    const urls = await view
       .query(Generator.from([new QueryState(this.root, [], [], view)]))
       .out('.')
       .matches((v) => v.getContent()?.typeName === GraphObjectTypeNames.PRESHARED)
@@ -118,17 +139,20 @@ export class CollaborationSpace {
       .values(onError)
       .map((v) => (<IVertex<PreSharedGraphObject>>v).getContent().owner)
       .filter((url) => url && url.trim().length > 0)
-      .map((url) => this.getUserByUrl(url))
       .destruct()
-    return [await this.getOwner()].concat(writers)
+    return [this.getOwnerUrl()].concat(urls)
 
     function onError(err: Error) {
-      console.error(`getWriters: Failed to get Vertex for PreSharedGraphObject in Space ${self.root.getId()}@${self.root.getFeed()}: ${err}`)
+      console.error(`getWriterUrls: Failed to get Vertex for PreSharedGraphObject in Space ${self.root.getId()}@${self.root.getFeed()}: ${err}`)
     }
   }
 
   async getOwner() {
-    return this.getUserByUrl(this.root.getContent().owner)
+    return this.getUserByUrl(this.getOwnerUrl())
+  }
+
+  getOwnerUrl() {
+    return this.root.getContent()?.owner
   }
 
   async tryGetWriteableRoot(): Promise<Vertex<GraphObject>> {
@@ -189,34 +213,6 @@ export class CollaborationSpaceView extends View<GraphObject> {
     // do not fall back to GRAPH_VIEW as default view
     else return this.factory.get(name, this.transactions)
   }
-
-  /*
-    public async out(state: QueryState<GraphObject>, label?: string): Promise<QueryResult<GraphObject>> {
-        const vertex = <Vertex<GraphObject>> state.value
-        if(vertex.getContent()?.typeName === GraphObjectTypeNames.SPACE) {
-            let space = new CollaborationSpace(this.graph, <Vertex<SpaceGraphObject>>vertex, this.user)
-            state = new SpaceQueryState(state.value, state.path, state.rules, this, space)
-
-            const view = this.factory.get(GRAPH_VIEW)
-            const results = await view.query(Generator.from([state])).out('.').out(label).states()
-            return results.map(async res => this.toResult(res.value, {label: res.path[res.path.length-1].label, ref: 0}, state))
-        } else {
-            if(typeof vertex.getId !== 'function' || typeof vertex.getFeed !== 'function' || !vertex.getFeed()) {
-                throw new Error('GraphView.out does only accept persisted Vertex instances as input')
-            }
-            const edges = vertex.getEdges(label)
-            const vertices: QueryResult<GraphObject> = []
-            for(const edge of edges) {
-                const feed =  edge.feed || Buffer.from(<string>vertex.getFeed(), 'hex')
-                const promise = this.get({...edge, feed}, state)
-                promise.catch(err => {throw new Errors.EdgeTraversingError({id: vertex.getId(), feed: <string>vertex.getFeed()}, edge, new Error('key is ' + edge.metadata?.['key']?.toString('hex').substr(0,2) + '...'))})
-                for(const res of await promise) {
-                    vertices.push(res)
-                }
-            }
-            return vertices
-        }
-    }*/
 
   public async get(edge: Edge & { feed: Buffer }, state: QueryState<GraphObject>): Promise<QueryResult<GraphObject>> {
     const feed = edge.feed.toString('hex')

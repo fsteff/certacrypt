@@ -47,6 +47,7 @@ async function cryptoDrive(corestore, graph, crypto, root) {
     drive.unlink = unlink;
     drive.promises.unlink = unlink;
     drive.updateRoot = (dir) => meta.updateRoot(dir);
+    drive.getSpace = (path) => meta.readableFile(path, true).then(file => { return { space: file.space, metadata: file.spaceMeta }; });
     return drive;
     function createReadStream(name, opts) {
         name = unixify_1.default(name);
@@ -143,53 +144,35 @@ async function cryptoDrive(corestore, graph, crypto, root) {
         const resultMap = new Map();
         const files = await graph
             .queryPathAtVertex(name, await meta.updateRoot())
+            .out()
             .generator()
             .rawQueryStates(onError);
         for (const state of files) {
             const vertex = state.value;
             const timestamp = typeof vertex.getTimestamp === 'function' ? vertex.getTimestamp() : 0;
-            const labels = distinct(vertex.getEdges().map((edge) => edge.label));
-            const space = state.space;
-            let writers = [];
-            if (space && opts.includeStats) {
-                writers = (await space.getWriters()).map((user) => user.getPublicUrl());
-            }
-            const children = (await Promise.all(labels
-                .map((label) => {
-                let path;
-                if (name.endsWith('/'))
-                    path = name + label;
-                else
-                    path = name + '/' + label;
-                return { path, label };
-            })
-                .map(async ({ path, label }) => {
-                try {
-                    const file = await meta.readableFile(path);
-                    if (!file || !file.stat)
-                        return null; // might be a thombstone
-                    return { label, path, stat: file.stat, writers, timestamp };
-                }
-                catch (err) {
-                    onError(err);
-                    return null;
-                }
-            }))).filter((child) => child !== null);
-            for (const child of children) {
-                if (resultMap.has(child.path)) {
-                    const other = resultMap.get(child.path);
-                    if (other.timestamp < child.timestamp)
-                        resultMap.set(child.path, child);
-                }
-                else {
+            const label = state.path[state.path.length - 1].label;
+            let path;
+            if (name.endsWith('/'))
+                path = name + label;
+            else
+                path = name + '/' + label;
+            const file = await meta.readableFile(path);
+            if (!file || !file.stat)
+                continue; // might be a thombstone
+            const child = { label, path, stat: file.stat, space: file.spaceMeta, timestamp };
+            if (resultMap.has(child.path)) {
+                const other = resultMap.get(child.path);
+                if (other.timestamp < child.timestamp)
                     resultMap.set(child.path, child);
-                }
+            }
+            else {
+                resultMap.set(child.path, child);
             }
         }
         const results = new Array();
         for (const child of resultMap.values()) {
             if (opts.includeStats) {
-                results.push({ name: child.label, path: child.path, writers: child.writers, stat: child.stat });
+                results.push({ name: child.label, path: child.path, space: child.space, stat: child.stat });
             }
             else {
                 results.push(child.label);

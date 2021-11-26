@@ -1,4 +1,4 @@
-import { CB0, Hyperdrive, Stat } from './types'
+import { CB0, Hyperdrive, spaceMetaData, Stat } from './types'
 import { CertaCryptGraph } from 'certacrypt-graph'
 import { Generator, GraphObject, GRAPH_VIEW, QueryState, Vertex } from 'hyper-graphdb'
 import { Directory, DriveGraphObject, File, GraphObjectTypeNames, Thombstone } from './graphObjects'
@@ -8,9 +8,10 @@ import { Cipher, ICrypto } from 'certacrypt-crypto'
 import MountableHypertrie from 'mountable-hypertrie'
 import { Feed } from 'hyperobjects'
 import { Stat as TrieStat } from 'hyperdrive-schemas'
-import { parseUrl } from './url'
+import { parseUrl, parseUrlResults } from './url'
 import { debug } from './debug'
-import { SpaceQueryState } from './space'
+import { CollaborationSpace, SpaceQueryState } from './space'
+import { createUrl, URL_TYPES } from '..'
 
 export class MetaStorage {
   private readonly drive: Hyperdrive
@@ -51,7 +52,7 @@ export class MetaStorage {
     const file = await this.find(filename, false)
     if (!file) throw new FileNotFound(filename)
 
-    const { vertex, feed, path, mkey, fkey } = file
+    const { vertex, feed, path, mkey, fkey, space } = file
     if (vertex.getContent()?.typeName === GraphObjectTypeNames.THOMBSTONE) {
       return { path: null, trie: null, stat: null, contentFeed: null }
     }
@@ -70,9 +71,11 @@ export class MetaStorage {
     if (typeName === GraphObjectTypeNames.FILE) stat.isFile = true
     else if (typeName === GraphObjectTypeNames.DIRECTORY) stat.isDirectory = true
 
+    const spaceMeta = space ? await this.getSpaceMetaData(space) : undefined
+
     debug(`created readableFile ${filename} from ${encrypted ? 'encrypted' : 'public'} ${stat.isFile ? 'file' : 'directory'} hyper://${feed}${path}`)
 
-    return { path, trie, stat, contentFeed }
+    return { path, trie, stat, contentFeed, spaceMeta, space }
   }
 
   async writeableFile(filename: string, encrypted = true): Promise<{ path: string; fkey?: Buffer }> {
@@ -166,17 +169,19 @@ export class MetaStorage {
     return target
   }
 
-  public async find(path: string, writeable: boolean) {
+  public async find(path: string, writeable: boolean): Promise<{ vertex: Vertex<DriveGraphObject>; space?: CollaborationSpace } & parseUrlResults> {
     let vertex: Vertex<DriveGraphObject>
+    let space: CollaborationSpace
     if (writeable) {
       const writeablePath = await this.findWriteablePath(path)
+      space = (<SpaceQueryState>writeablePath.state).space
       if (writeablePath && writeablePath.remainingPath.length === 0) {
         vertex = <Vertex<DriveGraphObject>>writeablePath.state.value
       }
     } else {
-      vertex = this.latestWrite(
-        <Vertex<DriveGraphObject>[]>await this.graph.queryPathAtVertex(path, this.root, undefined, thombstoneReductor).generator().destruct(onError)
-      )
+      const states = await this.graph.queryPathAtVertex(path, this.root, undefined, thombstoneReductor).generator().rawQueryStates(onError)
+      vertex = this.latestWrite(<Vertex<DriveGraphObject>[]>states.map((s) => s.value))
+      space = (<SpaceQueryState>states.find((s) => s.value.equals(vertex)))?.space
     }
 
     if (!vertex) return null
@@ -186,7 +191,7 @@ export class MetaStorage {
     if (file.typeName === GraphObjectTypeNames.THOMBSTONE) return { vertex, id: 0, feed: '', path: '', version: 0, mkey: null, fkey: null } // file has been deleted
     if (!file.filename) throw new Error('vertex is not of type file or directory, it does not have a filename url')
     const parsed = parseUrl(file.filename)
-    return { vertex, ...parsed }
+    return { vertex, space, ...parsed }
 
     function onError(err: Error) {
       console.error('failed to find vertex for path ' + path)
@@ -317,7 +322,7 @@ export class MetaStorage {
     return this.graph.createEdgesToPath(path.remainingPath.join('/'), lastWriteable, leaf)
   }
 
-  async findWriteablePath(absolutePath: string) {
+  async findWriteablePath(absolutePath: string): Promise<{ state: QueryState<GraphObject>; remainingPath: string[] }> {
     const self = this
     const parts = absolutePath.split('/').filter((p) => p.trim().length > 0)
     return traverse(new QueryState(this.root, [], [], this.graph.factory.get(GRAPH_VIEW)), parts)
@@ -381,6 +386,14 @@ export class MetaStorage {
         .out(label)
         .states()
     }
+  }
+
+  async getSpaceMetaData(space: CollaborationSpace): Promise<spaceMetaData> {
+    const owner = space.getOwnerUrl()
+    const writers = await space.getWriterUrls()
+    const isWriteable = space.userHasWriteAccess()
+    const spaceRoot = createUrl(space.root, this.graph.getKey(space.root), undefined, URL_TYPES.SPACE)
+    return { space: spaceRoot, owner, writers, isWriteable }
   }
 
   latestWrite(vertices: Vertex<DriveGraphObject>[]) {

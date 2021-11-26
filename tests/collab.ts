@@ -7,7 +7,7 @@ import { enableDebugLogging } from '../lib/debug'
 import { SpaceQueryState } from '../lib/space'
 import { ShareGraphObject, SHARE_VIEW } from 'certacrypt-graph'
 import { Vertex } from 'hyper-graphdb'
-import { readdirResult, Stat } from '../lib/types'
+import { readdirResult, spaceMetaData, Stat } from '../lib/types'
 
 //enableDebugLogging()
 
@@ -50,8 +50,7 @@ tape('write to collaboration space', async (t) => {
   // convert to space
 
   aliceDriveRoot = await aliceDrive.updateRoot()
-  const aliceSpaceRoot = <Vertex<Directory>>await alice.certacrypt.path('/apps/drive/space')
-  const aliceSpace = await alice.certacrypt.convertToCollaborationSpace(aliceDriveRoot, aliceSpaceRoot)
+  const aliceSpace = await alice.certacrypt.convertToCollaborationSpace('/apps/drive/space')
   aliceDriveRoot = await aliceDrive.updateRoot()
 
   // preparing bob
@@ -110,14 +109,17 @@ tape('write to collaboration space', async (t) => {
   t.same(readme, 'Hehe, I overwrote it')
 
   // check readdir stat results for writers
-  let stats = <{ name: string; path: string; writers: string[]; stat: Stat }[]>(
+  let stats = <{ name: string; path: string; space?: spaceMetaData; stat: Stat }[]>(
     await aliceDrive.promises.readdir('/space', { ...encryptedOpts, includeStats: true })
   )
-  t.same(stats[0].writers, [aliceUser.getPublicUrl(), bobUser.getPublicUrl()])
+  t.ok(stats[0].space)
+  t.same(stats[0].space.writers, [aliceUser.getPublicUrl(), bobUser.getPublicUrl()])
+
   stats = <{ name: string; path: string; writers: string[]; stat: Stat }[]>(
     await bobDrive.promises.readdir('/alice/bobs', { ...encryptedOpts, includeStats: true })
   )
-  t.same(stats[0].writers, [aliceUser.getPublicUrl(), bobUser.getPublicUrl()])
+  t.ok(stats[0].space)
+  t.same(stats[0].space.writers, [aliceUser.getPublicUrl(), bobUser.getPublicUrl()])
 
   // test deletion
   await aliceDrive.promises.unlink('/space/bobs', encryptedOpts)

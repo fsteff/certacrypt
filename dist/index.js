@@ -252,7 +252,20 @@ class CertaCrypt {
         const root = await this.graph.get(id, feed, key);
         return new user_1.User(root, this.graph);
     }
-    async convertToCollaborationSpace(parent, directory) {
+    async convertToCollaborationSpace(absolutePath) {
+        var _a;
+        const states = await this.graph.queryPathAtVertex(absolutePath, await this.sessionRoot).states();
+        if (states.length === 0) {
+            throw new Error('convertToCollaborationSpace: path does not exist: ' + absolutePath);
+        }
+        else if (states.length > 1) {
+            throw new Error('convertToCollaborationSpace: path query requires unique results: ' + absolutePath);
+        }
+        const directory = states[0].value;
+        if (((_a = directory.getContent()) === null || _a === void 0 ? void 0 : _a.typeName) !== GraphObjects.GraphObjectTypeNames.DIRECTORY) {
+            throw new Error('convertToCollaborationSpace: vertex must be of type DIRECTORY: ' + absolutePath);
+        }
+        const parent = states[0].path[states[0].path.length - 2].vertex;
         return Space.CollaborationSpace.CreateSpace(this.graph, await this.user, parent, directory);
     }
     async debugDrawGraph(root, currentDepth = 0, label = '/', visited = new Set(), view) {

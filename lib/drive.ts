@@ -3,7 +3,7 @@ import { CertaCryptGraph, ShareGraphObject, SHARE_GRAPHOBJECT } from 'certacrypt
 import { Cipher, ICrypto, Primitives } from 'certacrypt-crypto'
 import { cryptoCorestore, wrapTrie } from './crypto'
 import { Directory, DriveGraphObject } from './graphObjects'
-import { CBF, CB1, CB2, Hyperdrive, readdirOpts, readdirResult, Stat, encryptionOpts, CB0 } from './types'
+import { CBF, CB1, CB2, Hyperdrive, readdirOpts, readdirResult, Stat, encryptionOpts, CB0, spaceMetaData } from './types'
 import { MetaStorage } from './meta'
 import createHyperdrive from 'hyperdrive'
 import coreByteStream from 'hypercore-byte-stream'
@@ -12,19 +12,15 @@ import unixify from 'unixify'
 import { ReadStream, WriteStream } from 'fs'
 import { IVertex } from 'hyper-graphdb/lib/Vertex'
 import { debug } from './debug'
-import { parseUrl } from '..'
+import { createUrl, parseUrl, URL_TYPES } from '..'
 import { CollaborationSpace, SpaceQueryState } from './space'
 
-export type DriveCryptoApi = {
+export type CryptoHyperdrive = Hyperdrive & {
   updateRoot(vertex?: Vertex<Directory>): Promise<Vertex<Directory>>
+  getSpace(path: string): Promise<{ space: CollaborationSpace; metadata: spaceMetaData }>
 }
 
-export async function cryptoDrive(
-  corestore: Corestore,
-  graph: CertaCryptGraph,
-  crypto: ICrypto,
-  root: Vertex<Directory>
-): Promise<Hyperdrive & DriveCryptoApi> {
+export async function cryptoDrive(corestore: Corestore, graph: CertaCryptGraph, crypto: ICrypto, root: Vertex<Directory>): Promise<CryptoHyperdrive> {
   let metadataFeed = root.getContent()?.trie
   let metadataRootFile = root.getContent()?.filename
   if (!metadataFeed && metadataRootFile) {
@@ -34,7 +30,7 @@ export async function cryptoDrive(
 
   const seed = Primitives.hash(Buffer.concat([Buffer.from('cryptoDrive'), Buffer.from(root.getFeed(), 'hex'), Buffer.from([root.getId()])]))
   corestore = cryptoCorestore(corestore.namespace(seed.toString('hex')), crypto)
-  const drive = <Hyperdrive & DriveCryptoApi>(<unknown>createHyperdrive(corestore, metadataFeed)) // dirty fix
+  const drive = <Hyperdrive & CryptoHyperdrive>(<unknown>createHyperdrive(corestore, metadataFeed)) // dirty fix
   await drive.promises.ready()
 
   if (!metadataFeed && root.getWriteable()) {
@@ -62,6 +58,10 @@ export async function cryptoDrive(
   drive.unlink = unlink
   drive.promises.unlink = unlink
   drive.updateRoot = (dir?: Vertex<Directory>) => meta.updateRoot(dir)
+  drive.getSpace = (path: string) =>
+    meta.readableFile(path, true).then((file) => {
+      return { space: file.space, metadata: file.spaceMeta }
+    })
 
   return drive
 
@@ -175,57 +175,38 @@ export async function cryptoDrive(
     const encrypted = opts.db.encrypted
     if (!encrypted) return oldReaddir.call(drive, name, opts, cb)
 
-    const resultMap = new Map<String, { label: string; path: string; stat: Stat; timestamp: number; writers: string[] }>()
+    const resultMap = new Map<String, { label: string; path: string; stat: Stat; timestamp: number; space?: spaceMetaData }>()
 
     const files = await graph
       .queryPathAtVertex(name, await meta.updateRoot())
+      .out()
       .generator()
       .rawQueryStates(onError)
     for (const state of files) {
       const vertex = <Vertex<DriveGraphObject>>state.value
       const timestamp = typeof vertex.getTimestamp === 'function' ? vertex.getTimestamp() : 0
-      const labels = distinct(vertex.getEdges().map((edge) => edge.label))
-      const space = (<SpaceQueryState>state).space
-      let writers = []
-      if (space && opts.includeStats) {
-        writers = (await space.getWriters()).map((user) => user.getPublicUrl())
-      }
-      const children = (
-        await Promise.all(
-          labels
-            .map((label) => {
-              let path: string
-              if (name.endsWith('/')) path = name + label
-              else path = name + '/' + label
-              return { path, label }
-            })
-            .map(async ({ path, label }) => {
-              try {
-                const file = await meta.readableFile(path)
-                if (!file || !file.stat) return null // might be a thombstone
-                return { label, path, stat: file.stat, writers, timestamp }
-              } catch (err) {
-                onError(err)
-                return null
-              }
-            })
-        )
-      ).filter((child) => child !== null)
 
-      for (const child of children) {
-        if (resultMap.has(child.path)) {
-          const other = resultMap.get(child.path)
-          if (other.timestamp < child.timestamp) resultMap.set(child.path, child)
-        } else {
-          resultMap.set(child.path, child)
-        }
+      const label = state.path[state.path.length - 1].label
+      let path: string
+      if (name.endsWith('/')) path = name + label
+      else path = name + '/' + label
+
+      const file = await meta.readableFile(path)
+      if (!file || !file.stat) continue // might be a thombstone
+
+      const child = { label, path, stat: file.stat, space: file.spaceMeta, timestamp }
+      if (resultMap.has(child.path)) {
+        const other = resultMap.get(child.path)
+        if (other.timestamp < child.timestamp) resultMap.set(child.path, child)
+      } else {
+        resultMap.set(child.path, child)
       }
     }
 
     const results = new Array<readdirResult>()
     for (const child of resultMap.values()) {
       if (opts.includeStats) {
-        results.push({ name: child.label, path: child.path, writers: child.writers, stat: child.stat })
+        results.push({ name: child.label, path: child.path, space: child.space, stat: child.stat })
       } else {
         results.push(child.label)
       }

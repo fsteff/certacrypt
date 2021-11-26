@@ -15,7 +15,8 @@ export type CB2<T, V> = (err?: HyperdriveError, arg1?: T, arg2?: V) => void
 
 export type encryptionOpts = { db?: { encrypted?: boolean } }
 export type readdirOpts = { includeStats?: boolean; recursive?: boolean } | encryptionOpts
-export type readdirResult = string | { name: string; path: string; writers: string[]; stat: Stat }
+export type spaceMetaData = { space: string; owner: string; writers: string[]; isWriteable: boolean }
+export type readdirResult = string | { name: string; path: string; space?: spaceMetaData; stat: Stat }
 
 export interface Stat {
   dev: number

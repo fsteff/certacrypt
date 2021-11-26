@@ -10,6 +10,7 @@ const hyperdrive_schemas_1 = require("hyperdrive-schemas");
 const url_1 = require("./url");
 const debug_1 = require("./debug");
 const space_1 = require("./space");
+const __1 = require("..");
 class MetaStorage {
     constructor(drive, graph, root, crypto) {
         this.currentIdCtr = 0;
@@ -40,7 +41,7 @@ class MetaStorage {
         const file = await this.find(filename, false);
         if (!file)
             throw new errors_1.FileNotFound(filename);
-        const { vertex, feed, path, mkey, fkey } = file;
+        const { vertex, feed, path, mkey, fkey, space } = file;
         if (((_a = vertex.getContent()) === null || _a === void 0 ? void 0 : _a.typeName) === graphObjects_1.GraphObjectTypeNames.THOMBSTONE) {
             return { path: null, trie: null, stat: null, contentFeed: null };
         }
@@ -60,8 +61,9 @@ class MetaStorage {
             stat.isFile = true;
         else if (typeName === graphObjects_1.GraphObjectTypeNames.DIRECTORY)
             stat.isDirectory = true;
+        const spaceMeta = space ? await this.getSpaceMetaData(space) : undefined;
         debug_1.debug(`created readableFile ${filename} from ${encrypted ? 'encrypted' : 'public'} ${stat.isFile ? 'file' : 'directory'} hyper://${feed}${path}`);
-        return { path, trie, stat, contentFeed };
+        return { path, trie, stat, contentFeed, spaceMeta, space };
     }
     async writeableFile(filename, encrypted = true) {
         let parsedFile = await this.find(filename, true);
@@ -148,15 +150,20 @@ class MetaStorage {
         return target;
     }
     async find(path, writeable) {
+        var _a;
         let vertex;
+        let space;
         if (writeable) {
             const writeablePath = await this.findWriteablePath(path);
+            space = writeablePath.state.space;
             if (writeablePath && writeablePath.remainingPath.length === 0) {
                 vertex = writeablePath.state.value;
             }
         }
         else {
-            vertex = this.latestWrite(await this.graph.queryPathAtVertex(path, this.root, undefined, thombstoneReductor).generator().destruct(onError));
+            const states = await this.graph.queryPathAtVertex(path, this.root, undefined, thombstoneReductor).generator().rawQueryStates(onError);
+            vertex = this.latestWrite(states.map(s => s.value));
+            space = (_a = states.find(s => s.value.equals(vertex))) === null || _a === void 0 ? void 0 : _a.space;
         }
         if (!vertex)
             return null;
@@ -168,7 +175,7 @@ class MetaStorage {
         if (!file.filename)
             throw new Error('vertex is not of type file or directory, it does not have a filename url');
         const parsed = url_1.parseUrl(file.filename);
-        return Object.assign({ vertex }, parsed);
+        return Object.assign({ vertex, space }, parsed);
         function onError(err) {
             console.error('failed to find vertex for path ' + path);
             throw err;
@@ -363,6 +370,13 @@ class MetaStorage {
                 .out(label)
                 .states();
         }
+    }
+    async getSpaceMetaData(space) {
+        const owner = space.getOwnerUrl();
+        const writers = await space.getWriterUrls();
+        const isWriteable = space.userHasWriteAccess();
+        const spaceRoot = __1.createUrl(space.root, this.graph.getKey(space.root), undefined, __1.URL_TYPES.SPACE);
+        return { space: spaceRoot, owner, writers, isWriteable };
     }
     latestWrite(vertices) {
         // TODO: use more sophisticated method - e.g. a view that makes sure there is only one vertex
