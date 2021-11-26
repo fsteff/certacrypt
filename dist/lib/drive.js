@@ -47,7 +47,9 @@ async function cryptoDrive(corestore, graph, crypto, root) {
     drive.unlink = unlink;
     drive.promises.unlink = unlink;
     drive.updateRoot = (dir) => meta.updateRoot(dir);
-    drive.getSpace = (path) => meta.readableFile(path, true).then(file => { return { space: file.space, metadata: file.spaceMeta }; });
+    drive.getSpace = (path) => meta.readableFile(path, true).then((file) => {
+        return { space: file.space, metadata: file.spaceMeta };
+    });
     return drive;
     function createReadStream(name, opts) {
         name = unixify_1.default(name);

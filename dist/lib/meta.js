@@ -162,8 +162,8 @@ class MetaStorage {
         }
         else {
             const states = await this.graph.queryPathAtVertex(path, this.root, undefined, thombstoneReductor).generator().rawQueryStates(onError);
-            vertex = this.latestWrite(states.map(s => s.value));
-            space = (_a = states.find(s => s.value.equals(vertex))) === null || _a === void 0 ? void 0 : _a.space;
+            vertex = this.latestWrite(states.map((s) => s.value));
+            space = (_a = states.find((s) => s.value.equals(vertex))) === null || _a === void 0 ? void 0 : _a.space;
         }
         if (!vertex)
             return null;

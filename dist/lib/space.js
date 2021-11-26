@@ -66,20 +66,23 @@ class CollaborationSpace {
         if (this.userHasWriteAccess(user)) {
             throw new Error('user already has write access to space');
         }
-        restrictions = Array.isArray(restrictions) ? restrictions : [{ rule: user.publicRoot.getFeed() + '/**/*', except: { rule: user.publicRoot.getFeed() + '/.' } }];
+        restrictions = Array.isArray(restrictions)
+            ? restrictions
+            : [{ rule: user.publicRoot.getFeed() + '/**/*', except: { rule: user.publicRoot.getFeed() + '/.' } }];
         await user.referToPresharedVertex(this.root, '.', restrictions);
     }
     userHasWriteAccess(user) {
         const publicRoot = (user === null || user === void 0 ? void 0 : user.publicRoot) || this.user.publicRoot;
         if (this.root.getFeed() === publicRoot.getFeed())
             return true;
-        return this.root.getEdges('.')
-            .filter(e => e.view === referrer_1.REFERRER_VIEW && e.feed)
-            .map(e => e.feed.toString('hex'))
+        return this.root
+            .getEdges('.')
+            .filter((e) => e.view === referrer_1.REFERRER_VIEW && e.feed)
+            .map((e) => e.feed.toString('hex'))
             .includes(publicRoot.getFeed());
     }
     async getWriters() {
-        return Promise.all((await this.getWriterUrls()).map(url => this.getUserByUrl(url)));
+        return Promise.all((await this.getWriterUrls()).map((url) => this.getUserByUrl(url)));
     }
     async getWriterUrls() {
         const self = this;
