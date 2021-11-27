@@ -171,7 +171,7 @@ export async function cryptoDrive(corestore: Corestore, graph: CertaCryptGraph, 
     const encrypted = opts.db.encrypted
     if (!encrypted) return oldReaddir.call(drive, name, opts, cb)
 
-    const resultMap = new Map<String, { label: string; path: string; stat: Stat; timestamp: number; space?: spaceMetaData, share?: shareMetaData }>()
+    const resultMap = new Map<String, { label: string; path: string; stat: Stat; timestamp: number; space?: spaceMetaData; share?: shareMetaData }>()
 
     const files = await graph
       .queryPathAtVertex(name, await meta.updateRoot())
@@ -187,8 +187,13 @@ export async function cryptoDrive(corestore: Corestore, graph: CertaCryptGraph, 
       if (name.endsWith('/')) path = name + label
       else path = name + '/' + label
 
-      const file = await meta.readableFile(path)
-      if (!file || !file.stat) continue // might be a thombstone
+      let file
+      try {
+        file = await meta.readableFile(path)
+      } catch (err) {
+        console.error(err)
+      }
+      if (!file || !file.stat) continue // might be a thombstone, or an error occured
 
       const child = { label, path, stat: file.stat, space: file.spaceMeta, share: file.share, timestamp }
       if (resultMap.has(child.path)) {
@@ -239,7 +244,7 @@ export async function cryptoDrive(corestore: Corestore, graph: CertaCryptGraph, 
     if (cb) cb()
   }
 
-  async function getSpace (path: string) {
+  async function getSpace(path: string) {
     const file = await meta.readableFile(path, true)
     return { space: file.space, metadata: file.spaceMeta }
   }

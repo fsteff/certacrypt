@@ -166,13 +166,17 @@ class MetaStorage {
             }
         }
         else {
-            const states = await this.graph.queryPathAtVertex(path, this.root, undefined, thombstoneReductor).generator().rawQueryStates(onError);
+            const states = await this.graph
+                .queryPathAtVertex(path, this.root, undefined, thombstoneReductor)
+                .matches((v) => !!v.getContent())
+                .generator()
+                .rawQueryStates(onError);
             vertex = this.latestWrite(states.map((s) => s.value));
             space = (_b = states.find((s) => s.value.equals(vertex))) === null || _b === void 0 ? void 0 : _b.space;
-            const state = states.find(s => s.value === vertex);
+            const state = states.find((s) => s.value === vertex);
             if (state.path.length > 1 && state.path[state.path.length - 2].vertex instanceof driveshares_1.VirtualDriveShareVertex) {
                 const prev = state.path[state.path.length - 2].vertex;
-                shareMeta = prev.getShareMetaData().find(s => s.path === path);
+                shareMeta = prev.getShareMetaData().find((s) => s.path === path);
                 if (!shareMeta) {
                     console.warn('no share metadata found for ' + path);
                 }
@@ -182,11 +186,11 @@ class MetaStorage {
             return null;
         const file = vertex.getContent();
         if (!file)
-            throw new Error('vertex is not of type file or directory, it has no content at all');
+            throw new Error('vertex is not of type file or directory, it has no content at all in path ' + path);
         if (file.typeName === graphObjects_1.GraphObjectTypeNames.THOMBSTONE)
             return { vertex, id: 0, feed: '', path: '', version: 0, mkey: null, fkey: null }; // file has been deleted
         if (!file.filename)
-            throw new Error('vertex is not of type file or directory, it does not have a filename url');
+            throw new Error('vertex is not of type file or directory, it does not have a filename url in path ' + path);
         const parsed = url_1.parseUrl(file.filename);
         return Object.assign({ vertex, space, share: shareMeta }, parsed);
         function onError(err) {
@@ -312,7 +316,7 @@ class MetaStorage {
         const pathWriteables = path.state.path
             .slice(0, path.state.path.length - 1)
             .map((p) => p.vertex)
-            .filter((p) => typeof p.getFeed === 'function' && p.getFeed() === lastWriteable.getFeed());
+            .filter((p) => typeof p.getFeed === 'function' && p.getFeed() === lastWriteable.getFeed() && typeof p.encode === 'function');
         if (pathWriteables.length > 0)
             await this.graph.put(pathWriteables);
         return this.graph.createEdgesToPath(path.remainingPath.join('/'), lastWriteable, leaf);

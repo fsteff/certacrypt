@@ -289,8 +289,29 @@ export class CertaCrypt {
       throw new Error('convertToCollaborationSpace: vertex must be of type DIRECTORY: ' + absolutePath)
     }
     const parent = <Vertex<GraphObject>>states[0].path[states[0].path.length - 2].vertex
+    const space = await Space.CollaborationSpace.CreateSpace(this.graph, await this.user, parent, directory)
 
-    return Space.CollaborationSpace.CreateSpace(this.graph, await this.user, parent, directory)
+    const staticView = this.graph.factory.get(STATIC_VIEW)
+    const shares = <Vertex<GraphObject>[]>await this.graph
+      .queryAtVertex(await this.sessionRoot)
+      .out('shares')
+      .out('url', staticView)
+      .matches((v) => !!v.getEdges('share').find((e) => e.ref === directory.getId()))
+      .vertices()
+    for (const share of shares) {
+      share.replaceEdgeTo(directory, (edge) => {
+        return {
+          ref: space.root.getId(),
+          label: 'share',
+          view: Space.SPACE_VIEW,
+          restrictions: edge.restrictions,
+          metadata: { key: this.graph.getKey(space.root) }
+        }
+      })
+    }
+    await this.graph.put(shares)
+
+    return space
   }
 
   public async debugDrawGraph(root?: Vertex<GraphObject>, currentDepth = 0, label = '/', visited = new Set<string>(), view?: string): Promise<string> {

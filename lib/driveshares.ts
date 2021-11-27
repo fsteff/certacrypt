@@ -19,8 +19,8 @@ export class DriveShareView extends View<GraphObject> {
     const feed = edge.feed.toString('hex')
 
     const shareEdges = await this.getShareEdges(edge, state)
-    const edges = shareEdges.map(s => s.edge)
-    const meta = shareEdges.map(s => s.share)
+    const edges = shareEdges.map((s) => s.edge)
+    const meta = shareEdges.map((s) => s.share)
 
     const tr = await this.getTransaction(feed)
     const realVertex = await this.db.getInTransaction<GraphObject>(edge.ref, this.codec, tr, feed)
@@ -28,15 +28,15 @@ export class DriveShareView extends View<GraphObject> {
   }
 
   private async getShareEdges(prevEdge: Edge, state: QueryState<GraphObject>) {
-    const path =  [prevEdge.label].concat(state.path.map(p => p.label)).join('/')
+    const path = [prevEdge.label].concat(state.path.map((p) => p.label)).join('/')
     const view = this.getView(COMM_VIEW)
-    const shares = <VirtualCommShareVertex[]> await this.query(Generator.from([state.mergeStates(this.socialRoot)]))
+    const shares = <VirtualCommShareVertex[]>await this.query(Generator.from([state.mergeStates(this.socialRoot)]))
       .out(COMM_PATHS.COMM_TO_RCV_SHARES, view)
       .generator()
       .values((err) => console.error('DriveShareView: failed to load share:' + err))
-      .filter(v => !! v.getContent())
+      .filter((v) => !!v.getContent())
       .destruct()
-    
+
     const shareEdges = shares
       .map((v) => v.getContent())
       .map((c) => {
@@ -48,7 +48,7 @@ export class DriveShareView extends View<GraphObject> {
             name: c.name,
             path: '/' + path + '/' + edge.label,
             label: edge.label
-          }, 
+          },
           edge
         }
       })
@@ -71,7 +71,7 @@ export class DriveShareView extends View<GraphObject> {
   }
 }
 
-type shareMeta = shareMetaData & {label: string}
+type shareMeta = shareMetaData & { label: string }
 
 export class VirtualDriveShareVertex implements IVertex<GraphObject> {
   constructor(private edges: Edge[], private realVertex: Vertex<GraphObject>, private meta: shareMeta[]) {}

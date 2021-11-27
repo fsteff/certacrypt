@@ -18,20 +18,20 @@ class DriveShareView extends hyper_graphdb_1.View {
     async get(edge, state) {
         const feed = edge.feed.toString('hex');
         const shareEdges = await this.getShareEdges(edge, state);
-        const edges = shareEdges.map(s => s.edge);
-        const meta = shareEdges.map(s => s.share);
+        const edges = shareEdges.map((s) => s.edge);
+        const meta = shareEdges.map((s) => s.share);
         const tr = await this.getTransaction(feed);
         const realVertex = await this.db.getInTransaction(edge.ref, this.codec, tr, feed);
         return [Promise.resolve(this.toResult(new VirtualDriveShareVertex(edges.concat(realVertex.getEdges()), realVertex, meta), edge, state))];
     }
     async getShareEdges(prevEdge, state) {
-        const path = [prevEdge.label].concat(state.path.map(p => p.label)).join('/');
+        const path = [prevEdge.label].concat(state.path.map((p) => p.label)).join('/');
         const view = this.getView(communication_1.COMM_VIEW);
         const shares = await this.query(hyper_graphdb_1.Generator.from([state.mergeStates(this.socialRoot)]))
             .out(communication_1.COMM_PATHS.COMM_TO_RCV_SHARES, view)
             .generator()
             .values((err) => console.error('DriveShareView: failed to load share:' + err))
-            .filter(v => !!v.getContent())
+            .filter((v) => !!v.getContent())
             .destruct();
         const shareEdges = shares
             .map((v) => v.getContent())

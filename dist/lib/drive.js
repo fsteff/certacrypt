@@ -156,9 +156,15 @@ async function cryptoDrive(corestore, graph, crypto, root) {
                 path = name + label;
             else
                 path = name + '/' + label;
-            const file = await meta.readableFile(path);
+            let file;
+            try {
+                file = await meta.readableFile(path);
+            }
+            catch (err) {
+                console.error(err);
+            }
             if (!file || !file.stat)
-                continue; // might be a thombstone
+                continue; // might be a thombstone, or an error occured
             const child = { label, path, stat: file.stat, space: file.spaceMeta, share: file.share, timestamp };
             if (resultMap.has(child.path)) {
                 const other = resultMap.get(child.path);
