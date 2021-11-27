@@ -1,4 +1,4 @@
-import { CB0, Hyperdrive, spaceMetaData, Stat } from './types'
+import { CB0, Hyperdrive, shareMetaData, spaceMetaData, Stat } from './types'
 import { CertaCryptGraph } from 'certacrypt-graph'
 import { Generator, GraphObject, GRAPH_VIEW, QueryState, Vertex } from 'hyper-graphdb'
 import { Directory, DriveGraphObject, File, GraphObjectTypeNames, Thombstone } from './graphObjects'
@@ -12,6 +12,8 @@ import { parseUrl, parseUrlResults } from './url'
 import { debug } from './debug'
 import { CollaborationSpace, SpaceQueryState } from './space'
 import { createUrl, URL_TYPES } from '..'
+import { VirtualDriveShareVertex } from './driveshares'
+import { VirtualCommShareVertex } from './communication'
 
 export class MetaStorage {
   private readonly drive: Hyperdrive
@@ -52,7 +54,7 @@ export class MetaStorage {
     const file = await this.find(filename, false)
     if (!file) throw new FileNotFound(filename)
 
-    const { vertex, feed, path, mkey, fkey, space } = file
+    const { vertex, feed, path, mkey, fkey, space, share } = file
     if (vertex.getContent()?.typeName === GraphObjectTypeNames.THOMBSTONE) {
       return { path: null, trie: null, stat: null, contentFeed: null }
     }
@@ -75,7 +77,7 @@ export class MetaStorage {
 
     debug(`created readableFile ${filename} from ${encrypted ? 'encrypted' : 'public'} ${stat.isFile ? 'file' : 'directory'} hyper://${feed}${path}`)
 
-    return { path, trie, stat, contentFeed, spaceMeta, space }
+    return { path, trie, stat, contentFeed, spaceMeta, space, share }
   }
 
   async writeableFile(filename: string, encrypted = true): Promise<{ path: string; fkey?: Buffer }> {
@@ -169,9 +171,10 @@ export class MetaStorage {
     return target
   }
 
-  public async find(path: string, writeable: boolean): Promise<{ vertex: Vertex<DriveGraphObject>; space?: CollaborationSpace } & parseUrlResults> {
+  public async find(path: string, writeable: boolean): Promise<{ vertex: Vertex<DriveGraphObject>; space?: CollaborationSpace, share?: shareMetaData } & parseUrlResults> {
     let vertex: Vertex<DriveGraphObject>
     let space: CollaborationSpace
+    let shareMeta: shareMetaData
     if (writeable) {
       const writeablePath = await this.findWriteablePath(path)
       if (!writeablePath) {
@@ -185,6 +188,15 @@ export class MetaStorage {
       const states = await this.graph.queryPathAtVertex(path, this.root, undefined, thombstoneReductor).generator().rawQueryStates(onError)
       vertex = this.latestWrite(<Vertex<DriveGraphObject>[]>states.map((s) => s.value))
       space = (<SpaceQueryState>states.find((s) => s.value.equals(vertex)))?.space
+
+      const state = states.find(s => s.value === vertex)
+      if(state.path.length > 1 && state.path[state.path.length - 2].vertex instanceof VirtualDriveShareVertex) {
+        const prev = <VirtualDriveShareVertex> state.path[state.path.length - 2].vertex
+        shareMeta = prev.getShareMetaData().find(s => s.path === path)
+        if(!shareMeta) {
+          console.warn('no share metadata found for ' + path)
+        }
+      }
     }
 
     if (!vertex) return null
@@ -194,7 +206,7 @@ export class MetaStorage {
     if (file.typeName === GraphObjectTypeNames.THOMBSTONE) return { vertex, id: 0, feed: '', path: '', version: 0, mkey: null, fkey: null } // file has been deleted
     if (!file.filename) throw new Error('vertex is not of type file or directory, it does not have a filename url')
     const parsed = parseUrl(file.filename)
-    return { vertex, space, ...parsed }
+    return { vertex, space, share: shareMeta,...parsed }
 
     function onError(err: Error) {
       console.error('failed to find vertex for path ' + path)

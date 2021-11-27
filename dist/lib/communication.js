@@ -111,7 +111,7 @@ class Communication {
         return this.sendMessage(request, exports.COMM_PATHS.MSG_REQUESTS);
     }
     async sendShare(share) {
-        const shareUrl = url_1.createUrl(share, this.graph.getKey(share), undefined, url_1.URL_TYPES.SHARE);
+        const shareUrl = typeof share === 'string' ? share : url_1.createUrl(share, this.graph.getKey(share), undefined, url_1.URL_TYPES.SHARE);
         const msg = this.message({ shareUrl, type: 'Share' });
         return this.sendMessage(msg, exports.COMM_PATHS.MSG_PROVISION);
     }

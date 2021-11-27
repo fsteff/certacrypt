@@ -11,6 +11,7 @@ const url_1 = require("./url");
 const debug_1 = require("./debug");
 const space_1 = require("./space");
 const __1 = require("..");
+const driveshares_1 = require("./driveshares");
 class MetaStorage {
     constructor(drive, graph, root, crypto) {
         this.currentIdCtr = 0;
@@ -41,7 +42,7 @@ class MetaStorage {
         const file = await this.find(filename, false);
         if (!file)
             throw new errors_1.FileNotFound(filename);
-        const { vertex, feed, path, mkey, fkey, space } = file;
+        const { vertex, feed, path, mkey, fkey, space, share } = file;
         if (((_a = vertex.getContent()) === null || _a === void 0 ? void 0 : _a.typeName) === graphObjects_1.GraphObjectTypeNames.THOMBSTONE) {
             return { path: null, trie: null, stat: null, contentFeed: null };
         }
@@ -63,7 +64,7 @@ class MetaStorage {
             stat.isDirectory = true;
         const spaceMeta = space ? await this.getSpaceMetaData(space) : undefined;
         debug_1.debug(`created readableFile ${filename} from ${encrypted ? 'encrypted' : 'public'} ${stat.isFile ? 'file' : 'directory'} hyper://${feed}${path}`);
-        return { path, trie, stat, contentFeed, spaceMeta, space };
+        return { path, trie, stat, contentFeed, spaceMeta, space, share };
     }
     async writeableFile(filename, encrypted = true) {
         let parsedFile = await this.find(filename, true);
@@ -153,6 +154,7 @@ class MetaStorage {
         var _a, _b;
         let vertex;
         let space;
+        let shareMeta;
         if (writeable) {
             const writeablePath = await this.findWriteablePath(path);
             if (!writeablePath) {
@@ -167,6 +169,14 @@ class MetaStorage {
             const states = await this.graph.queryPathAtVertex(path, this.root, undefined, thombstoneReductor).generator().rawQueryStates(onError);
             vertex = this.latestWrite(states.map((s) => s.value));
             space = (_b = states.find((s) => s.value.equals(vertex))) === null || _b === void 0 ? void 0 : _b.space;
+            const state = states.find(s => s.value === vertex);
+            if (state.path.length > 1 && state.path[state.path.length - 2].vertex instanceof driveshares_1.VirtualDriveShareVertex) {
+                const prev = state.path[state.path.length - 2].vertex;
+                shareMeta = prev.getShareMetaData().find(s => s.path === path);
+                if (!shareMeta) {
+                    console.warn('no share metadata found for ' + path);
+                }
+            }
         }
         if (!vertex)
             return null;
@@ -178,7 +188,7 @@ class MetaStorage {
         if (!file.filename)
             throw new Error('vertex is not of type file or directory, it does not have a filename url');
         const parsed = url_1.parseUrl(file.filename);
-        return Object.assign({ vertex, space }, parsed);
+        return Object.assign({ vertex, space, share: shareMeta }, parsed);
         function onError(err) {
             console.error('failed to find vertex for path ' + path);
             throw err;

@@ -121,8 +121,8 @@ export class Communication {
     return this.sendMessage(request, COMM_PATHS.MSG_REQUESTS)
   }
 
-  async sendShare(share: Vertex<ShareGraphObject>) {
-    const shareUrl = createUrl(share, this.graph.getKey(share), undefined, URL_TYPES.SHARE)
+  async sendShare(share: Vertex<ShareGraphObject> | string) {
+    const shareUrl = typeof share === 'string' ? share : createUrl(share, this.graph.getKey(share), undefined, URL_TYPES.SHARE)
     const msg = this.message({ shareUrl, type: 'Share' })
     return this.sendMessage(msg, COMM_PATHS.MSG_PROVISION)
   }

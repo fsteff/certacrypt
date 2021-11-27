@@ -47,9 +47,7 @@ async function cryptoDrive(corestore, graph, crypto, root) {
     drive.unlink = unlink;
     drive.promises.unlink = unlink;
     drive.updateRoot = (dir) => meta.updateRoot(dir);
-    drive.getSpace = (path) => meta.readableFile(path, true).then((file) => {
-        return { space: file.space, metadata: file.spaceMeta };
-    });
+    drive.getSpace = getSpace;
     return drive;
     function createReadStream(name, opts) {
         name = unixify_1.default(name);
@@ -161,7 +159,7 @@ async function cryptoDrive(corestore, graph, crypto, root) {
             const file = await meta.readableFile(path);
             if (!file || !file.stat)
                 continue; // might be a thombstone
-            const child = { label, path, stat: file.stat, space: file.spaceMeta, timestamp };
+            const child = { label, path, stat: file.stat, space: file.spaceMeta, share: file.share, timestamp };
             if (resultMap.has(child.path)) {
                 const other = resultMap.get(child.path);
                 if (other.timestamp < child.timestamp)
@@ -174,7 +172,7 @@ async function cryptoDrive(corestore, graph, crypto, root) {
         const results = new Array();
         for (const child of resultMap.values()) {
             if (opts.includeStats) {
-                results.push({ name: child.label, path: child.path, space: child.space, stat: child.stat });
+                results.push({ name: child.label, path: child.path, stat: child.stat, space: child.space, share: child.share });
             }
             else {
                 results.push(child.label);
@@ -207,6 +205,10 @@ async function cryptoDrive(corestore, graph, crypto, root) {
         await meta.unlink(name);
         if (cb)
             cb();
+    }
+    async function getSpace(path) {
+        const file = await meta.readableFile(path, true);
+        return { space: file.space, metadata: file.spaceMeta };
     }
 }
 exports.cryptoDrive = cryptoDrive;

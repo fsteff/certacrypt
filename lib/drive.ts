@@ -3,7 +3,7 @@ import { CertaCryptGraph, ShareGraphObject, SHARE_GRAPHOBJECT } from 'certacrypt
 import { Cipher, ICrypto, Primitives } from 'certacrypt-crypto'
 import { cryptoCorestore, wrapTrie } from './crypto'
 import { Directory, DriveGraphObject } from './graphObjects'
-import { CBF, CB1, CB2, Hyperdrive, readdirOpts, readdirResult, Stat, encryptionOpts, CB0, spaceMetaData } from './types'
+import { CBF, CB1, CB2, Hyperdrive, readdirOpts, readdirResult, Stat, encryptionOpts, CB0, spaceMetaData, shareMetaData } from './types'
 import { MetaStorage } from './meta'
 import createHyperdrive from 'hyperdrive'
 import coreByteStream from 'hypercore-byte-stream'
@@ -58,11 +58,7 @@ export async function cryptoDrive(corestore: Corestore, graph: CertaCryptGraph, 
   drive.unlink = unlink
   drive.promises.unlink = unlink
   drive.updateRoot = (dir?: Vertex<Directory>) => meta.updateRoot(dir)
-  drive.getSpace = (path: string) =>
-    meta.readableFile(path, true).then((file) => {
-      return { space: file.space, metadata: file.spaceMeta }
-    })
-
+  drive.getSpace = getSpace
   return drive
 
   function createReadStream(name, opts) {
@@ -175,7 +171,7 @@ export async function cryptoDrive(corestore: Corestore, graph: CertaCryptGraph, 
     const encrypted = opts.db.encrypted
     if (!encrypted) return oldReaddir.call(drive, name, opts, cb)
 
-    const resultMap = new Map<String, { label: string; path: string; stat: Stat; timestamp: number; space?: spaceMetaData }>()
+    const resultMap = new Map<String, { label: string; path: string; stat: Stat; timestamp: number; space?: spaceMetaData, share?: shareMetaData }>()
 
     const files = await graph
       .queryPathAtVertex(name, await meta.updateRoot())
@@ -194,7 +190,7 @@ export async function cryptoDrive(corestore: Corestore, graph: CertaCryptGraph, 
       const file = await meta.readableFile(path)
       if (!file || !file.stat) continue // might be a thombstone
 
-      const child = { label, path, stat: file.stat, space: file.spaceMeta, timestamp }
+      const child = { label, path, stat: file.stat, space: file.spaceMeta, share: file.share, timestamp }
       if (resultMap.has(child.path)) {
         const other = resultMap.get(child.path)
         if (other.timestamp < child.timestamp) resultMap.set(child.path, child)
@@ -206,7 +202,7 @@ export async function cryptoDrive(corestore: Corestore, graph: CertaCryptGraph, 
     const results = new Array<readdirResult>()
     for (const child of resultMap.values()) {
       if (opts.includeStats) {
-        results.push({ name: child.label, path: child.path, space: child.space, stat: child.stat })
+        results.push({ name: child.label, path: child.path, stat: child.stat, space: child.space, share: child.share })
       } else {
         results.push(child.label)
       }
@@ -241,6 +237,11 @@ export async function cryptoDrive(corestore: Corestore, graph: CertaCryptGraph, 
 
     await meta.unlink(name)
     if (cb) cb()
+  }
+
+  async function getSpace (path: string) {
+    const file = await meta.readableFile(path, true)
+    return { space: file.space, metadata: file.spaceMeta }
   }
 }
 

@@ -253,7 +253,7 @@ export class CertaCrypt {
     }
   }
 
-  public async sendShare(share: Vertex<ShareGraphObject>, recipients: User[]) {
+  public async sendShare(share: Vertex<ShareGraphObject> | string, recipients: User[]) {
     for (const user of recipients) {
       const comm = await Communication.GetOrInitUserCommunication(this.graph, await this.socialRoot, await this.cacheDb, await this.user, user)
       await comm.sendShare(share)

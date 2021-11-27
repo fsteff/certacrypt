@@ -5,6 +5,7 @@ const hyper_graphdb_1 = require("hyper-graphdb");
 const certacrypt_graph_1 = require("certacrypt-graph");
 const communication_1 = require("./communication");
 const url_1 = require("./url");
+const __1 = require("..");
 exports.DRIVE_SHARE_VIEW = 'DriveShareView';
 class DriveShareView extends hyper_graphdb_1.View {
     constructor(cacheDb, graph, socialRoot, contentEncoding, factory, transactions) {
@@ -16,21 +17,38 @@ class DriveShareView extends hyper_graphdb_1.View {
     }
     async get(edge, state) {
         const feed = edge.feed.toString('hex');
-        const shareEdges = await this.getShareEdges(state);
+        const shareEdges = await this.getShareEdges(edge, state);
+        const edges = shareEdges.map(s => s.edge);
+        const meta = shareEdges.map(s => s.share);
         const tr = await this.getTransaction(feed);
         const realVertex = await this.db.getInTransaction(edge.ref, this.codec, tr, feed);
-        return [Promise.resolve(this.toResult(new VirtualDriveShareVertex(shareEdges.concat(realVertex.getEdges()), realVertex), edge, state))];
+        return [Promise.resolve(this.toResult(new VirtualDriveShareVertex(edges.concat(realVertex.getEdges()), realVertex, meta), edge, state))];
     }
-    getShareEdges(state) {
+    async getShareEdges(prevEdge, state) {
+        const path = [prevEdge.label].concat(state.path.map(p => p.label)).join('/');
         const view = this.getView(communication_1.COMM_VIEW);
-        return this.query(hyper_graphdb_1.Generator.from([state.mergeStates(this.socialRoot)]))
+        const shares = await this.query(hyper_graphdb_1.Generator.from([state.mergeStates(this.socialRoot)]))
             .out(communication_1.COMM_PATHS.COMM_TO_RCV_SHARES, view)
             .generator()
             .values((err) => console.error('DriveShareView: failed to load share:' + err))
-            .map((v) => v.getContent())
-            .map((c) => this.uniqueEdge(c))
-            .filter(async (e) => e !== null)
+            .filter(v => !!v.getContent())
             .destruct();
+        const shareEdges = shares
+            .map((v) => v.getContent())
+            .map((c) => {
+            const edge = this.uniqueEdge(c);
+            return {
+                share: {
+                    share: __1.createUrl(c.share, this.graph.getKey(c.share), undefined, __1.URL_TYPES.SHARE, c.name),
+                    owner: c.owner,
+                    name: c.name,
+                    path: '/' + path + '/' + edge.label,
+                    label: edge.label
+                },
+                edge
+            };
+        });
+        return shareEdges;
     }
     uniqueEdge(share) {
         const userParsed = url_1.parseUrl(share.sharedBy);
@@ -47,9 +65,10 @@ class DriveShareView extends hyper_graphdb_1.View {
 }
 exports.DriveShareView = DriveShareView;
 class VirtualDriveShareVertex {
-    constructor(edges, realVertex) {
+    constructor(edges, realVertex, meta) {
         this.edges = edges;
         this.realVertex = realVertex;
+        this.meta = meta;
     }
     getContent() {
         return this.realVertex.getContent();
@@ -74,6 +93,9 @@ class VirtualDriveShareVertex {
     }
     getMetadata() {
         this.realVertex.getMetadata();
+    }
+    getShareMetaData() {
+        return this.meta;
     }
 }
 exports.VirtualDriveShareVertex = VirtualDriveShareVertex;
