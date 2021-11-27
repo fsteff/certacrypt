@@ -150,20 +150,23 @@ class MetaStorage {
         return target;
     }
     async find(path, writeable) {
-        var _a;
+        var _a, _b;
         let vertex;
         let space;
         if (writeable) {
             const writeablePath = await this.findWriteablePath(path);
+            if (!writeablePath) {
+                throw new Error('file or path is not writeable: ' + path);
+            }
             space = writeablePath.state.space;
-            if (writeablePath && writeablePath.remainingPath.length === 0) {
+            if (((_a = writeablePath.remainingPath) === null || _a === void 0 ? void 0 : _a.length) === 0) {
                 vertex = writeablePath.state.value;
             }
         }
         else {
             const states = await this.graph.queryPathAtVertex(path, this.root, undefined, thombstoneReductor).generator().rawQueryStates(onError);
             vertex = this.latestWrite(states.map((s) => s.value));
-            space = (_a = states.find((s) => s.value.equals(vertex))) === null || _a === void 0 ? void 0 : _a.space;
+            space = (_b = states.find((s) => s.value.equals(vertex))) === null || _b === void 0 ? void 0 : _b.space;
         }
         if (!vertex)
             return null;

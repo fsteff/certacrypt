@@ -1,5 +1,5 @@
-import { Edge, Generator, GraphObject, GRAPH_VIEW, IVertex, QueryResult, QueryState, Vertex, VertexQueries, View } from 'hyper-graphdb'
-import { CertaCryptGraph } from 'certacrypt-graph'
+import { Edge, Generator, GraphObject, IVertex, QueryResult, QueryState, Vertex, View } from 'hyper-graphdb'
+import { CertaCryptGraph, SHARE_VIEW } from 'certacrypt-graph'
 import { CacheDB } from './cacheDB'
 import { CommShare, COMM_PATHS, COMM_VIEW, VirtualCommShareVertex } from './communication'
 import { parseUrl } from './url'
@@ -13,29 +13,20 @@ export class DriveShareView extends View<GraphObject> {
     super(graph.core, contentEncoding, factory, transactions)
   }
 
-  public async out(state: QueryState<GraphObject>, label?: string): Promise<QueryResult<GraphObject>> {
-    return this.getView(GRAPH_VIEW).out(state, label)
-  }
-
   public async get(edge: Edge & { feed: Buffer }, state: QueryState<GraphObject>): Promise<QueryResult<GraphObject>> {
     const feed = edge.feed.toString('hex')
 
-    if (edge.view) {
-      const view = this.getView(edge.view)
-      return view.get({ ...edge, view: undefined }, state)
-    }
-    const edges = await this.getShareEdges()
+    const shareEdges: Edge[] = await this.getShareEdges(state)
 
     const tr = await this.getTransaction(feed)
     const realVertex = await this.db.getInTransaction<GraphObject>(edge.ref, this.codec, tr, feed)
-    return [Promise.resolve(this.toResult(new VirtualDriveShareVertex(edges.concat(realVertex.getEdges()), realVertex), edge, state))]
+    return [Promise.resolve(this.toResult(new VirtualDriveShareVertex(shareEdges.concat(realVertex.getEdges()), realVertex), edge, state))]
   }
 
-  private getShareEdges(): Promise<Edge[]> {
+  private getShareEdges(state: QueryState<GraphObject>): Promise<Array<Edge & { feed: Buffer }>> {
     const view = this.getView(COMM_VIEW)
-    return view
-      .query(Generator.from([new QueryState(<IVertex<GraphObject>>this.socialRoot, [], [], view)]))
-      .out(COMM_PATHS.COMM_TO_RCV_SHARES)
+    return this.query(Generator.from([state.mergeStates(this.socialRoot)]))
+      .out(COMM_PATHS.COMM_TO_RCV_SHARES, view)
       .generator()
       .values((err) => console.error('DriveShareView: failed to load share:' + err))
       .map((v) => (<VirtualCommShareVertex>v).getContent())
@@ -44,15 +35,18 @@ export class DriveShareView extends View<GraphObject> {
       .destruct()
   }
 
-  private uniqueEdge(share: CommShare): Edge {
+  private uniqueEdge(share: CommShare): Edge & { feed: Buffer } {
     const userParsed = parseUrl(share.sharedBy)
     const userLabel = userParsed.id + '@' + userParsed.feed
     const shareLabel = share.share.getId() + '@' + share.share.getFeed()
-    const label = encodeURIComponent(userLabel + '/' + shareLabel)
-    const edge = share.share.getEdges('share')[0]
-    if (!edge) return null
 
-    return { ...edge, label }
+    return {
+      ref: share.share.getId(),
+      feed: Buffer.from(share.share.getFeed(), 'hex'),
+      label: encodeURIComponent(userLabel + '/' + shareLabel),
+      metadata: { key: this.graph.getKey(share.share) },
+      view: SHARE_VIEW
+    }
   }
 }
 

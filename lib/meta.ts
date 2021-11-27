@@ -174,8 +174,11 @@ export class MetaStorage {
     let space: CollaborationSpace
     if (writeable) {
       const writeablePath = await this.findWriteablePath(path)
+      if (!writeablePath) {
+        throw new Error('file or path is not writeable: ' + path)
+      }
       space = (<SpaceQueryState>writeablePath.state).space
-      if (writeablePath && writeablePath.remainingPath.length === 0) {
+      if (writeablePath.remainingPath?.length === 0) {
         vertex = <Vertex<DriveGraphObject>>writeablePath.state.value
       }
     } else {

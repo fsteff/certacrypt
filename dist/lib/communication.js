@@ -229,7 +229,6 @@ class CommunicationView extends hyper_graphdb_1.View {
             throw new Error('ContactsView.out does only accept persisted Vertex instances as input');
         }
         const edges = vertex.getEdges(label);
-        let vertices = [];
         if (label === exports.COMM_PATHS.COMM_TO_RCV_SHARES) {
             const shares = await this.getAllReceivedShares(vertex)
                 .map((v) => this.toResult(v, { label, ref: 0 }, state))
