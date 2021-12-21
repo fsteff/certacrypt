@@ -168,7 +168,9 @@ Predicate Encryption (pretty new and mostly theoretical...)
   => also applicable for Outbox
 - [libsodium sealed box](https://doc.libsodium.org/public-key_cryptography/sealed_boxes)
 - [Using Ed25519 keys for encryption](https://blog.filippo.io/using-ed25519-keys-for-encryption/)
-- [Question: Same Ed25519 keypair for DH and signing](https://crypto.stackexchange.com/questions/3260/using-same-keypair-for-diffie-hellman-and-signing) (TLDR: yes, but not recommended)
+- [Question: Same Ed25519 keypair for DH and signing](https://crypto.stackexchange.com/questions/3260/using-same-keypair-for-diffie-hellman-and-signing) (TLDR: dangerou)
+  - [Solution: Ristretto](https://ristretto.group/why_ristretto.html)
+  - [Libsodium Ristretto](https://doc.libsodium.org/advanced/point-arithmetic/ristretto)
 - [Textile Threads](https://docs.textile.io/threads/)
   - IPFS- and Ethereum-based distributed Multi-Party-DB with access control, event sourcing
   - [Paper](https://docsend.com/view/gu3ywqi)
