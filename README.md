@@ -2,12 +2,9 @@
 
 Effort to create an access-control-system for [Hyperdrive](https://hypercore-protocol.org/#hyperdrive) and the [Hypercore Protocol](hypercore-protocol.org/) in general.
 
-
+[Certacrypt Filemanager](https://github.com/fsteff/certacrypt-filemanager) is a demonstration application.
 
 [External Resources](https://github.com/fsteff/certacrypt/blob/master/docs/resources.md)
-
-[Todos & Implemenation Progress](https://github.com/fsteff/certacrypt/blob/master/docs/todo.md)
-
 [FAQ](https://github.com/fsteff/certacrypt/blob/master/docs/faq.md)
 
 **Concept Documents:**
@@ -22,3 +19,4 @@ Effort to create an access-control-system for [Hyperdrive](https://hypercore-pro
 - [Multiwriter CRDT](https://github.com/fsteff/certacrypt/blob/master/docs/crdt.md)  
 - [App Sessions](https://github.com/fsteff/certacrypt/blob/master/docs/session.md)
 - [Contacts](https://github.com/fsteff/certacrypt/blob/master/docs/contacts.md)
+- [Permission Revocation](https://github.com/fsteff/certacrypt/blob/master/docs/revocation.md)

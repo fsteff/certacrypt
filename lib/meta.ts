@@ -86,6 +86,7 @@ export class MetaStorage {
     let vertex: Vertex<DriveGraphObject> = parsedFile?.vertex
     const feed = this.drive.key.toString('hex')
     if (parsedFile) {
+      // TODO: always use a new key & update vertex
       if (encrypted) this.crypto.registerKey(parsedFile.mkey, { feed, index: parsedFile.path, type: Cipher.XChaCha20_Blob })
       else this.crypto.registerPublic(feed, parsedFile.path)
 
@@ -339,6 +340,7 @@ export class MetaStorage {
       .slice(0, path.state.path.length - 1)
       .map((p) => <Vertex<GraphObject>>p.vertex)
       .filter((p) => typeof p.getFeed === 'function' && p.getFeed() === lastWriteable.getFeed() && typeof p.encode === 'function')
+    // TODO: always re-encrypt the complete path to root & update shares
     if (pathWriteables.length > 0) await this.graph.put(pathWriteables)
 
     return this.graph.createEdgesToPath(path.remainingPath.join('/'), lastWriteable, leaf)
