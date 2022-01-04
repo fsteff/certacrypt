@@ -19,7 +19,7 @@ var __importStar = (this && this.__importStar) || function (mod) {
     return result;
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.CertaCrypt = exports.Space = exports.DriveShare = exports.CommShare = exports.FriendState = exports.ContactProfile = exports.Contacts = exports.Inbox = exports.User = exports.URL_TYPES = exports.parseUrl = exports.createUrl = exports.enableDebugLogging = exports.ShareGraphObject = exports.GraphObjects = void 0;
+exports.CertaCrypt = exports.Shares = exports.Space = exports.DriveShare = exports.CommShare = exports.FriendState = exports.ContactProfile = exports.Contacts = exports.Inbox = exports.User = exports.URL_TYPES = exports.parseUrl = exports.createUrl = exports.enableDebugLogging = exports.ShareGraphObject = exports.GraphObjects = void 0;
 const certacrypt_crypto_1 = require("certacrypt-crypto");
 const certacrypt_graph_1 = require("certacrypt-graph");
 const certacrypt_graph_2 = require("certacrypt-graph");
@@ -50,6 +50,8 @@ const DriveShare = __importStar(require("./lib/driveshares"));
 exports.DriveShare = DriveShare;
 const Space = __importStar(require("./lib/space"));
 exports.Space = Space;
+const shares_1 = require("./lib/shares");
+Object.defineProperty(exports, "Shares", { enumerable: true, get: function () { return shares_1.Shares; } });
 class CertaCrypt {
     constructor(corestore, crypto, sessionUrl) {
         var _a;
@@ -122,6 +124,10 @@ class CertaCrypt {
                 drive: await drive_1.cryptoDrive(this.corestore, this.graph, this.crypto, tmp)
             };
         });
+        this.driveShares = Promise.all([this.user, this.path('shares')]).then(([user, shareRoot]) => {
+            const shares = new shares_1.Shares(this.graph, user, shareRoot);
+            return new DriveShare.DriveShares(this.graph, shares);
+        });
         for (const key in GraphObjects) {
             const Constr = getConstructor(GraphObjects[key]);
             if (Constr) {
@@ -166,42 +172,49 @@ class CertaCrypt {
                 throw new Error('path query requires unique results: ' + path);
         });
     }
-    async createShare(vertex, reuseIfExists = true) {
-        var _a;
-        const shares = await this.path('/shares');
-        let shareVertex;
+    async createShare(vertex, reuseIfExists = false) {
+        const shares = await (await this.driveShares).shares;
+        return await shares.createShare(vertex, reuseIfExists);
+        /*
+        const shares = await this.path('/shares')
+    
+        let shareVertex: Vertex<ShareGraphObject>
         if (reuseIfExists) {
-            // checks if exists + loads the keys into the crypto key store
-            const view = this.graph.factory.get(hyper_graphdb_1.STATIC_VIEW);
-            const matching = await view
-                .query(hyper_graphdb_1.Generator.from([new hyper_graphdb_1.QueryState(shares, [], [], view)]))
-                .out('url', view)
+          // checks if exists + loads the keys into the crypto key store
+          const view = this.graph.factory.get(STATIC_VIEW)
+          const matching = await view
+            .query(Generator.from([new QueryState(shares, [], [], view)]))
+            .out('url', view)
+            .generator()
+            .filter(async (share) => {
+              const target = await view
+                .query(Generator.from([new QueryState(share, [], [], view)]))
+                .out('share')
+                .matches((v) => v.equals(vertex))
                 .generator()
-                .filter(async (share) => {
-                const target = await view
-                    .query(hyper_graphdb_1.Generator.from([new hyper_graphdb_1.QueryState(share, [], [], view)]))
-                    .out('share')
-                    .matches((v) => v.equals(vertex))
-                    .generator()
-                    .destruct();
-                return target.length > 0;
+                .destruct()
+              return target.length > 0
             })
-                .destruct();
-            if (matching.length > 0) {
-                shareVertex = matching[0];
-            }
+            .destruct()
+          if (matching.length > 0) {
+            shareVertex = <Vertex<ShareGraphObject>>matching[0]
+          }
         }
+    
         if (!shareVertex) {
-            let shareView = hyper_graphdb_1.GRAPH_VIEW;
-            if (((_a = vertex.getContent()) === null || _a === void 0 ? void 0 : _a.typeName) === GraphObjects.GraphObjectTypeNames.SPACE) {
-                shareView = Space.SPACE_VIEW;
-            }
-            shareVertex = await this.graph.createShare(vertex, { info: 'share by URL', owner: (await this.user).getPublicUrl(), view: shareView });
-            shares.addEdgeTo(shareVertex, 'url', { view: certacrypt_graph_2.SHARE_VIEW });
-            await this.graph.put(shares);
-            debug_1.debug(`created share to vertex ${vertex.getFeed()}/${vertex.getId()} at ${shareVertex.getFeed()}/${shareVertex.getId()}`);
+          let shareView = GRAPH_VIEW
+          if (vertex.getContent()?.typeName === GraphObjects.GraphObjectTypeNames.SPACE) {
+            shareView = Space.SPACE_VIEW
+          }
+          shareVertex = await this.graph.createShare(vertex, { info: 'share by URL', owner: (await this.user).getPublicUrl(), view: shareView })
+          shares.addEdgeTo(shareVertex, 'url', { view: SHARE_VIEW })
+          await this.graph.put(shares)
+    
+          debug(`created share to vertex ${vertex.getFeed()}/${vertex.getId()} at ${shareVertex.getFeed()}/${shareVertex.getId()}`)
         }
-        return shareVertex;
+    
+        return shareVertex
+        */
     }
     async mountShare(target, label, url) {
         const { feed, id, key } = url_1.parseUrl(url);

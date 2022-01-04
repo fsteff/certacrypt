@@ -1,12 +1,116 @@
-import { Edge, Generator, GraphObject, IVertex, QueryResult, QueryState, Vertex, View } from 'hyper-graphdb'
-import { CertaCryptGraph, SHARE_VIEW } from 'certacrypt-graph'
+import { Edge, Generator, GraphObject, GRAPH_VIEW, IVertex, QueryPath, QueryResult, QueryState, STATIC_VIEW, Vertex, View } from 'hyper-graphdb'
+import { CertaCryptGraph, ShareGraphObject, SHARE_VIEW } from 'certacrypt-graph'
 import { CacheDB } from './cacheDB'
 import { CommShare, COMM_PATHS, COMM_VIEW, VirtualCommShareVertex } from './communication'
 import { parseUrl } from './url'
 import { shareMetaData } from './types'
-import { createUrl, URL_TYPES } from '..'
+import { createUrl, CryptoHyperdrive, Shares, URL_TYPES } from '..'
+import { Primitives } from 'certacrypt-crypto'
+import { SpaceQueryState } from './space'
+import { FileNotFound } from 'hyperdrive/lib/errors'
+import { debug } from './debug'
 
 export const DRIVE_SHARE_VIEW = 'DriveShareView'
+
+export class DriveShares {
+  private drive: CryptoHyperdrive
+
+  constructor(readonly graph: CertaCryptGraph, readonly shares: Shares) {}
+
+  async mountAt(drive: CryptoHyperdrive, parentVertex: Vertex<GraphObject>, childLabel: string) {
+    this.drive = drive
+    this.drive.setShares(this)
+
+    let found = false
+    const edges = parentVertex.getEdges().map((edge) => {
+      if (edge.label === childLabel) {
+        edge.view = DRIVE_SHARE_VIEW
+        found = true
+      }
+      return edge
+    })
+    if (!found) {
+      throw new Error('Failed to mount driveshares, no such child')
+    }
+    parentVertex.setEdges(edges)
+    await this.graph.put(parentVertex)
+  }
+
+  async rotateKeysTo(updatedVertex: Vertex<GraphObject>) {
+    const pathVertices = await this.findWriteableVerticesOnPathTo(updatedVertex)
+    const affectedShares = await this.shares.findSharesTo(pathVertices.slice(1))
+
+    // TODO: referrer rotation for spaces
+
+    // do not rotate root vertex & ones that are psv-defined
+    for (const vertex of pathVertices.slice(1)) {
+      this.rotateKey(vertex)
+    }
+
+    // edge keys are updated on put()
+    await this.graph.put(pathVertices.concat(affectedShares))
+  }
+
+  async rotateKeysToPath(path: string) {
+    const root = await this.drive.updateRoot()
+    const states = await this.graph.queryPathAtVertex(path, root).states()
+    const writeable = states.filter((s) => {
+      const v = <Vertex<GraphObject>>s.value
+      return typeof v.getFeed === 'function' && v.getFeed() === root.getFeed()
+    })
+    if (writeable.length === 0) throw new FileNotFound(path)
+    return this.rotateKeysTo(<Vertex<GraphObject>>writeable[0].value)
+  }
+
+  private rotateKey(vertex: Vertex<GraphObject>) {
+    const genkey = Primitives.generateEncryptionKey()
+    this.graph.registerVertexKey(vertex.getId(), vertex.getFeed(), genkey)
+  }
+
+  async findWriteableVerticesOnPathTo(target: Vertex<GraphObject>): Promise<Vertex<GraphObject>[]> {
+    const root = await this.drive.updateRoot()
+    const graphView = this.graph.factory.get(GRAPH_VIEW)
+    const result = await this.findTarget(target, new QueryState(root, [], [], graphView), [])
+    if (!result || result.path.length === 0) {
+      debug('no vertices for found that need key rotation')
+      return []
+    }
+
+    const path = result.path.map((p) => <Vertex<GraphObject>>p.vertex)
+    if (result instanceof SpaceQueryState) {
+      const space = result.space.root
+      path.push(space)
+    }
+    return path.filter((v) => typeof v.getFeed() === 'function' && v.getFeed() === root.getFeed())
+  }
+
+  async getDrivePathTo(target: Vertex<GraphObject>): Promise<string> {
+    const root = await this.drive.updateRoot()
+    const graphView = this.graph.factory.get(GRAPH_VIEW)
+    const result = await this.findTarget(target, new QueryState(root, [], [], graphView), [])
+    return '/' + result.path.map((p) => p.label).join('/')
+  }
+
+  private async findTarget(
+    target: Vertex<GraphObject>,
+    state: QueryState<GraphObject>,
+    visites: IVertex<GraphObject>[]
+  ): Promise<QueryState<GraphObject> | undefined> {
+    const nextStates = await state.view
+      .query(Generator.from([state]))
+      .out()
+      .states()
+    for (const state of nextStates) {
+      if (state.value.equals(target)) return state
+
+      if (visites.findIndex((v) => v.equals(state.value)) >= 0) continue
+      visites.push(state.value)
+
+      const result = await this.findTarget(target, state, visites)
+      if (result) return result
+    }
+  }
+}
 
 export class DriveShareView extends View<GraphObject> {
   public readonly viewName = DRIVE_SHARE_VIEW

@@ -60,6 +60,7 @@ List of links to relevant external resources.
 
 - [A cryptographic file system for UNIX (1993)](https://dl.acm.org/doi/abs/10.1145/168588.168590)
 - [CryFS Master Thesis](https://www.cryfs.org/cryfs_mathesis.pdf)
+- 
 
 ### 5.2 P2P Filesystems
 
@@ -83,6 +84,7 @@ List of links to relevant external resources.
 - [Password Capability System (1986)](https://doi.org/10.1093/comjnl/29.1.1)
 - [Password-Capabilites: their evolution from the pwassword-capability system into Walnut and beyond(2001)](https://doi.org/10.1109/ACAC.2001.903370)
 - [A capability-based transparent cryptographic file system(2005)](https://ieeexplore.ieee.org/abstract/document/1587522)
+- [Cryptree](https://github.com/Peergos/Peergos/blob/master/papers/wuala-cryptree.pdf) (used by Peergos)
   
 ### 5.4 Key Exchange & Cryptography
 

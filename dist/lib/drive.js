@@ -48,6 +48,7 @@ async function cryptoDrive(corestore, graph, crypto, root) {
     drive.promises.unlink = unlink;
     drive.updateRoot = (dir) => meta.updateRoot(dir);
     drive.getSpace = getSpace;
+    drive.setShares = (shares) => meta.setDriveShares(shares);
     return drive;
     function createReadStream(name, opts) {
         name = unixify_1.default(name);

@@ -12,8 +12,7 @@ import { parseUrl, parseUrlResults } from './url'
 import { debug } from './debug'
 import { CollaborationSpace, SpaceQueryState } from './space'
 import { createUrl, URL_TYPES } from '..'
-import { VirtualDriveShareVertex } from './driveshares'
-import { VirtualCommShareVertex } from './communication'
+import { VirtualDriveShareVertex, DriveShares } from './driveshares'
 
 export class MetaStorage {
   private readonly drive: Hyperdrive
@@ -22,6 +21,7 @@ export class MetaStorage {
   private readonly tries: Map<string, MountableHypertrie>
   private readonly crypto: ICrypto
   private currentIdCtr = 0
+  private shares: DriveShares
 
   constructor(drive: Hyperdrive, graph: CertaCryptGraph, root: Vertex<DriveGraphObject>, crypto: ICrypto) {
     this.drive = drive
@@ -38,6 +38,10 @@ export class MetaStorage {
       this.root = <Vertex<Directory>>await this.graph.get(this.root.getId(), this.root.getFeed())
     }
     return <Vertex<Directory>>this.root
+  }
+
+  async setDriveShares(shares: DriveShares) {
+    this.shares = shares
   }
 
   private async uniqueFileId() {
@@ -86,11 +90,12 @@ export class MetaStorage {
     let vertex: Vertex<DriveGraphObject> = parsedFile?.vertex
     const feed = this.drive.key.toString('hex')
     if (parsedFile) {
-      // TODO: always use a new key & update vertex
       if (encrypted) this.crypto.registerKey(parsedFile.mkey, { feed, index: parsedFile.path, type: Cipher.XChaCha20_Blob })
       else this.crypto.registerPublic(feed, parsedFile.path)
 
       fileid = parsedFile.path
+      // rotate encryption key
+      this.graph.registerVertexKey(vertex.getId(), vertex.getFeed(), this.crypto.generateEncryptionKey(Cipher.ChaCha20_Stream))
     } else {
       vertex = this.graph.create<File>()
 
@@ -116,7 +121,7 @@ export class MetaStorage {
 
     debug(`created writeableFile ${filename} as ${encrypted ? 'encrypted' : 'public'} file hyper://${feed}${fileid}`)
 
-    const created = await this.createPath(filename, vertex) //this.graph.createEdgesToPath(filename, this.root, vertex)
+    const created = await this.createPath(filename, vertex)
     // reload root to be sure
     this.root = <Vertex<DriveGraphObject>>await this.graph.get(this.root.getId(), this.root.getFeed())
 
@@ -335,13 +340,16 @@ export class MetaStorage {
       throw new Error('createPath: path is not writeable')
     }
     const lastWriteable = <Vertex<GraphObject>>path.state.value
-    // update vertices to update timestamps
-    const pathWriteables = path.state.path
-      .slice(0, path.state.path.length - 1)
-      .map((p) => <Vertex<GraphObject>>p.vertex)
-      .filter((p) => typeof p.getFeed === 'function' && p.getFeed() === lastWriteable.getFeed() && typeof p.encode === 'function')
-    // TODO: always re-encrypt the complete path to root & update shares
-    if (pathWriteables.length > 0) await this.graph.put(pathWriteables)
+    // update vertices to update timestamps & rotate keys
+    if (this.shares) {
+      await this.shares.rotateKeysTo(lastWriteable)
+    } else {
+      const pathWriteables = path.state.path
+        .slice(0, path.state.path.length - 1)
+        .map((p) => <Vertex<GraphObject>>p.vertex)
+        .filter((p) => typeof p.getFeed === 'function' && p.getFeed() === lastWriteable.getFeed() && typeof p.encode === 'function')
+      if (pathWriteables.length > 0) await this.graph.put(pathWriteables)
+    }
 
     return this.graph.createEdgesToPath(path.remainingPath.join('/'), lastWriteable, leaf)
   }
@@ -454,4 +462,6 @@ export class MetaStorage {
       else return 0
     }
   }
+
+  rotateKeys(vertex: Vertex<GraphObject>) {}
 }

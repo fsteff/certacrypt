@@ -1,12 +1,103 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.VirtualDriveShareVertex = exports.DriveShareView = exports.DRIVE_SHARE_VIEW = void 0;
+exports.VirtualDriveShareVertex = exports.DriveShareView = exports.DriveShares = exports.DRIVE_SHARE_VIEW = void 0;
 const hyper_graphdb_1 = require("hyper-graphdb");
 const certacrypt_graph_1 = require("certacrypt-graph");
 const communication_1 = require("./communication");
 const url_1 = require("./url");
 const __1 = require("..");
+const certacrypt_crypto_1 = require("certacrypt-crypto");
+const space_1 = require("./space");
+const errors_1 = require("hyperdrive/lib/errors");
+const debug_1 = require("./debug");
 exports.DRIVE_SHARE_VIEW = 'DriveShareView';
+class DriveShares {
+    constructor(graph, shares) {
+        this.graph = graph;
+        this.shares = shares;
+    }
+    async mountAt(drive, parentVertex, childLabel) {
+        this.drive = drive;
+        this.drive.setShares(this);
+        let found = false;
+        const edges = parentVertex.getEdges().map((edge) => {
+            if (edge.label === childLabel) {
+                edge.view = exports.DRIVE_SHARE_VIEW;
+                found = true;
+            }
+            return edge;
+        });
+        if (!found) {
+            throw new Error('Failed to mount driveshares, no such child');
+        }
+        parentVertex.setEdges(edges);
+        await this.graph.put(parentVertex);
+    }
+    async rotateKeysTo(updatedVertex) {
+        const pathVertices = await this.findWriteableVerticesOnPathTo(updatedVertex);
+        const affectedShares = await this.shares.findSharesTo(pathVertices.slice(1));
+        // TODO: referrer rotation for spaces
+        // do not rotate root vertex & ones that are psv-defined
+        for (const vertex of pathVertices.slice(1)) {
+            this.rotateKey(vertex);
+        }
+        // edge keys are updated on put()
+        await this.graph.put(pathVertices.concat(affectedShares));
+    }
+    async rotateKeysToPath(path) {
+        const root = await this.drive.updateRoot();
+        const states = await this.graph.queryPathAtVertex(path, root).states();
+        const writeable = states.filter((s) => {
+            const v = s.value;
+            return typeof v.getFeed === 'function' && v.getFeed() === root.getFeed();
+        });
+        if (writeable.length === 0)
+            throw new errors_1.FileNotFound(path);
+        return this.rotateKeysTo(writeable[0].value);
+    }
+    rotateKey(vertex) {
+        const genkey = certacrypt_crypto_1.Primitives.generateEncryptionKey();
+        this.graph.registerVertexKey(vertex.getId(), vertex.getFeed(), genkey);
+    }
+    async findWriteableVerticesOnPathTo(target) {
+        const root = await this.drive.updateRoot();
+        const graphView = this.graph.factory.get(hyper_graphdb_1.GRAPH_VIEW);
+        const result = await this.findTarget(target, new hyper_graphdb_1.QueryState(root, [], [], graphView), []);
+        if (!result || result.path.length === 0) {
+            debug_1.debug('no vertices for found that need key rotation');
+            return [];
+        }
+        const path = result.path.map((p) => p.vertex);
+        if (result instanceof space_1.SpaceQueryState) {
+            const space = result.space.root;
+            path.push(space);
+        }
+        return path.filter((v) => typeof v.getFeed() === 'function' && v.getFeed() === root.getFeed());
+    }
+    async getDrivePathTo(target) {
+        const root = await this.drive.updateRoot();
+        const graphView = this.graph.factory.get(hyper_graphdb_1.GRAPH_VIEW);
+        const result = await this.findTarget(target, new hyper_graphdb_1.QueryState(root, [], [], graphView), []);
+        return '/' + result.path.map((p) => p.label).join('/');
+    }
+    async findTarget(target, state, visites) {
+        const nextStates = await state.view
+            .query(hyper_graphdb_1.Generator.from([state]))
+            .out()
+            .states();
+        for (const state of nextStates) {
+            if (state.value.equals(target))
+                return state;
+            if (visites.findIndex((v) => v.equals(state.value)) >= 0)
+                continue;
+            visites.push(state.value);
+            const result = await this.findTarget(target, state, visites);
+            if (result)
+                return result;
+        }
+    }
+}
+exports.DriveShares = DriveShares;
 class DriveShareView extends hyper_graphdb_1.View {
     constructor(cacheDb, graph, socialRoot, contentEncoding, factory, transactions) {
         super(graph.core, contentEncoding, factory, transactions);

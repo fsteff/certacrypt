@@ -30,6 +30,9 @@ class MetaStorage {
         }
         return this.root;
     }
+    async setDriveShares(shares) {
+        this.shares = shares;
+    }
     async uniqueFileId() {
         const nodes = (await new Promise((resolve, reject) => this.drive.db.list('.enc', { hidden: true }, (err, res) => (err ? reject(err) : resolve(res)))));
         let idCtr = this.currentIdCtr + 1;
@@ -77,6 +80,8 @@ class MetaStorage {
             else
                 this.crypto.registerPublic(feed, parsedFile.path);
             fileid = parsedFile.path;
+            // rotate encryption key
+            this.graph.registerVertexKey(vertex.getId(), vertex.getFeed(), this.crypto.generateEncryptionKey(certacrypt_crypto_1.Cipher.ChaCha20_Stream));
         }
         else {
             vertex = this.graph.create();
@@ -102,7 +107,7 @@ class MetaStorage {
         vertex.setContent(file);
         await this.graph.put(vertex);
         debug_1.debug(`created writeableFile ${filename} as ${encrypted ? 'encrypted' : 'public'} file hyper://${feed}${fileid}`);
-        const created = await this.createPath(filename, vertex); //this.graph.createEdgesToPath(filename, this.root, vertex)
+        const created = await this.createPath(filename, vertex);
         // reload root to be sure
         this.root = await this.graph.get(this.root.getId(), this.root.getFeed());
         for (const { path } of created) {
@@ -312,13 +317,18 @@ class MetaStorage {
             throw new Error('createPath: path is not writeable');
         }
         const lastWriteable = path.state.value;
-        // update vertices to update timestamps
-        const pathWriteables = path.state.path
-            .slice(0, path.state.path.length - 1)
-            .map((p) => p.vertex)
-            .filter((p) => typeof p.getFeed === 'function' && p.getFeed() === lastWriteable.getFeed() && typeof p.encode === 'function');
-        if (pathWriteables.length > 0)
-            await this.graph.put(pathWriteables);
+        // update vertices to update timestamps & rotate keys
+        if (this.shares) {
+            await this.shares.rotateKeysTo(lastWriteable);
+        }
+        else {
+            const pathWriteables = path.state.path
+                .slice(0, path.state.path.length - 1)
+                .map((p) => p.vertex)
+                .filter((p) => typeof p.getFeed === 'function' && p.getFeed() === lastWriteable.getFeed() && typeof p.encode === 'function');
+            if (pathWriteables.length > 0)
+                await this.graph.put(pathWriteables);
+        }
         return this.graph.createEdgesToPath(path.remainingPath.join('/'), lastWriteable, leaf);
     }
     async findWriteablePath(absolutePath) {
@@ -433,6 +443,7 @@ class MetaStorage {
                 return 0;
         }
     }
+    rotateKeys(vertex) { }
 }
 exports.MetaStorage = MetaStorage;
 //# sourceMappingURL=meta.js.map

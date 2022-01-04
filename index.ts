@@ -16,6 +16,7 @@ import { CONTACTS_VIEW, ContactsView, FriendState, Contacts, ContactProfile } fr
 import { Communication, CommunicationView, COMM_PATHS, COMM_VIEW, CommShare } from './lib/communication'
 import * as DriveShare from './lib/driveshares'
 import * as Space from './lib/space'
+import { Shares } from './lib/shares'
 
 export {
   GraphObjects,
@@ -32,7 +33,8 @@ export {
   FriendState,
   CommShare,
   DriveShare,
-  Space
+  Space,
+  Shares
 }
 
 export class CertaCrypt {
@@ -44,6 +46,7 @@ export class CertaCrypt {
   readonly cacheDb: Promise<CacheDB>
   readonly socialRoot: Promise<Vertex<GraphObject>>
   readonly contacts: Promise<Contacts>
+  readonly driveShares: Promise<DriveShare.DriveShares>
 
   readonly tmp: Promise<{ drive: Hyperdrive; rootDir: Vertex<GraphObjects.Directory> }>
 
@@ -125,6 +128,11 @@ export class CertaCrypt {
         }
       })
 
+    this.driveShares = Promise.all([this.user, this.path('shares')]).then(([user, shareRoot]) => {
+      const shares = new Shares(this.graph, user, shareRoot)
+      return new DriveShare.DriveShares(this.graph, shares)
+    })
+
     for (const key in GraphObjects) {
       const Constr = getConstructor(GraphObjects[key])
       if (Constr) {
@@ -175,7 +183,11 @@ export class CertaCrypt {
       })
   }
 
-  public async createShare(vertex: Vertex<GraphObject>, reuseIfExists = true) {
+  public async createShare(vertex: Vertex<GraphObject>, reuseIfExists = false) {
+    const shares = await (await this.driveShares).shares
+    return await shares.createShare(vertex, reuseIfExists)
+
+    /*
     const shares = await this.path('/shares')
 
     let shareVertex: Vertex<ShareGraphObject>
@@ -214,6 +226,7 @@ export class CertaCrypt {
     }
 
     return shareVertex
+    */
   }
 
   public async mountShare(target: Vertex<GraphObject>, label: string, url: string) {

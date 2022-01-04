@@ -14,10 +14,12 @@ import { IVertex } from 'hyper-graphdb/lib/Vertex'
 import { debug } from './debug'
 import { createUrl, parseUrl, URL_TYPES } from '..'
 import { CollaborationSpace, SpaceQueryState } from './space'
+import { DriveShares } from './driveshares'
 
 export type CryptoHyperdrive = Hyperdrive & {
   updateRoot(vertex?: Vertex<Directory>): Promise<Vertex<Directory>>
   getSpace(path: string): Promise<{ space: CollaborationSpace; metadata: spaceMetaData }>
+  setShares(shares: DriveShares)
 }
 
 export async function cryptoDrive(corestore: Corestore, graph: CertaCryptGraph, crypto: ICrypto, root: Vertex<Directory>): Promise<CryptoHyperdrive> {
@@ -59,6 +61,8 @@ export async function cryptoDrive(corestore: Corestore, graph: CertaCryptGraph, 
   drive.promises.unlink = unlink
   drive.updateRoot = (dir?: Vertex<Directory>) => meta.updateRoot(dir)
   drive.getSpace = getSpace
+  drive.setShares = (shares: DriveShares) => meta.setDriveShares(shares)
+
   return drive
 
   function createReadStream(name, opts) {
