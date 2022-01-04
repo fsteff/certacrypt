@@ -80,8 +80,6 @@ class MetaStorage {
             else
                 this.crypto.registerPublic(feed, parsedFile.path);
             fileid = parsedFile.path;
-            // rotate encryption key
-            this.graph.registerVertexKey(vertex.getId(), vertex.getFeed(), this.crypto.generateEncryptionKey(certacrypt_crypto_1.Cipher.ChaCha20_Stream));
         }
         else {
             vertex = this.graph.create();

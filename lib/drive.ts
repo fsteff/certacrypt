@@ -220,7 +220,8 @@ export async function cryptoDrive(corestore: Corestore, graph: CertaCryptGraph, 
     return cb(null, results)
 
     function onError(err: Error) {
-      console.error(`Error on readdir ${name}:\n${err.name}: ${err.message}\n${err.stack ? err.stack : '(no stacktrace available)'}`)
+      console.error(`Error on readdir ${name}:\n${err.name}: ${err.message}`)
+      debug(`Error stacktrace \n${err.stack ? err.stack : '(no stacktrace available)'}`)
     }
   }
 

@@ -7,8 +7,7 @@ const simulator_1 = __importDefault(require("hyperspace/simulator"));
 const tape_1 = __importDefault(require("tape"));
 const certacrypt_crypto_1 = require("certacrypt-crypto");
 const __1 = require("..");
-const debug_1 = require("../lib/debug");
-debug_1.enableDebugLogging();
+// enableDebugLogging()
 const encryptedOpts = { db: { encrypted: true }, encoding: 'utf-8' };
 async function createCertaCrypt(client) {
     const store = client.corestore();
@@ -18,6 +17,7 @@ async function createCertaCrypt(client) {
     return { store, crypto, certacrypt };
 }
 tape_1.default('key rotation', async (t) => {
+    var _a, _b;
     const { client, server, cleanup } = await simulator_1.default();
     await client.ready();
     t.teardown(cleanup);
@@ -40,6 +40,17 @@ tape_1.default('key rotation', async (t) => {
     await aliceDrive.promises.mkdir('/', encryptedOpts);
     await aliceDrive.promises.mkdir('/shares', encryptedOpts);
     await (await alice.certacrypt.driveShares).mountAt(aliceDrive, await alice.certacrypt.path('/apps/drive'), 'shares');
+    //preparing bob
+    const appRootBob = await bob.certacrypt.path('/apps');
+    let bobDriveRoot = bob.certacrypt.graph.create();
+    await bob.certacrypt.graph.put(bobDriveRoot);
+    appRootBob.addEdgeTo(bobDriveRoot, 'drive');
+    await bob.certacrypt.graph.put(appRootBob);
+    const bobDrive = await bob.certacrypt.drive(bobDriveRoot);
+    await bobDrive.promises.mkdir('/', encryptedOpts);
+    await bobDrive.promises.mkdir('/shares', encryptedOpts);
+    await (await bob.certacrypt.driveShares).mountAt(bobDrive, await bob.certacrypt.path('/apps/drive'), 'shares');
+    // test alice's key rotation
     await aliceDrive.promises.mkdir('/space', encryptedOpts);
     const spaceVertexKey = alice.certacrypt.graph.getKey(await alice.certacrypt.path('/apps/drive/space'));
     t.ok(Buffer.isBuffer(spaceVertexKey));
@@ -47,5 +58,40 @@ tape_1.default('key rotation', async (t) => {
     const spaceVertexKey2 = alice.certacrypt.graph.getKey(await alice.certacrypt.path('/apps/drive/space'));
     t.ok(Buffer.isBuffer(spaceVertexKey2));
     t.ok(!spaceVertexKey.equals(spaceVertexKey2));
+    // create shares & mount at bob
+    const spaceVertex = await alice.certacrypt.path('/apps/drive/space');
+    const share1 = await alice.certacrypt.createShare(spaceVertex, true);
+    const share2 = await alice.certacrypt.createShare(spaceVertex, true);
+    const share3 = await alice.certacrypt.createShare(spaceVertex, false);
+    t.ok(share1.equals(share2));
+    t.ok(!share1.equals(share3));
+    const share2Url = __1.createUrl(share2, alice.certacrypt.graph.getKey(share2), undefined, __1.URL_TYPES.SHARE, 'space');
+    const share3Url = __1.createUrl(share3, alice.certacrypt.graph.getKey(share3), undefined, __1.URL_TYPES.SHARE, 'space');
+    await bob.certacrypt.mountShare(await bob.certacrypt.path('/apps/drive'), 'space', share2Url);
+    let dirFiles = await bobDrive.promises.readdir('/space', encryptedOpts);
+    t.same(dirFiles, ['readme.txt']);
+    let fileContent = await bobDrive.promises.readFile('/space/readme.txt', encryptedOpts);
+    t.same(fileContent, 'Hi, I am Alice');
+    await alice.certacrypt.sendShare(share3Url, [bobSeenFromAlice]);
+    const bobShares = await (await bob.certacrypt.contacts).getAllReceivedShares();
+    t.ok(bobShares.length === 1);
+    t.ok(bobShares[0].share.equals(share3));
+    t.ok(bobShares[0].target.equals(spaceVertex));
+    t.same((_a = share2.getContent()) === null || _a === void 0 ? void 0 : _a.revoked, undefined);
+    // revoke file
+    await (await alice.certacrypt.driveShares).revokeShare(share2);
+    await aliceDrive.promises.writeFile('/space/readme.txt', 'Hi, I am Alice 2', encryptedOpts);
+    try {
+        await bob.certacrypt.path('/apps/drive/space');
+        t.fail('supposed to fail');
+    }
+    catch (err) {
+        t.same((_b = err.cause) === null || _b === void 0 ? void 0 : _b.message, 'Share has been revoked');
+    }
+    dirFiles = await bobDrive.promises.readdir('/space', encryptedOpts);
+    t.same(dirFiles, []);
+    const spaceVertexKey3 = alice.certacrypt.graph.getKey(await alice.certacrypt.path('/apps/drive/space'));
+    t.ok(Buffer.isBuffer(spaceVertexKey3));
+    t.ok(!spaceVertexKey2.equals(spaceVertexKey3));
 });
 //# sourceMappingURL=revokation.js.map

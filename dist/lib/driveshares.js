@@ -20,8 +20,11 @@ class DriveShares {
         this.drive = drive;
         this.drive.setShares(this);
         let found = false;
+        let existing = false;
         const edges = parentVertex.getEdges().map((edge) => {
             if (edge.label === childLabel) {
+                if (edge.view === exports.DRIVE_SHARE_VIEW)
+                    existing = true;
                 edge.view = exports.DRIVE_SHARE_VIEW;
                 found = true;
             }
@@ -30,6 +33,9 @@ class DriveShares {
         if (!found) {
             throw new Error('Failed to mount driveshares, no such child');
         }
+        // alread mounted
+        if (existing)
+            return;
         parentVertex.setEdges(edges);
         await this.graph.put(parentVertex);
     }
@@ -42,7 +48,9 @@ class DriveShares {
             this.rotateKey(vertex);
         }
         // edge keys are updated on put()
-        await this.graph.put(pathVertices.concat(affectedShares));
+        const rotated = pathVertices.concat(affectedShares);
+        if (rotated.length > 0)
+            await this.graph.put(rotated);
     }
     async rotateKeysToPath(path) {
         const root = await this.drive.updateRoot();
@@ -55,6 +63,12 @@ class DriveShares {
             throw new errors_1.FileNotFound(path);
         return this.rotateKeysTo(writeable[0].value);
     }
+    async revokeShare(share) {
+        const content = share.getContent() || new certacrypt_graph_1.ShareGraphObject();
+        content.revoked = true;
+        share.setContent(content);
+        await this.graph.put(share);
+    }
     rotateKey(vertex) {
         const genkey = certacrypt_crypto_1.Primitives.generateEncryptionKey();
         this.graph.registerVertexKey(vertex.getId(), vertex.getFeed(), genkey);
@@ -62,7 +76,7 @@ class DriveShares {
     async findWriteableVerticesOnPathTo(target) {
         const root = await this.drive.updateRoot();
         const graphView = this.graph.factory.get(hyper_graphdb_1.GRAPH_VIEW);
-        const result = await this.findTarget(target, new hyper_graphdb_1.QueryState(root, [], [], graphView), []);
+        const result = await this.findTarget(target, new hyper_graphdb_1.QueryState(root, [{ label: '', vertex: root, feed: root.getFeed() }], [], graphView), []);
         if (!result || result.path.length === 0) {
             debug_1.debug('no vertices for found that need key rotation');
             return [];
@@ -72,13 +86,13 @@ class DriveShares {
             const space = result.space.root;
             path.push(space);
         }
-        return path.filter((v) => typeof v.getFeed() === 'function' && v.getFeed() === root.getFeed());
+        return path.filter((v) => typeof v.getFeed === 'function' && v.getFeed() === root.getFeed());
     }
     async getDrivePathTo(target) {
         const root = await this.drive.updateRoot();
         const graphView = this.graph.factory.get(hyper_graphdb_1.GRAPH_VIEW);
-        const result = await this.findTarget(target, new hyper_graphdb_1.QueryState(root, [], [], graphView), []);
-        return '/' + result.path.map((p) => p.label).join('/');
+        const result = await this.findTarget(target, new hyper_graphdb_1.QueryState(root, [{ label: '', vertex: root, feed: root.getFeed() }], [], graphView), []);
+        return result.path.map((p) => p.label).join('/');
     }
     async findTarget(target, state, visites) {
         const nextStates = await state.view

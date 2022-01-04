@@ -22,8 +22,10 @@ export class DriveShares {
     this.drive.setShares(this)
 
     let found = false
+    let existing = false
     const edges = parentVertex.getEdges().map((edge) => {
       if (edge.label === childLabel) {
+        if(edge.view === DRIVE_SHARE_VIEW) existing = true
         edge.view = DRIVE_SHARE_VIEW
         found = true
       }
@@ -32,6 +34,9 @@ export class DriveShares {
     if (!found) {
       throw new Error('Failed to mount driveshares, no such child')
     }
+    // alread mounted
+    if(existing) return
+
     parentVertex.setEdges(edges)
     await this.graph.put(parentVertex)
   }
@@ -48,7 +53,8 @@ export class DriveShares {
     }
 
     // edge keys are updated on put()
-    await this.graph.put(pathVertices.concat(affectedShares))
+    const rotated = pathVertices.concat(affectedShares)
+    if(rotated.length > 0) await this.graph.put(rotated)
   }
 
   async rotateKeysToPath(path: string) {
@@ -62,6 +68,13 @@ export class DriveShares {
     return this.rotateKeysTo(<Vertex<GraphObject>>writeable[0].value)
   }
 
+  async revokeShare(share: Vertex<ShareGraphObject>) {
+    const content = share.getContent() || new ShareGraphObject()
+    content.revoked = true
+    share.setContent(content)
+    await this.graph.put(share)
+  }
+
   private rotateKey(vertex: Vertex<GraphObject>) {
     const genkey = Primitives.generateEncryptionKey()
     this.graph.registerVertexKey(vertex.getId(), vertex.getFeed(), genkey)
@@ -70,7 +83,7 @@ export class DriveShares {
   async findWriteableVerticesOnPathTo(target: Vertex<GraphObject>): Promise<Vertex<GraphObject>[]> {
     const root = await this.drive.updateRoot()
     const graphView = this.graph.factory.get(GRAPH_VIEW)
-    const result = await this.findTarget(target, new QueryState(root, [], [], graphView), [])
+    const result = await this.findTarget(target, new QueryState(root, [{label: '', vertex: root, feed: root.getFeed()}], [], graphView), [])
     if (!result || result.path.length === 0) {
       debug('no vertices for found that need key rotation')
       return []
@@ -81,14 +94,14 @@ export class DriveShares {
       const space = result.space.root
       path.push(space)
     }
-    return path.filter((v) => typeof v.getFeed() === 'function' && v.getFeed() === root.getFeed())
+    return path.filter((v) => typeof v.getFeed === 'function' && v.getFeed() === root.getFeed())
   }
 
   async getDrivePathTo(target: Vertex<GraphObject>): Promise<string> {
     const root = await this.drive.updateRoot()
     const graphView = this.graph.factory.get(GRAPH_VIEW)
-    const result = await this.findTarget(target, new QueryState(root, [], [], graphView), [])
-    return '/' + result.path.map((p) => p.label).join('/')
+    const result = await this.findTarget(target, new QueryState(root, [{label: '', vertex: root, feed: root.getFeed()}], [], graphView), [])
+    return result.path.map((p) => p.label).join('/')
   }
 
   private async findTarget(

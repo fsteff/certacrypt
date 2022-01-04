@@ -94,8 +94,6 @@ export class MetaStorage {
       else this.crypto.registerPublic(feed, parsedFile.path)
 
       fileid = parsedFile.path
-      // rotate encryption key
-      this.graph.registerVertexKey(vertex.getId(), vertex.getFeed(), this.crypto.generateEncryptionKey(Cipher.ChaCha20_Stream))
     } else {
       vertex = this.graph.create<File>()
 

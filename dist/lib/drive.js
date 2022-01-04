@@ -12,6 +12,7 @@ const hyperdrive_1 = __importDefault(require("hyperdrive"));
 const hypercore_byte_stream_1 = __importDefault(require("hypercore-byte-stream"));
 const minipass_1 = __importDefault(require("minipass"));
 const unixify_1 = __importDefault(require("unixify"));
+const debug_1 = require("./debug");
 const __1 = require("..");
 async function cryptoDrive(corestore, graph, crypto, root) {
     var _a, _b;
@@ -187,7 +188,8 @@ async function cryptoDrive(corestore, graph, crypto, root) {
         }
         return cb(null, results);
         function onError(err) {
-            console.error(`Error on readdir ${name}:\n${err.name}: ${err.message}\n${err.stack ? err.stack : '(no stacktrace available)'}`);
+            console.error(`Error on readdir ${name}:\n${err.name}: ${err.message}`);
+            debug_1.debug(`Error stacktrace \n${err.stack ? err.stack : '(no stacktrace available)'}`);
         }
     }
     function mkdir(name, opts, cb) {
