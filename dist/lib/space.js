@@ -7,6 +7,7 @@ const user_1 = require("./user");
 const referrer_1 = require("./referrer");
 const url_1 = require("./url");
 const debug_1 = require("./debug");
+const certacrypt_crypto_1 = require("certacrypt-crypto");
 exports.SPACE_VIEW = 'SpaceView';
 class SpaceQueryState extends hyper_graphdb_1.QueryState {
     constructor(value, path, rules, view, space) {
@@ -132,6 +133,51 @@ class CollaborationSpace {
         }
         return (await dirs[0]).result;
     }
+    async rotateReferrerKeys() {
+        let edges = this.root.getEdges('.').filter((e) => !!e.metadata.refKey);
+        edges = await this.gcReferrers(edges);
+        const latestVersion = Math.max(...edges.map(e => readEdgeVersion(e)));
+        let latestEdges = edges;
+        if (latestVersion > 0) {
+            latestEdges = edges.filter(e => readEdgeVersion(e) === latestVersion);
+        }
+        const newVersion = Buffer.alloc(4);
+        newVersion.writeUInt32LE(latestVersion + 1);
+        const rotated = latestEdges.map(edge => {
+            const newKey = certacrypt_crypto_1.Primitives.generateEncryptionKey();
+            return Object.assign(Object.assign({}, edge), { metadata: Object.assign(Object.assign({}, edge.metadata), { refKey: newKey, version: newVersion }) });
+        });
+        this.root.setEdges(this.root.getEdges().concat(rotated));
+    }
+    async gcReferrers(edges) {
+        const mapped = new Map();
+        edges.forEach(e => {
+            const feed = e.feed.toString('hex');
+            const list = mapped.get(feed) || [];
+            list.push(e);
+            list.sort((e1, e2) => readEdgeVersion(e1) - readEdgeVersion(e2));
+        });
+        let remaining = [];
+        for (const [writerFeed, writerEdges] of mapped.entries()) {
+            let latest = 0;
+            for (const edge of writerEdges) {
+                try {
+                    await this.tryGetReferrer(edge);
+                    latest = Math.max(latest, readEdgeVersion(edge));
+                }
+                catch (err) {
+                    debug_1.debug(`Getting writer ${writerFeed} referrer edge at version ${readEdgeVersion(edge)} failed with error: ${err.message}`);
+                }
+            }
+            remaining = remaining.concat(writerEdges.filter(e => readEdgeVersion(e) >= latest));
+        }
+        return remaining;
+    }
+    async tryGetReferrer(edge) {
+        const view = this.graph.factory.get(referrer_1.REFERRER_VIEW);
+        const state = new SpaceQueryState(this.root, [], [], this.graph.factory.get(hyper_graphdb_1.GRAPH_VIEW), this);
+        return await view.get(edge, state);
+    }
     async createWriteableRoot() {
         const feed = await this.defaultFeed;
         const edge = this.root.getEdges('.').filter((e) => { var _a; return ((_a = e.feed) === null || _a === void 0 ? void 0 : _a.toString('hex')) === feed; })[0];
@@ -179,16 +225,39 @@ class CollaborationSpaceView extends hyper_graphdb_1.View {
         if (((_a = vertex.getContent()) === null || _a === void 0 ? void 0 : _a.typeName) === graphObjects_1.GraphObjectTypeNames.SPACE) {
             let space = new CollaborationSpace(this.graph, vertex, this.user);
             state = new SpaceQueryState(vertex, state.path, state.rules, this, space);
-            const resultingStates = await this.out(state, '.');
+            // TODO: filter referrers to use latest available one (try catch)
+            return await this.getWriters(state);
+            /*
+            const resultingStates = await this.out(state, '.')
             return resultingStates.map(async (next) => {
-                const res = await next;
-                return this.toResult(res.result, edge, state);
-            });
+              const res = await next
+              return this.toResult(res.result, edge, state)
+            })
+            */
         }
         else {
             return [Promise.resolve(this.toResult(vertex, edge, state))];
         }
     }
+    async getWriters(state) {
+        const edges = state.space.root.getEdges('.');
+        const ownerEdges = edges.filter(e => { var _a; return !e.feed || ((_a = e.feed) === null || _a === void 0 ? void 0 : _a.toString('hex')) === state.space.root.getFeed(); });
+        const refEdges = edges.filter(e => { var _a; return !!((_a = e.metadata) === null || _a === void 0 ? void 0 : _a.refKey); });
+        const refResults = (await Promise.all(refEdges.map(e => state.space.tryGetReferrer(e).catch(onError)))).filter(res => !!res);
+        const ownerResult = (await Promise.all(ownerEdges.map(e => this.get(Object.assign(Object.assign({}, e), { feed: e.feed || Buffer.from(state.space.root.getFeed(), 'hex'), view: e.view || hyper_graphdb_1.GRAPH_VIEW }), state))));
+        const results = flatMap(ownerResult.concat(refResults));
+        return results;
+        function onError(err) {
+            debug_1.debug(`Getting writer edge failed with error: ${err.message}`);
+        }
+    }
 }
 exports.CollaborationSpaceView = CollaborationSpaceView;
+function readEdgeVersion(edge) {
+    var _a;
+    return ((_a = edge.metadata.version) === null || _a === void 0 ? void 0 : _a.readUInt32LE()) || 0;
+}
+function flatMap(arr) {
+    return arr.reduce((acc, x) => acc.concat(x), []);
+}
 //# sourceMappingURL=space.js.map

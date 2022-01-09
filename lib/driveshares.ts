@@ -92,7 +92,10 @@ export class DriveShares {
     const path = result.path.map((p) => <Vertex<GraphObject>>p.vertex)
     if (result instanceof SpaceQueryState) {
       const space = result.space.root
-      if(space.getFeed() === root.getFeed()) path.push(space)
+      if(space.getFeed() === root.getFeed()) {
+        path.push(space)
+        await result.space.rotateReferrerKeys()
+      }
     }
 
     const drivesharesIdx = path.findIndex(v => v instanceof VirtualDriveShareVertex)

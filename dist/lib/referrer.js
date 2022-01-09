@@ -30,7 +30,7 @@ class ReferrerView extends hyper_graphdb_1.View {
                 }
                 catch (err) {
                     // referred might not yet exist
-                    console.error(err);
+                    debug_1.debug(err);
                 }
             }
         }

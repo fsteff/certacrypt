@@ -84,8 +84,10 @@ class DriveShares {
         const path = result.path.map((p) => p.vertex);
         if (result instanceof space_1.SpaceQueryState) {
             const space = result.space.root;
-            if (space.getFeed() === root.getFeed())
+            if (space.getFeed() === root.getFeed()) {
                 path.push(space);
+                await result.space.rotateReferrerKeys();
+            }
         }
         const drivesharesIdx = path.findIndex(v => v instanceof VirtualDriveShareVertex);
         if (drivesharesIdx >= 0) {

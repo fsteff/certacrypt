@@ -7,11 +7,13 @@ import { PreSharedGraphObject } from './graphObjects'
 export const REFERRER_VIEW = 'ReferrerView'
 
 export interface ReferrerEdge extends Edge {
-  view: string
+  view: string,
+  feed: Buffer,
   metadata: {
     key: Buffer
     refKey: Buffer
     refLabel: Buffer
+    version?: Buffer 
   }
 }
 
@@ -43,7 +45,7 @@ export class ReferrerView extends View<GraphObject> {
           }
         } catch (err) {
           // referred might not yet exist
-          console.error(err)
+          debug(err)
         }
       }
     }
