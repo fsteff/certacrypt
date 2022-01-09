@@ -92,9 +92,15 @@ export class DriveShares {
     const path = result.path.map((p) => <Vertex<GraphObject>>p.vertex)
     if (result instanceof SpaceQueryState) {
       const space = result.space.root
-      path.push(space)
+      if(space.getFeed() === root.getFeed()) path.push(space)
     }
-    return path.filter((v) => typeof v.getFeed === 'function' && v.getFeed() === root.getFeed())
+
+    const drivesharesIdx = path.findIndex(v => v instanceof VirtualDriveShareVertex)
+    if(drivesharesIdx >= 0) {
+      path.splice(0, drivesharesIdx + 1)
+    }
+
+    return path.filter((v) => this.isWriteable(v, root.getFeed()))
   }
 
   async getDrivePathTo(target: Vertex<GraphObject>): Promise<string> {
@@ -122,6 +128,10 @@ export class DriveShares {
       const result = await this.findTarget(target, state, visites)
       if (result) return result
     }
+  }
+
+  private isWriteable(v: Vertex<GraphObject>, rootFeed: string) {
+    return typeof v.getFeed === 'function' && v.getFeed() === rootFeed && typeof v.encode === 'function'
   }
 }
 

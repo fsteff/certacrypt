@@ -84,9 +84,14 @@ class DriveShares {
         const path = result.path.map((p) => p.vertex);
         if (result instanceof space_1.SpaceQueryState) {
             const space = result.space.root;
-            path.push(space);
+            if (space.getFeed() === root.getFeed())
+                path.push(space);
         }
-        return path.filter((v) => typeof v.getFeed === 'function' && v.getFeed() === root.getFeed());
+        const drivesharesIdx = path.findIndex(v => v instanceof VirtualDriveShareVertex);
+        if (drivesharesIdx >= 0) {
+            path.splice(0, drivesharesIdx + 1);
+        }
+        return path.filter((v) => this.isWriteable(v, root.getFeed()));
     }
     async getDrivePathTo(target) {
         const root = await this.drive.updateRoot();
@@ -109,6 +114,9 @@ class DriveShares {
             if (result)
                 return result;
         }
+    }
+    isWriteable(v, rootFeed) {
+        return typeof v.getFeed === 'function' && v.getFeed() === rootFeed && typeof v.encode === 'function';
     }
 }
 exports.DriveShares = DriveShares;
