@@ -169,6 +169,7 @@ class MetaStorage {
             }
         }
         else {
+            //if(path.endsWith('/.')) path = path.substring(0, path.length - 1)
             const states = await this.graph
                 .queryPathAtVertex(path, this.root, undefined, thombstoneReductor)
                 .matches((v) => !!v.getContent())
@@ -177,7 +178,7 @@ class MetaStorage {
             vertex = this.latestWrite(states.map((s) => s.value));
             space = (_b = states.find((s) => s.value.equals(vertex))) === null || _b === void 0 ? void 0 : _b.space;
             const state = states.find((s) => s.value === vertex);
-            if (state.path.length > 1 && state.path[state.path.length - 2].vertex instanceof driveshares_1.VirtualDriveShareVertex) {
+            if (state && state.path.length > 1 && state.path[state.path.length - 2].vertex instanceof driveshares_1.VirtualDriveShareVertex) {
                 const prev = state.path[state.path.length - 2].vertex;
                 shareMeta = prev.getShareMetaData().find((s) => s.path === path);
                 if (!shareMeta) {
@@ -317,6 +318,9 @@ class MetaStorage {
         const lastWriteable = path.state.value;
         // update vertices to update timestamps & rotate keys
         if (this.shares) {
+            if (path.state instanceof space_1.SpaceQueryState && path.state.space.root.getFeed() !== this.root.getFeed()) {
+                await path.state.space.updateReferrer();
+            }
             await this.shares.rotateKeysTo(lastWriteable);
         }
         else {

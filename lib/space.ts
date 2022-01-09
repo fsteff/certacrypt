@@ -16,13 +16,14 @@ import {
   ValueGenerator
 } from 'hyper-graphdb'
 import { CertaCryptGraph } from 'certacrypt-graph'
-import { DriveGraphObject, GraphObjectTypeNames, PreSharedGraphObject, SpaceGraphObject, UserRoot } from './graphObjects'
+import { Directory, DriveGraphObject, GraphObjectTypeNames, PreSharedGraphObject, SpaceGraphObject, UserRoot } from './graphObjects'
 import { User } from './user'
 import { ReferrerEdge, REFERRER_VIEW, ReferrerView } from './referrer'
 import { parseUrl } from './url'
 import { debug } from './debug'
 import { Primitives } from 'certacrypt-crypto'
 import { Space } from '..'
+import { VirtualDriveShareVertex } from './driveshares'
 
 export const SPACE_VIEW = 'SpaceView'
 
@@ -91,14 +92,6 @@ export class CollaborationSpace {
     })
     await graph.put(parentVertex)
     return new CollaborationSpace(graph, root, user)
-  }
-
-  async createEdgesToPath(path: string, leaf?: Vertex<DriveGraphObject>) {
-    let writeable = await this.tryGetWriteableRoot()
-    if (!writeable) {
-      writeable = await this.createWriteableRoot()
-    }
-    return this.graph.createEdgesToPath(path, writeable, leaf)
   }
 
   async addWriter(user: User, restrictions?: Restriction[]) {
@@ -177,27 +170,31 @@ export class CollaborationSpace {
     if (edges.length === 0) {
       return undefined
     }
-    const dirs = await referrerView.get(<Edge & { feed: Buffer }>edges[0], new QueryState(this.root, [], [], this.graph.factory.get(SPACE_VIEW)))
+    const dir = await this.updateReferrer(edges)
+    return dir
+    /*
+    const dirs = await referrerView.get(<Edge & { feed: Buffer }> latestEdge, new QueryState(this.root, [], [], this.graph.factory.get(SPACE_VIEW)))
     if (dirs.length === 0) {
       debug('tryGetWriteableRoot: empty referrer for feed ' + feed)
       return undefined
     }
     return <Vertex<GraphObject>>(await dirs[0]).result
+    */
   }
 
   async rotateReferrerKeys() {
-    let edges = (<ReferrerEdge[]>this.root.getEdges('.')).filter((e) => !! e.metadata.refKey)
+    let edges = (<ReferrerEdge[]>this.root.getEdges('.')).filter((e) => !!e.metadata.refKey)
     edges = await this.gcReferrers(edges)
 
-    const latestVersion = Math.max(... edges.map(e => readEdgeVersion(e)))
+    const latestVersion = Math.max(...edges.map((e) => readEdgeVersion(e)))
     let latestEdges = edges
-    if(latestVersion > 0) {
-      latestEdges = edges.filter(e => readEdgeVersion(e) === latestVersion)
+    if (latestVersion > 0) {
+      latestEdges = edges.filter((e) => readEdgeVersion(e) === latestVersion)
     }
     const newVersion = Buffer.alloc(4)
-    newVersion.writeUInt32LE(latestVersion + 1)
+    newVersion.writeUInt32LE(latestVersion + 1, 0)
 
-    const rotated = latestEdges.map(edge => {
+    const rotated = latestEdges.map((edge) => {
       const newKey = Primitives.generateEncryptionKey()
       return {
         ...edge,
@@ -210,22 +207,22 @@ export class CollaborationSpace {
     })
 
     this.root.setEdges(this.root.getEdges().concat(rotated))
-    
   }
 
   private async gcReferrers(edges: ReferrerEdge[]): Promise<ReferrerEdge[]> {
     const mapped = new Map<String, ReferrerEdge[]>()
-    edges.forEach(e => {
+    edges.forEach((e) => {
       const feed = e.feed.toString('hex')
       const list = mapped.get(feed) || []
       list.push(e)
       list.sort((e1, e2) => readEdgeVersion(e1) - readEdgeVersion(e2))
+      mapped.set(feed, list)
     })
 
     let remaining: ReferrerEdge[] = []
     for (const [writerFeed, writerEdges] of mapped.entries()) {
       let latest = 0
-      for(const edge of writerEdges) {
+      for (const edge of writerEdges) {
         try {
           await this.tryGetReferrer(edge)
           latest = Math.max(latest, readEdgeVersion(edge))
@@ -233,20 +230,45 @@ export class CollaborationSpace {
           debug(`Getting writer ${writerFeed} referrer edge at version ${readEdgeVersion(edge)} failed with error: ${(<Error>err).message}`)
         }
       }
-      remaining = remaining.concat(writerEdges.filter(e => readEdgeVersion(e) >= latest))
+      remaining = remaining.concat(writerEdges.filter((e) => readEdgeVersion(e) >= latest))
     }
     return remaining
+  }
+
+  async updateReferrer(edges?: ReferrerEdge[]): Promise<Vertex<Directory>> {
+    const feed = await this.defaultFeed
+    if (!edges) {
+      edges = (<ReferrerEdge[]>this.root.getEdges('.')).filter((e) => e.metadata?.refKey && e.feed?.toString('hex') === feed)
+    }
+
+    const graphView = this.graph.factory.get(GRAPH_VIEW)
+    const spaceView = this.graph.factory.get(SPACE_VIEW)
+    const dirs = await Promise.all(
+      await spaceView.get({ ref: this.root.getId(), feed: Buffer.from(this.root.getFeed(), 'hex'), label: '' }, new QueryState(undefined, [], [], graphView))
+    )
+    //const dirs = await Promise.all(await spaceView.out(new SpaceQueryState(this.root, [], [], graphView, this), '.'))
+    const writeable = <Vertex<Directory>>dirs.find((v) => (<Vertex<GraphObject>>v.result).getFeed() === this.user.publicRoot.getFeed())?.result
+    if (writeable) {
+      const latest = latestEdge(edges)
+      if (!this.graph.getKey(writeable).equals(latest.metadata.refKey)) {
+        this.graph.registerVertexKey(writeable.getId(), writeable.getFeed(), latest.metadata.refKey)
+        await this.graph.put(writeable)
+      }
+    } else {
+      debug('tryGetWriteableRoot: empty referrer for feed ' + this.user.publicRoot.getFeed())
+    }
+    return writeable
   }
 
   async tryGetReferrer(edge: ReferrerEdge) {
     const view = this.graph.factory.get(REFERRER_VIEW)
     const state = new SpaceQueryState(this.root, [], [], this.graph.factory.get(GRAPH_VIEW), this)
     return await view.get(edge, state)
-  }  
+  }
 
   async createWriteableRoot() {
     const feed = await this.defaultFeed
-    const edge = <ReferrerEdge | undefined>this.root.getEdges('.').filter((e) => e.feed?.toString('hex') === feed)[0]
+    const edge = latestEdge(<ReferrerEdge[]>this.root.getEdges('.').filter((e) => e.feed?.toString('hex') === feed))
     if (!edge) {
       throw new Error('Insufficient permissions to write to space')
     }
@@ -294,14 +316,11 @@ export class CollaborationSpaceView extends View<GraphObject> {
       let space = new CollaborationSpace(this.graph, <Vertex<SpaceGraphObject>>vertex, this.user)
       state = new SpaceQueryState(vertex, state.path, state.rules, this, space)
       // TODO: filter referrers to use latest available one (try catch)
-      return await this.getWriters(<SpaceQueryState>state)
-      /* 
-      const resultingStates = await this.out(state, '.')
+      const resultingStates = await this.getWriters(<SpaceQueryState>state)
       return resultingStates.map(async (next) => {
         const res = await next
         return this.toResult(res.result, edge, state)
       })
-      */
     } else {
       return [Promise.resolve(this.toResult(vertex, edge, state))]
     }
@@ -309,10 +328,17 @@ export class CollaborationSpaceView extends View<GraphObject> {
 
   private async getWriters(state: SpaceQueryState): Promise<QueryResult<GraphObject>> {
     const edges = state.space.root.getEdges('.')
-    const ownerEdges = edges.filter(e => !e.feed || e.feed?.toString('hex') === state.space.root.getFeed())
-    const refEdges = <ReferrerEdge[]> edges.filter(e => !!(<ReferrerEdge>e).metadata?.refKey)
-    const refResults = <QueryResult<GraphObject>[]> (await Promise.all(refEdges.map(e => state.space.tryGetReferrer(e).catch(onError)))).filter(res => !!res)
-    const ownerResult = (await Promise.all(ownerEdges.map(e => this.get({...e, feed: e.feed || Buffer.from(state.space.root.getFeed(), 'hex'), view: e.view || GRAPH_VIEW}, state))))
+    const ownerEdges = edges.filter((e) => !e.feed || e.feed?.toString('hex') === state.space.root.getFeed())
+    const refEdges = <ReferrerEdge[]>edges.filter((e) => !!(<ReferrerEdge>e).metadata?.refKey)
+    //const refResults = <QueryResult<GraphObject>[]> (await Promise.all(refEdges.map(e => state.space.tryGetReferrer(e).catch(onError)))).filter(res => !!res)
+    let refResults: QueryResult<GraphObject>[] = []
+    for (const e of refEdges) {
+      const res = await state.space.tryGetReferrer(e).catch(onError)
+      if (res) refResults.push(res)
+    }
+    const ownerResult = await Promise.all(
+      ownerEdges.map((e) => this.get({ ...e, feed: e.feed || Buffer.from(state.space.root.getFeed(), 'hex'), view: e.view || GRAPH_VIEW }, state))
+    )
     const results: QueryResult<GraphObject> = flatMap(ownerResult.concat(refResults))
     return results
 
@@ -323,9 +349,14 @@ export class CollaborationSpaceView extends View<GraphObject> {
 }
 
 function readEdgeVersion(edge: ReferrerEdge) {
-  return edge.metadata.version?.readUInt32LE() || 0
+  return edge.metadata.version?.readUInt32LE(0) || 0
 }
 
 function flatMap<T>(arr: T[][]) {
   return arr.reduce((acc, x) => acc.concat(x), [])
+}
+
+function latestEdge(edges: ReferrerEdge[]) {
+  const sorted = edges.slice().sort((e1, e2) => readEdgeVersion(e2) - readEdgeVersion(e1))
+  return sorted[0]
 }

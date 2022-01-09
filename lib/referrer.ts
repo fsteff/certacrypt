@@ -7,13 +7,13 @@ import { PreSharedGraphObject } from './graphObjects'
 export const REFERRER_VIEW = 'ReferrerView'
 
 export interface ReferrerEdge extends Edge {
-  view: string,
-  feed: Buffer,
+  view: string
+  feed: Buffer
   metadata: {
     key: Buffer
     refKey: Buffer
     refLabel: Buffer
-    version?: Buffer 
+    version?: Buffer
   }
 }
 
@@ -45,7 +45,7 @@ export class ReferrerView extends View<GraphObject> {
           }
         } catch (err) {
           // referred might not yet exist
-          debug(err)
+          debug(`cannot access referred vertex from share ${vertex.getId()}@${vertex.getFeed()}: ${(<Error>err).message}`)
         }
       }
     }
@@ -68,7 +68,7 @@ export class ReferrerView extends View<GraphObject> {
     const vertex = await this.db.getInTransaction<GraphObject>(edge.ref, this.codec, tr, feed)
     const edges = vertex.getEdges(edge.metadata.refLabel.toString('base64'))
     if (edges.length === 0) {
-      debug('ReferrerView: empty pre-shared vertex')
+      debug(`ReferrerView: empty pre-shared vertex: ${vertex.getId()}@${vertex.getFeed()}`)
       return []
     }
 

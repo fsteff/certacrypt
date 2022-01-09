@@ -182,6 +182,7 @@ export class MetaStorage {
     let vertex: Vertex<DriveGraphObject>
     let space: CollaborationSpace
     let shareMeta: shareMetaData
+
     if (writeable) {
       const writeablePath = await this.findWriteablePath(path)
       if (!writeablePath) {
@@ -192,6 +193,7 @@ export class MetaStorage {
         vertex = <Vertex<DriveGraphObject>>writeablePath.state.value
       }
     } else {
+      //if(path.endsWith('/.')) path = path.substring(0, path.length - 1)
       const states = await this.graph
         .queryPathAtVertex(path, this.root, undefined, thombstoneReductor)
         .matches((v) => !!v.getContent())
@@ -201,7 +203,7 @@ export class MetaStorage {
       space = (<SpaceQueryState>states.find((s) => s.value.equals(vertex)))?.space
 
       const state = states.find((s) => s.value === vertex)
-      if (state.path.length > 1 && state.path[state.path.length - 2].vertex instanceof VirtualDriveShareVertex) {
+      if (state && state.path.length > 1 && state.path[state.path.length - 2].vertex instanceof VirtualDriveShareVertex) {
         const prev = <VirtualDriveShareVertex>state.path[state.path.length - 2].vertex
         shareMeta = prev.getShareMetaData().find((s) => s.path === path)
         if (!shareMeta) {
@@ -340,6 +342,9 @@ export class MetaStorage {
     const lastWriteable = <Vertex<GraphObject>>path.state.value
     // update vertices to update timestamps & rotate keys
     if (this.shares) {
+      if (path.state instanceof SpaceQueryState && path.state.space.root.getFeed() !== this.root.getFeed()) {
+        await path.state.space.updateReferrer()
+      }
       await this.shares.rotateKeysTo(lastWriteable)
     } else {
       const pathWriteables = path.state.path

@@ -6,7 +6,7 @@ import { parseUrl } from './url'
 import { shareMetaData } from './types'
 import { createUrl, CryptoHyperdrive, Shares, URL_TYPES } from '..'
 import { Primitives } from 'certacrypt-crypto'
-import { SpaceQueryState } from './space'
+import { SpaceQueryState, SPACE_VIEW } from './space'
 import { FileNotFound } from 'hyperdrive/lib/errors'
 import { debug } from './debug'
 
@@ -25,7 +25,7 @@ export class DriveShares {
     let existing = false
     const edges = parentVertex.getEdges().map((edge) => {
       if (edge.label === childLabel) {
-        if(edge.view === DRIVE_SHARE_VIEW) existing = true
+        if (edge.view === DRIVE_SHARE_VIEW) existing = true
         edge.view = DRIVE_SHARE_VIEW
         found = true
       }
@@ -35,7 +35,7 @@ export class DriveShares {
       throw new Error('Failed to mount driveshares, no such child')
     }
     // alread mounted
-    if(existing) return
+    if (existing) return
 
     parentVertex.setEdges(edges)
     await this.graph.put(parentVertex)
@@ -54,7 +54,7 @@ export class DriveShares {
 
     // edge keys are updated on put()
     const rotated = pathVertices.concat(affectedShares)
-    if(rotated.length > 0) await this.graph.put(rotated)
+    if (rotated.length > 0) await this.graph.put(rotated)
   }
 
   async rotateKeysToPath(path: string) {
@@ -69,10 +69,23 @@ export class DriveShares {
   }
 
   async revokeShare(share: Vertex<ShareGraphObject>) {
+    let changes = []
+    const edge = share.getEdges('share')[0]
+    if (edge?.view === SPACE_VIEW) {
+      const view = this.graph.factory.get(GRAPH_VIEW)
+      const result = await view.get({ ...edge, feed: edge.feed || Buffer.from(share.getFeed(), 'hex') }, new QueryState<GraphObject>(share, [], [], view))
+      const state = (await result[0]).state
+      if (!(state instanceof SpaceQueryState)) throw new Error('expected SpaceQueryState')
+      const space = state.space
+      await space.rotateReferrerKeys()
+      changes.push(space.root)
+    }
+
     const content = share.getContent() || new ShareGraphObject()
     content.revoked = true
     share.setContent(content)
-    await this.graph.put(share)
+    changes.push(share)
+    await this.graph.put(changes)
   }
 
   private rotateKey(vertex: Vertex<GraphObject>) {
@@ -83,7 +96,7 @@ export class DriveShares {
   async findWriteableVerticesOnPathTo(target: Vertex<GraphObject>): Promise<Vertex<GraphObject>[]> {
     const root = await this.drive.updateRoot()
     const graphView = this.graph.factory.get(GRAPH_VIEW)
-    const result = await this.findTarget(target, new QueryState(root, [{label: '', vertex: root, feed: root.getFeed()}], [], graphView), [])
+    const result = await this.findTarget(target, new QueryState(root, [{ label: '', vertex: root, feed: root.getFeed() }], [], graphView), [])
     if (!result || result.path.length === 0) {
       debug('no vertices for found that need key rotation')
       return []
@@ -92,14 +105,14 @@ export class DriveShares {
     const path = result.path.map((p) => <Vertex<GraphObject>>p.vertex)
     if (result instanceof SpaceQueryState) {
       const space = result.space.root
-      if(space.getFeed() === root.getFeed()) {
+      if (space.getFeed() === root.getFeed()) {
         path.push(space)
-        await result.space.rotateReferrerKeys()
+        //await result.space.rotateReferrerKeys()
       }
     }
 
-    const drivesharesIdx = path.findIndex(v => v instanceof VirtualDriveShareVertex)
-    if(drivesharesIdx >= 0) {
+    const drivesharesIdx = path.findIndex((v) => v instanceof VirtualDriveShareVertex)
+    if (drivesharesIdx >= 0) {
       path.splice(0, drivesharesIdx + 1)
     }
 
@@ -109,7 +122,7 @@ export class DriveShares {
   async getDrivePathTo(target: Vertex<GraphObject>): Promise<string> {
     const root = await this.drive.updateRoot()
     const graphView = this.graph.factory.get(GRAPH_VIEW)
-    const result = await this.findTarget(target, new QueryState(root, [{label: '', vertex: root, feed: root.getFeed()}], [], graphView), [])
+    const result = await this.findTarget(target, new QueryState(root, [{ label: '', vertex: root, feed: root.getFeed() }], [], graphView), [])
     return result.path.map((p) => p.label).join('/')
   }
 

@@ -64,10 +64,23 @@ class DriveShares {
         return this.rotateKeysTo(writeable[0].value);
     }
     async revokeShare(share) {
+        let changes = [];
+        const edge = share.getEdges('share')[0];
+        if ((edge === null || edge === void 0 ? void 0 : edge.view) === space_1.SPACE_VIEW) {
+            const view = this.graph.factory.get(hyper_graphdb_1.GRAPH_VIEW);
+            const result = await view.get(Object.assign(Object.assign({}, edge), { feed: edge.feed || Buffer.from(share.getFeed(), 'hex') }), new hyper_graphdb_1.QueryState(share, [], [], view));
+            const state = (await result[0]).state;
+            if (!(state instanceof space_1.SpaceQueryState))
+                throw new Error('expected SpaceQueryState');
+            const space = state.space;
+            await space.rotateReferrerKeys();
+            changes.push(space.root);
+        }
         const content = share.getContent() || new certacrypt_graph_1.ShareGraphObject();
         content.revoked = true;
         share.setContent(content);
-        await this.graph.put(share);
+        changes.push(share);
+        await this.graph.put(changes);
     }
     rotateKey(vertex) {
         const genkey = certacrypt_crypto_1.Primitives.generateEncryptionKey();
@@ -86,10 +99,10 @@ class DriveShares {
             const space = result.space.root;
             if (space.getFeed() === root.getFeed()) {
                 path.push(space);
-                await result.space.rotateReferrerKeys();
+                //await result.space.rotateReferrerKeys()
             }
         }
-        const drivesharesIdx = path.findIndex(v => v instanceof VirtualDriveShareVertex);
+        const drivesharesIdx = path.findIndex((v) => v instanceof VirtualDriveShareVertex);
         if (drivesharesIdx >= 0) {
             path.splice(0, drivesharesIdx + 1);
         }

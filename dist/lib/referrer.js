@@ -30,7 +30,7 @@ class ReferrerView extends hyper_graphdb_1.View {
                 }
                 catch (err) {
                     // referred might not yet exist
-                    debug_1.debug(err);
+                    debug_1.debug(`cannot access referred vertex from share ${vertex.getId()}@${vertex.getFeed()}: ${err.message}`);
                 }
             }
         }
@@ -47,7 +47,7 @@ class ReferrerView extends hyper_graphdb_1.View {
         const vertex = await this.db.getInTransaction(edge.ref, this.codec, tr, feed);
         const edges = vertex.getEdges(edge.metadata.refLabel.toString('base64'));
         if (edges.length === 0) {
-            debug_1.debug('ReferrerView: empty pre-shared vertex');
+            debug_1.debug(`ReferrerView: empty pre-shared vertex: ${vertex.getId()}@${vertex.getFeed()}`);
             return [];
         }
         const ref = {
