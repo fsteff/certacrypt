@@ -243,6 +243,7 @@ export class CommunicationView extends View<GraphObject> {
         return msgs
       })
       .flatMap<VirtualCommShareVertex>((msgs: { msg: MsgTypeShare; sharedBy: string }[]) => msgs.map(getShare))
+      .filter((v) => !!v)
     return shares
 
     async function getShare(result: { msg: MsgTypeShare; sharedBy: string }): Promise<VirtualCommShareVertex> {
@@ -266,6 +267,10 @@ export class CommunicationView extends View<GraphObject> {
         .map(async (r) => (await r).result)
         .first()
       const content = shareVertex.getContent()
+      if (content?.revoked) {
+        debug(`skipped revoked received share ${shareVertex.getId()}@${shareVertex.getFeed()}`)
+        return undefined
+      }
       return new VirtualCommShareVertex(content.owner, content.info, parsed.name, shareVertex, targetVertex, result.sharedBy, [userUrl])
     }
   }
@@ -288,6 +293,7 @@ export class CommunicationView extends View<GraphObject> {
         })
       })
       .flatMap<VirtualCommShareVertex>((msgs) => msgs.map(getShare))
+      .filter((v) => !!v)
     return shares
 
     async function getShare(result: { msg: MsgTypeShare; sharedWith: string[] }): Promise<VirtualCommShareVertex> {
@@ -304,8 +310,13 @@ export class CommunicationView extends View<GraphObject> {
       const shareVertex = <Vertex<ShareGraphObject>>await ValueGenerator.from(await self.get({ ...edge, view: GRAPH_VIEW }, state))
         .map(async (r) => (await r).result)
         .first()
-      if (shareVertex.getContent()?.typeName !== SHARE_GRAPHOBJECT || shareVertex.getEdges().length !== 1) {
-        throw new Error('invalid share vertex: type=' + shareVertex.getContent()?.typeName + ' #edges=' + shareVertex.getEdges().length)
+      const shareVertexContent = shareVertex.getContent()
+      if (shareVertexContent?.typeName !== SHARE_GRAPHOBJECT || shareVertex.getEdges().length !== 1) {
+        throw new Error('invalid share vertex: type=' + shareVertexContent?.typeName + ' #edges=' + shareVertex.getEdges().length)
+      }
+      if (shareVertexContent.revoked) {
+        debug(`skipped revoked sent share ${shareVertex.getId()}@${shareVertex.getFeed()}`)
+        return undefined
       }
       const targetVertex = await ValueGenerator.from(await self.get({ ...edge, view: SHARE_VIEW }, state))
         .map(async (r) => (await r).result)
