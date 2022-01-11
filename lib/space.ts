@@ -105,18 +105,51 @@ export class CollaborationSpace {
 
     restrictions = Array.isArray(restrictions)
       ? restrictions
-      : [{ rule: user.publicRoot.getFeed() + '/**/*', except: { rule: user.publicRoot.getFeed() + '/.' } }]
+      : [{ rule: user.publicRoot.getFeed() + '#0/**/*', except: { rule: user.publicRoot.getFeed() + '#0/.' } }]
     await user.referToPresharedVertex(this.root, '.', restrictions)
+  }
+
+  async revokeWriter(user: User) {
+    const version = user.publicRoot.getVersion() + 1 //+1 needed?
+    const feed = user.publicRoot.getFeed()
+    const feedPattern = feed + '#0'
+    const newPattern = feed + '#' + version
+    const edges = this.root.getEdges()
+    
+    for (const edge of edges) {
+      if(edge.feed?.toString('hex') === feed && edge.restrictions) {
+        for(const restriction of edge.restrictions) {
+          patchRestriction(restriction)
+        }
+      }
+    }
+    this.root.setEdges(edges)
+    await this.graph.put(this.root)
+    debug(`space ${this.root.getId()}@${this.root.getFeed()} pinned version of user ${(await user.getProfile())?.username || user.publicRoot.getFeed()} to version ${version}`)
+    
+    function patchRestriction(restriction: Restriction) {
+      restriction.rule = restriction.rule.replace(feedPattern, newPattern)
+      if(restriction.except) patchRestriction(restriction.except)
+    }
   }
 
   userHasWriteAccess(user?: User) {
     const publicRoot = user?.publicRoot || this.user.publicRoot
     if (this.root.getFeed() === publicRoot.getFeed()) return true
+
+    const feed = publicRoot.getFeed()
+    const pinningPattern = new RegExp(feed + '#[1-9].*')
+
     return this.root
       .getEdges('.')
-      .filter((e) => e.view === REFERRER_VIEW && e.feed)
-      .map((e) => e.feed.toString('hex'))
-      .includes(publicRoot.getFeed())
+      .filter((e) => e.view === REFERRER_VIEW && e.feed && e.feed.toString('hex') === feed)
+      .filter((e) => !e.restrictions || ! e.restrictions.find(restrictionIsPinned))
+      .length > 0
+
+    function restrictionIsPinned(restriction: Restriction) {
+      return pinningPattern.test(restriction.rule) || (restriction.except && restrictionIsPinned(restriction.except))
+    }
+    
   }
 
   async getWriters() {
@@ -172,14 +205,6 @@ export class CollaborationSpace {
     }
     const dir = await this.updateReferrer(edges)
     return dir
-    /*
-    const dirs = await referrerView.get(<Edge & { feed: Buffer }> latestEdge, new QueryState(this.root, [], [], this.graph.factory.get(SPACE_VIEW)))
-    if (dirs.length === 0) {
-      debug('tryGetWriteableRoot: empty referrer for feed ' + feed)
-      return undefined
-    }
-    return <Vertex<GraphObject>>(await dirs[0]).result
-    */
   }
 
   async rotateReferrerKeys() {
@@ -250,6 +275,7 @@ export class CollaborationSpace {
     const writeable = <Vertex<Directory>>dirs.find((v) => (<Vertex<GraphObject>>v.result).getFeed() === this.user.publicRoot.getFeed())?.result
     if (writeable) {
       const latest = latestEdge(edges)
+      // TODO: do NOT update if edge is pinned!
       if (!this.graph.getKey(writeable).equals(latest.metadata.refKey)) {
         this.graph.registerVertexKey(writeable.getId(), writeable.getFeed(), latest.metadata.refKey)
         await this.graph.put(writeable)
@@ -307,11 +333,7 @@ export class CollaborationSpaceView extends View<GraphObject> {
       })
     }
 
-    const tr = await this.getTransaction(feed)
-    const vertex = await this.db.getInTransaction<GraphObject>(edge.ref, this.codec, tr, feed).catch((err) => {
-      throw new Errors.VertexLoadingError(err, <string>feed, edge.ref, edge.version, edge.view)
-    })
-
+    const vertex = await this.getVertex(edge, state)
     if (vertex.getContent()?.typeName === GraphObjectTypeNames.SPACE) {
       let space = new CollaborationSpace(this.graph, <Vertex<SpaceGraphObject>>vertex, this.user)
       state = new SpaceQueryState(vertex, state.path, state.rules, this, space)

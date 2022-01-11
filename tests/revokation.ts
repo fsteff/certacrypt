@@ -6,8 +6,9 @@ import { Directory } from '../lib/graphObjects'
 import { enableDebugLogging } from '../lib/debug'
 import { SpaceQueryState } from '../lib/space'
 import { VertexLoadingError } from 'hyper-graphdb/lib/Errors'
+import { GraphObject, Vertex } from 'hyper-graphdb'
 
-//enableDebugLogging()
+enableDebugLogging()
 
 const encryptedOpts = { db: { encrypted: true }, encoding: 'utf-8' }
 
@@ -180,4 +181,85 @@ tape('space key rotation', async (t) => {
   const refKey2 = bob.certacrypt.graph.getKey(await spaceSeenFromBob2.tryGetWriteableRoot())
   t.ok(refKey2)
   t.ok(!refKey1.equals(refKey2))
+})
+
+tape('write revocation', async (t) => {
+  const { client, server, cleanup } = await simulator()
+  await client.ready()
+  t.teardown(cleanup)
+
+  // init users
+  const alice = await createCertaCrypt(client)
+  const bob = await createCertaCrypt(client)
+
+  const aliceUser = await alice.certacrypt.user
+  const bobUser = await bob.certacrypt.user
+  const aliceSeenFromBob = await bob.certacrypt.getUserByUrl(aliceUser.getPublicUrl())
+  let bobSeenFromAlice = await alice.certacrypt.getUserByUrl(bobUser.getPublicUrl())
+  await (await alice.certacrypt.contacts).addFriend(bobSeenFromAlice)
+  await (await bob.certacrypt.contacts).addFriend(aliceSeenFromBob)
+
+  // preparing alice
+  const appRootAlice = await alice.certacrypt.path('/apps')
+  let aliceDriveRoot = alice.certacrypt.graph.create<Directory>()
+  await alice.certacrypt.graph.put(aliceDriveRoot)
+  appRootAlice.addEdgeTo(aliceDriveRoot, 'drive')
+  await alice.certacrypt.graph.put(appRootAlice)
+  const aliceDrive = await alice.certacrypt.drive(aliceDriveRoot)
+  await aliceDrive.promises.mkdir('/', encryptedOpts)
+  await aliceDrive.promises.mkdir('/shares', encryptedOpts)
+  await aliceDrive.promises.mkdir('/space', encryptedOpts)
+  await (await alice.certacrypt.driveShares).mountAt(aliceDrive, await alice.certacrypt.path('/apps/drive'), 'shares')
+  let spaceAlice = await alice.certacrypt.convertToCollaborationSpace('/apps/drive/space')
+  const spaceShareAlice = await alice.certacrypt.createShare(spaceAlice.root)
+  const spaceShareUrl = await alice.certacrypt.createShare(spaceAlice.root, true)
+  await alice.certacrypt.sendShare(spaceShareAlice, [bobSeenFromAlice])
+  await spaceAlice.addWriter(bobSeenFromAlice)
+
+  //preparing bob
+  const appRootBob = await bob.certacrypt.path('/apps')
+  let bobDriveRoot = bob.certacrypt.graph.create<Directory>()
+  await bob.certacrypt.graph.put(bobDriveRoot)
+  appRootBob.addEdgeTo(bobDriveRoot, 'drive')
+  await bob.certacrypt.graph.put(appRootBob)
+  const bobDrive = await bob.certacrypt.drive(bobDriveRoot)
+  await bobDrive.promises.mkdir('/', encryptedOpts)
+  await bobDrive.promises.mkdir('/shares', encryptedOpts)
+  await (await bob.certacrypt.driveShares).mountAt(bobDrive, await bob.certacrypt.path('/apps/drive'), 'shares')
+  const sharePathBob = await bobDrive.promises.readdir('/shares', encryptedOpts)
+  await bobDrive.promises.writeFile('/shares/' + sharePathBob + '/test.txt', 'Hey I am Bob', encryptedOpts)
+
+  // test setup
+  let fileContent = await aliceDrive.promises.readFile('/space/test.txt', encryptedOpts)
+  t.same(fileContent, 'Hey I am Bob')
+  let spaceStatesBob = await bob.certacrypt.graph
+    .queryPathAtVertex('/apps/drive/shares/' + sharePathBob + '/test.txt', await bob.certacrypt.sessionRoot)
+    .states()
+  let spaceSeenFromBob = (<SpaceQueryState>spaceStatesBob[0]).space
+  const refKey1 = bob.certacrypt.graph.getKey(await spaceSeenFromBob.tryGetWriteableRoot())
+  t.ok(refKey1)
+  const fileVertexVersion = (<Vertex<GraphObject>>spaceStatesBob[0].value).getVersion()
+
+  // revoke write access
+  const spaceStatesAlice = await alice.certacrypt.graph
+    .queryPathAtVertex('/apps/drive/space/test.txt', await alice.certacrypt.sessionRoot)
+    .states()
+  spaceAlice = (<SpaceQueryState>spaceStatesAlice[0]).space
+  bobSeenFromAlice = await alice.certacrypt.getUserByUrl(bobUser.getPublicUrl())
+  await spaceAlice.revokeWriter(bobSeenFromAlice)
+  t.notOk(spaceAlice.userHasWriteAccess(bobSeenFromAlice))
+
+  // try to write
+  await bobDrive.promises.writeFile('/shares/' + sharePathBob + '/test.txt', 'Changed it!', encryptedOpts)
+
+  spaceStatesBob = await bob.certacrypt.graph
+  .queryPathAtVertex('/apps/drive/shares/' + sharePathBob + '/test.txt', await bob.certacrypt.sessionRoot)
+  .states()
+  spaceSeenFromBob = (<SpaceQueryState>spaceStatesBob[0]).space
+  t.notOk(spaceSeenFromBob.userHasWriteAccess())
+  t.same((<Vertex<GraphObject>>spaceStatesBob[0].value).getVersion(), bobSeenFromAlice.publicRoot.getVersion())
+
+  fileContent = await aliceDrive.promises.readFile('/space/test.txt', encryptedOpts)
+  t.same(fileContent, 'Hey I am Bob')
+
 })

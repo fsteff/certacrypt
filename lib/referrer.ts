@@ -64,8 +64,7 @@ export class ReferrerView extends View<GraphObject> {
       throw new Error('ReferrerView.get requires metadata.refKey and .refLabel to be set')
     }
 
-    const tr = await this.getTransaction(feed)
-    const vertex = await this.db.getInTransaction<GraphObject>(edge.ref, this.codec, tr, feed)
+    const vertex = await this.getVertex(edge, state)
     const edges = vertex.getEdges(edge.metadata.refLabel.toString('base64'))
     if (edges.length === 0) {
       debug(`ReferrerView: empty pre-shared vertex: ${vertex.getId()}@${vertex.getFeed()}`)
@@ -83,8 +82,15 @@ export class ReferrerView extends View<GraphObject> {
     this.crypto.registerKey(edge.metadata.refKey, { feed: ref.feed, index: ref.id, type: Cipher.ChaCha20_Stream })
 
     const view = this.getView(ref.view)
+    const version = this.pinnedVersion(edge)
+    let intermediateState = state
+    if(version) {
+      // TODO: more tests
+      intermediateState = state.addRestrictions(vertex, [{rule: feed + '#' + version}])      
+    }
+  
     const nextStates = await view
-      .query(Generator.from([state.mergeStates(vertex, state.path, state.rules, state.view)]))
+      .query(Generator.from([state.mergeStates(vertex, state.path, intermediateState.rules, state.view)]))
       .out(ref.label)
       .states()
     if (nextStates.length === 0) throw new Error('vertex has no share edge, cannot use ShareView')

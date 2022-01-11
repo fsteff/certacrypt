@@ -62,18 +62,46 @@ class CollaborationSpace {
         }
         restrictions = Array.isArray(restrictions)
             ? restrictions
-            : [{ rule: user.publicRoot.getFeed() + '/**/*', except: { rule: user.publicRoot.getFeed() + '/.' } }];
+            : [{ rule: user.publicRoot.getFeed() + '#0/**/*', except: { rule: user.publicRoot.getFeed() + '#0/.' } }];
         await user.referToPresharedVertex(this.root, '.', restrictions);
+    }
+    async revokeWriter(user) {
+        var _a, _b;
+        const version = user.publicRoot.getVersion() + 1; //+1 needed?
+        const feed = user.publicRoot.getFeed();
+        const feedPattern = feed + '#0';
+        const newPattern = feed + '#' + version;
+        const edges = this.root.getEdges();
+        for (const edge of edges) {
+            if (((_a = edge.feed) === null || _a === void 0 ? void 0 : _a.toString('hex')) === feed && edge.restrictions) {
+                for (const restriction of edge.restrictions) {
+                    patchRestriction(restriction);
+                }
+            }
+        }
+        this.root.setEdges(edges);
+        await this.graph.put(this.root);
+        debug_1.debug(`space ${this.root.getId()}@${this.root.getFeed()} pinned version of user ${((_b = (await user.getProfile())) === null || _b === void 0 ? void 0 : _b.username) || user.publicRoot.getFeed()} to version ${version}`);
+        function patchRestriction(restriction) {
+            restriction.rule = restriction.rule.replace(feedPattern, newPattern);
+            if (restriction.except)
+                patchRestriction(restriction.except);
+        }
     }
     userHasWriteAccess(user) {
         const publicRoot = (user === null || user === void 0 ? void 0 : user.publicRoot) || this.user.publicRoot;
         if (this.root.getFeed() === publicRoot.getFeed())
             return true;
+        const feed = publicRoot.getFeed();
+        const pinningPattern = new RegExp(feed + '#[1-9].*');
         return this.root
             .getEdges('.')
-            .filter((e) => e.view === referrer_1.REFERRER_VIEW && e.feed)
-            .map((e) => e.feed.toString('hex'))
-            .includes(publicRoot.getFeed());
+            .filter((e) => e.view === referrer_1.REFERRER_VIEW && e.feed && e.feed.toString('hex') === feed)
+            .filter((e) => !e.restrictions || !e.restrictions.find(restrictionIsPinned))
+            .length > 0;
+        function restrictionIsPinned(restriction) {
+            return pinningPattern.test(restriction.rule) || (restriction.except && restrictionIsPinned(restriction.except));
+        }
     }
     async getWriters() {
         return Promise.all((await this.getWriterUrls()).map((url) => this.getUserByUrl(url)));
@@ -121,14 +149,6 @@ class CollaborationSpace {
         }
         const dir = await this.updateReferrer(edges);
         return dir;
-        /*
-        const dirs = await referrerView.get(<Edge & { feed: Buffer }> latestEdge, new QueryState(this.root, [], [], this.graph.factory.get(SPACE_VIEW)))
-        if (dirs.length === 0) {
-          debug('tryGetWriteableRoot: empty referrer for feed ' + feed)
-          return undefined
-        }
-        return <Vertex<GraphObject>>(await dirs[0]).result
-        */
     }
     async rotateReferrerKeys() {
         let edges = this.root.getEdges('.').filter((e) => !!e.metadata.refKey);
@@ -184,6 +204,7 @@ class CollaborationSpace {
         const writeable = (_a = dirs.find((v) => v.result.getFeed() === this.user.publicRoot.getFeed())) === null || _a === void 0 ? void 0 : _a.result;
         if (writeable) {
             const latest = latestEdge(edges);
+            // TODO: do NOT update if edge is pinned!
             if (!this.graph.getKey(writeable).equals(latest.metadata.refKey)) {
                 this.graph.registerVertexKey(writeable.getId(), writeable.getFeed(), latest.metadata.refKey);
                 await this.graph.put(writeable);
@@ -239,10 +260,7 @@ class CollaborationSpaceView extends hyper_graphdb_1.View {
                 throw new hyper_graphdb_1.Errors.VertexLoadingError(err, feed, edge.ref, edge.version);
             });
         }
-        const tr = await this.getTransaction(feed);
-        const vertex = await this.db.getInTransaction(edge.ref, this.codec, tr, feed).catch((err) => {
-            throw new hyper_graphdb_1.Errors.VertexLoadingError(err, feed, edge.ref, edge.version, edge.view);
-        });
+        const vertex = await this.getVertex(edge, state);
         if (((_a = vertex.getContent()) === null || _a === void 0 ? void 0 : _a.typeName) === graphObjects_1.GraphObjectTypeNames.SPACE) {
             let space = new CollaborationSpace(this.graph, vertex, this.user);
             state = new SpaceQueryState(vertex, state.path, state.rules, this, space);

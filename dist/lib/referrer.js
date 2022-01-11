@@ -43,8 +43,7 @@ class ReferrerView extends hyper_graphdb_1.View {
         if (!edge.metadata || !Buffer.isBuffer(edge.metadata.refKey) || !Buffer.isBuffer(edge.metadata.refLabel) || edge.metadata.refLabel.length === 0) {
             throw new Error('ReferrerView.get requires metadata.refKey and .refLabel to be set');
         }
-        const tr = await this.getTransaction(feed);
-        const vertex = await this.db.getInTransaction(edge.ref, this.codec, tr, feed);
+        const vertex = await this.getVertex(edge, state);
         const edges = vertex.getEdges(edge.metadata.refLabel.toString('base64'));
         if (edges.length === 0) {
             debug_1.debug(`ReferrerView: empty pre-shared vertex: ${vertex.getId()}@${vertex.getFeed()}`);
@@ -59,8 +58,14 @@ class ReferrerView extends hyper_graphdb_1.View {
         };
         this.crypto.registerKey(edge.metadata.refKey, { feed: ref.feed, index: ref.id, type: certacrypt_crypto_1.Cipher.ChaCha20_Stream });
         const view = this.getView(ref.view);
+        const version = this.pinnedVersion(edge);
+        let intermediateState = state;
+        if (version) {
+            // TODO: more tests
+            intermediateState = state.addRestrictions(vertex, [{ rule: feed + '#' + version }]);
+        }
         const nextStates = await view
-            .query(hyper_graphdb_1.Generator.from([state.mergeStates(vertex, state.path, state.rules, state.view)]))
+            .query(hyper_graphdb_1.Generator.from([state.mergeStates(vertex, state.path, intermediateState.rules, state.view)]))
             .out(ref.label)
             .states();
         if (nextStates.length === 0)
