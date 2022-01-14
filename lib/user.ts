@@ -213,7 +213,8 @@ export class User {
       feed: Buffer.from(target.getFeed(), 'hex'),
       view: REFERRER_VIEW,
       metadata: { key: this.graph.getKey(target), refKey, refLabel },
-      restrictions
+      restrictions,
+      version: target.getVersion()
     }
     from.addEdge(edge)
     await this.graph.put(from)
