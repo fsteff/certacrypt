@@ -67,9 +67,7 @@ class ReferrerView extends hyper_graphdb_1.View {
         const nextStates = await view
             .query(hyper_graphdb_1.Generator.from([state.mergeStates(vertex, state.path, intermediateState.rules, state.view)]))
             .out(ref.label)
-            .generator()
-            .rawQueryStates();
-        //.states()
+            .states();
         if (nextStates.length === 0)
             throw new Error(`cannot fetch referrer edge ${ref.id}@${ref.feed}, query did not return any results`);
         return nextStates.map(async (next) => {

@@ -62,7 +62,7 @@ class CollaborationSpace {
         }
         restrictions = Array.isArray(restrictions)
             ? restrictions
-            : [{ rule: user.publicRoot.getFeed() + '#0/**/*', except: { rule: user.publicRoot.getFeed() + '#0/.' } }];
+            : [{ rule: user.publicRoot.getFeed() + '#0/**/*', except: { rule: user.publicRoot.getFeed() + '#0/*' } }];
         await user.referToPresharedVertex(this.root, '.', restrictions);
     }
     async revokeWriter(user) {
@@ -118,6 +118,7 @@ class CollaborationSpace {
             .map((v) => v.getContent().owner)
             .filter((url) => url && url.trim().length > 0)
             .destruct();
+        // TODO: check if pinned!
         return [this.getOwnerUrl()].concat(urls);
         function onError(err) {
             console.error(`getWriterUrls: Failed to get Vertex for PreSharedGraphObject in Space ${self.root.getId()}@${self.root.getFeed()}: ${err}`);
@@ -268,7 +269,7 @@ class CollaborationSpaceView extends hyper_graphdb_1.View {
             const resultingStates = await this.getWriters(state);
             return resultingStates.map(async (next) => {
                 const res = await next;
-                return this.toResult(res.result, edge, state);
+                return this.toResult(res.result, edge, res.state);
             });
         }
         else {

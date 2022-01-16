@@ -105,7 +105,7 @@ export class CollaborationSpace {
 
     restrictions = Array.isArray(restrictions)
       ? restrictions
-      : [{ rule: user.publicRoot.getFeed() + '#0/**/*', except: { rule: user.publicRoot.getFeed() + '#0/.' } }]
+      : [{ rule: user.publicRoot.getFeed() + '#0/**/*', except: { rule: user.publicRoot.getFeed() + '#0/*' } }]
     await user.referToPresharedVertex(this.root, '.', restrictions)
   }
 
@@ -168,6 +168,7 @@ export class CollaborationSpace {
       .map((v) => (<IVertex<PreSharedGraphObject>>v).getContent().owner)
       .filter((url) => url && url.trim().length > 0)
       .destruct()
+      // TODO: check if pinned!
     return [this.getOwnerUrl()].concat(urls)
 
     function onError(err: Error) {
@@ -341,7 +342,7 @@ export class CollaborationSpaceView extends View<GraphObject> {
       const resultingStates = await this.getWriters(<SpaceQueryState>state)
       return resultingStates.map(async (next) => {
         const res = await next
-        return this.toResult(res.result, edge, state)
+        return this.toResult(res.result, edge, res.state)
       })
     } else {
       return [Promise.resolve(this.toResult(vertex, edge, state))]
