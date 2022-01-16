@@ -99,17 +99,41 @@ export class CollaborationSpace {
       throw new Error('insufficient permissions, user is not the owner of the space')
     }
 
-    if (this.userHasWriteAccess(user)) {
+    const refs = this.getUserReferrerEdges(user)
+    if(refs.find(e => !this.isUserReferrerPinned(e))) {
       throw new Error('user already has write access to space')
     }
+    const pinned = refs.filter(e => this.isUserReferrerPinned(e))
+    if(pinned.length > 0) {
+      const edges = this.root.getEdges()
+      for (const pinnedEdge of pinned) {
+        const idx = edges.findIndex(e => e.ref === pinnedEdge.ref && e.feed === pinnedEdge.feed)
+        pinnedEdge.restrictions = pinnedEdge.restrictions.map(patchPinRule)
+        edges[idx] = pinnedEdge
+        debug('removed pinning rules for user ' + ((await user.getProfile())?.username || user.publicRoot.getFeed()))
+      }
+      this.root.setEdges(edges)
+      await this.graph.put(this.root)
+    }
+
 
     restrictions = Array.isArray(restrictions)
       ? restrictions
       : [{ rule: user.publicRoot.getFeed() + '#0/**/*', except: { rule: user.publicRoot.getFeed() + '#0/*' } }]
     await user.referToPresharedVertex(this.root, '.', restrictions)
+
+    function patchPinRule(rule: Restriction) {
+      const patched = rule.rule.replace(/#[1-9]+/, '#0')
+      return {
+        rule: patched,
+        except: rule.except ? patchPinRule(rule.except) : undefined
+      }
+    }
   }
 
   async revokeWriter(user: User) {
+    if(!this.userHasWriteAccess(user)) throw new Error('user aready does not have write access')
+
     const version = user.publicRoot.getVersion() + 1 //+1 needed?
     const feed = user.publicRoot.getFeed()
     const feedPattern = feed + '#0'
@@ -137,19 +161,24 @@ export class CollaborationSpace {
     }
   }
 
-  userHasWriteAccess(user?: User) {
+  userHasWriteAccess(user?: User): boolean {
     const publicRoot = user?.publicRoot || this.user.publicRoot
     if (this.root.getFeed() === publicRoot.getFeed()) return true
 
-    const feed = publicRoot.getFeed()
-    const pinningPattern = new RegExp(feed + '#[1-9].*')
+    return this.getUserReferrerEdges(publicRoot).filter(e => !this.isUserReferrerPinned(e)).length > 0
+  }
 
-    return (
-      this.root
-        .getEdges('.')
+  private getUserReferrerEdges(user: User | Vertex<GraphObject>) {
+    const publicRoot = user instanceof User ? user.publicRoot : user
+    const feed = publicRoot.getFeed()
+    return <Array<Edge & {feed: Buffer}>> this.root.getEdges('.')
         .filter((e) => e.view === REFERRER_VIEW && e.feed && e.feed.toString('hex') === feed)
-        .filter((e) => !e.restrictions || !e.restrictions.find(restrictionIsPinned)).length > 0
-    )
+  }
+
+  private isUserReferrerPinned(edge: Edge & {feed: Buffer}) {
+    const feed = edge.feed.toString('hex')
+    const pinningPattern = new RegExp(feed + '#[1-9].*')
+    return edge.restrictions && !!edge.restrictions.find(restrictionIsPinned)
 
     function restrictionIsPinned(restriction: Restriction) {
       return pinningPattern.test(restriction.rule) || (restriction.except && restrictionIsPinned(restriction.except))

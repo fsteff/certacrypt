@@ -239,10 +239,9 @@ tape('write revocation', async (t) => {
   let spaceSeenFromBob = (<SpaceQueryState>spaceStatesBob[0]).space
   const refKey1 = bob.certacrypt.graph.getKey(await spaceSeenFromBob.tryGetWriteableRoot())
   t.ok(refKey1)
-  const fileVertexVersion = (<Vertex<GraphObject>>spaceStatesBob[0].value).getVersion()
 
   // revoke write access
-  const spaceStatesAlice = await alice.certacrypt.graph.queryPathAtVertex('/apps/drive/space/test.txt', await alice.certacrypt.sessionRoot).states()
+  let spaceStatesAlice = await alice.certacrypt.graph.queryPathAtVertex('/apps/drive/space/test.txt', await alice.certacrypt.sessionRoot).states()
   spaceAlice = (<SpaceQueryState>spaceStatesAlice[0]).space
   bobSeenFromAlice = await alice.certacrypt.getUserByUrl(bobUser.getPublicUrl())
   await spaceAlice.revokeWriter(bobSeenFromAlice)
@@ -258,4 +257,11 @@ tape('write revocation', async (t) => {
 
   fileContent = await aliceDrive.promises.readFile('/space/test.txt', encryptedOpts)
   t.same(fileContent, 'Hey I am Bob')
+
+  spaceStatesAlice = await alice.certacrypt.graph.queryPathAtVertex('/apps/drive/space/test.txt', await alice.certacrypt.sessionRoot).states()
+  spaceAlice = (<SpaceQueryState>spaceStatesAlice[0]).space
+  await spaceAlice.addWriter(bobSeenFromAlice)
+
+  fileContent = await aliceDrive.promises.readFile('/space/test.txt', encryptedOpts)
+  t.same(fileContent, 'Changed it!')
 })

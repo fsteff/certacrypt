@@ -54,19 +54,42 @@ class CollaborationSpace {
         return new CollaborationSpace(graph, root, user);
     }
     async addWriter(user, restrictions) {
+        var _a;
         if (this.user.publicRoot.getFeed() !== this.root.getFeed()) {
             throw new Error('insufficient permissions, user is not the owner of the space');
         }
-        if (this.userHasWriteAccess(user)) {
+        const refs = this.getUserReferrerEdges(user);
+        if (refs.find(e => !this.isUserReferrerPinned(e))) {
             throw new Error('user already has write access to space');
+        }
+        const pinned = refs.filter(e => this.isUserReferrerPinned(e));
+        if (pinned.length > 0) {
+            const edges = this.root.getEdges();
+            for (const pinnedEdge of pinned) {
+                const idx = edges.findIndex(e => e.ref === pinnedEdge.ref && e.feed === pinnedEdge.feed);
+                pinnedEdge.restrictions = pinnedEdge.restrictions.map(patchPinRule);
+                edges[idx] = pinnedEdge;
+                debug_1.debug('removed pinning rules for user ' + (((_a = (await user.getProfile())) === null || _a === void 0 ? void 0 : _a.username) || user.publicRoot.getFeed()));
+            }
+            this.root.setEdges(edges);
+            await this.graph.put(this.root);
         }
         restrictions = Array.isArray(restrictions)
             ? restrictions
             : [{ rule: user.publicRoot.getFeed() + '#0/**/*', except: { rule: user.publicRoot.getFeed() + '#0/*' } }];
         await user.referToPresharedVertex(this.root, '.', restrictions);
+        function patchPinRule(rule) {
+            const patched = rule.rule.replace(/#[1-9]+/, '#0');
+            return {
+                rule: patched,
+                except: rule.except ? patchPinRule(rule.except) : undefined
+            };
+        }
     }
     async revokeWriter(user) {
         var _a, _b;
+        if (!this.userHasWriteAccess(user))
+            throw new Error('user aready does not have write access');
         const version = user.publicRoot.getVersion() + 1; //+1 needed?
         const feed = user.publicRoot.getFeed();
         const feedPattern = feed + '#0';
@@ -92,12 +115,18 @@ class CollaborationSpace {
         const publicRoot = (user === null || user === void 0 ? void 0 : user.publicRoot) || this.user.publicRoot;
         if (this.root.getFeed() === publicRoot.getFeed())
             return true;
+        return this.getUserReferrerEdges(publicRoot).filter(e => !this.isUserReferrerPinned(e)).length > 0;
+    }
+    getUserReferrerEdges(user) {
+        const publicRoot = user instanceof user_1.User ? user.publicRoot : user;
         const feed = publicRoot.getFeed();
+        return this.root.getEdges('.')
+            .filter((e) => e.view === referrer_1.REFERRER_VIEW && e.feed && e.feed.toString('hex') === feed);
+    }
+    isUserReferrerPinned(edge) {
+        const feed = edge.feed.toString('hex');
         const pinningPattern = new RegExp(feed + '#[1-9].*');
-        return (this.root
-            .getEdges('.')
-            .filter((e) => e.view === referrer_1.REFERRER_VIEW && e.feed && e.feed.toString('hex') === feed)
-            .filter((e) => !e.restrictions || !e.restrictions.find(restrictionIsPinned)).length > 0);
+        return edge.restrictions && !!edge.restrictions.find(restrictionIsPinned);
         function restrictionIsPinned(restriction) {
             return pinningPattern.test(restriction.rule) || (restriction.except && restrictionIsPinned(restriction.except));
         }
