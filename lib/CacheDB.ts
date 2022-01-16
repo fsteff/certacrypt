@@ -1,6 +1,6 @@
-import { Corestore, Vertex, GraphObject } from 'hyper-graphdb'
-import { ICrypto, Primitives } from 'certacrypt-crypto'
-import { CertaCryptGraph } from 'certacrypt-graph'
+import { Corestore, Vertex, GraphObject } from '@certacrypt/hyper-graphdb'
+import { ICrypto, Primitives } from '@certacrypt/certacrypt-crypto'
+import { CertaCryptGraph } from '@certacrypt/certacrypt-graph'
 import wrapHypercore from './js/cryptoCore'
 import HyperTrie from 'hypertrie'
 

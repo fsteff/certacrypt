@@ -8,8 +8,8 @@ const graphObjects_1 = require("../lib/graphObjects");
 const random_access_memory_1 = __importDefault(require("random-access-memory"));
 const corestore_1 = __importDefault(require("corestore"));
 const tape_1 = __importDefault(require("tape"));
-const certacrypt_graph_1 = require("certacrypt-graph");
-const certacrypt_crypto_1 = require("certacrypt-crypto");
+const certacrypt_graph_1 = require("@certacrypt/certacrypt-graph");
+const certacrypt_crypto_1 = require("@certacrypt/certacrypt-crypto");
 const encryptedOpts = { db: { encrypted: true }, encoding: 'utf-8' };
 async function createDB() {
     const store = new corestore_1.default(random_access_memory_1.default);

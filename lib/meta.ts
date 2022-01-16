@@ -1,17 +1,17 @@
 import { CB0, Hyperdrive, shareMetaData, spaceMetaData, Stat } from './types'
-import { CertaCryptGraph } from 'certacrypt-graph'
-import { Generator, GraphObject, GRAPH_VIEW, QueryState, Vertex } from 'hyper-graphdb'
+import { CertaCryptGraph } from '@certacrypt/certacrypt-graph'
+import { Generator, GraphObject, GRAPH_VIEW, QueryState, Vertex } from '@certacrypt/hyper-graphdb'
 import { Directory, DriveGraphObject, File, GraphObjectTypeNames, Thombstone } from './graphObjects'
 import { FileNotFound, PathAlreadyExists } from 'hyperdrive/lib/errors'
 import { cryptoTrie } from './crypto'
-import { Cipher, ICrypto } from 'certacrypt-crypto'
+import { Cipher, ICrypto } from '@certacrypt/certacrypt-crypto'
 import MountableHypertrie from 'mountable-hypertrie'
 import { Feed } from 'hyperobjects'
 import { Stat as TrieStat } from 'hyperdrive-schemas'
 import { parseUrl, parseUrlResults } from './url'
 import { debug } from './debug'
 import { CollaborationSpace, SpaceQueryState } from './space'
-import { createUrl, CryptoHyperdrive, URL_TYPES } from '..'
+import { createUrl, URL_TYPES } from '..'
 import { VirtualDriveShareVertex, DriveShares } from './driveshares'
 
 export class MetaStorage {
@@ -313,7 +313,13 @@ export class MetaStorage {
     }
     if (writeable.remainingPath.length === 0) {
       const file = <Vertex<GraphObject>>writeable.state.value
-      const parent = <Vertex<GraphObject>>writeable.state.path[writeable.state.path.length - 2].vertex
+      let parent: Vertex<GraphObject>
+      if (writeable.state.path.length >= 2) {
+        parent = <Vertex<GraphObject>>writeable.state.path[writeable.state.path.length - 2]?.vertex
+      } else {
+        parent = this.root
+      }
+
       parent.replaceEdgeTo(file, (_edge) => {
         return {
           ref: thombstone.getId(),

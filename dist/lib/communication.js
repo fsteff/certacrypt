@@ -8,8 +8,8 @@ var __asyncValues = (this && this.__asyncValues) || function (o) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.VirtualCommShareVertex = exports.CommShare = exports.CommunicationView = exports.Communication = exports.COMM_VIEW = exports.COMM_PATHS = void 0;
-const certacrypt_graph_1 = require("certacrypt-graph");
-const hyper_graphdb_1 = require("hyper-graphdb");
+const certacrypt_graph_1 = require("@certacrypt/certacrypt-graph");
+const hyper_graphdb_1 = require("@certacrypt/hyper-graphdb");
 const graphObjects_1 = require("./graphObjects");
 const url_1 = require("./url");
 const debug_1 = require("./debug");

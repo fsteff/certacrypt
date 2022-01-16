@@ -20,11 +20,10 @@ var __importStar = (this && this.__importStar) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.CertaCrypt = exports.Shares = exports.Space = exports.DriveShare = exports.CommShare = exports.FriendState = exports.ContactProfile = exports.Contacts = exports.Inbox = exports.User = exports.URL_TYPES = exports.parseUrl = exports.createUrl = exports.enableDebugLogging = exports.ShareGraphObject = exports.GraphObjects = void 0;
-const certacrypt_crypto_1 = require("certacrypt-crypto");
-const certacrypt_graph_1 = require("certacrypt-graph");
-const certacrypt_graph_2 = require("certacrypt-graph");
-Object.defineProperty(exports, "ShareGraphObject", { enumerable: true, get: function () { return certacrypt_graph_2.ShareGraphObject; } });
-const hyper_graphdb_1 = require("hyper-graphdb");
+const certacrypt_crypto_1 = require("@certacrypt/certacrypt-crypto");
+const certacrypt_graph_1 = require("@certacrypt/certacrypt-graph");
+Object.defineProperty(exports, "ShareGraphObject", { enumerable: true, get: function () { return certacrypt_graph_1.ShareGraphObject; } });
+const hyper_graphdb_1 = require("@certacrypt/hyper-graphdb");
 const GraphObjects = __importStar(require("./lib/graphObjects"));
 exports.GraphObjects = GraphObjects;
 const url_1 = require("./lib/url");
@@ -175,51 +174,11 @@ class CertaCrypt {
     async createShare(vertex, reuseIfExists = false) {
         const shares = await (await this.driveShares).shares;
         return await shares.createShare(vertex, reuseIfExists);
-        /*
-        const shares = await this.path('/shares')
-    
-        let shareVertex: Vertex<ShareGraphObject>
-        if (reuseIfExists) {
-          // checks if exists + loads the keys into the crypto key store
-          const view = this.graph.factory.get(STATIC_VIEW)
-          const matching = await view
-            .query(Generator.from([new QueryState(shares, [], [], view)]))
-            .out('url', view)
-            .generator()
-            .filter(async (share) => {
-              const target = await view
-                .query(Generator.from([new QueryState(share, [], [], view)]))
-                .out('share')
-                .matches((v) => v.equals(vertex))
-                .generator()
-                .destruct()
-              return target.length > 0
-            })
-            .destruct()
-          if (matching.length > 0) {
-            shareVertex = <Vertex<ShareGraphObject>>matching[0]
-          }
-        }
-    
-        if (!shareVertex) {
-          let shareView = GRAPH_VIEW
-          if (vertex.getContent()?.typeName === GraphObjects.GraphObjectTypeNames.SPACE) {
-            shareView = Space.SPACE_VIEW
-          }
-          shareVertex = await this.graph.createShare(vertex, { info: 'share by URL', owner: (await this.user).getPublicUrl(), view: shareView })
-          shares.addEdgeTo(shareVertex, 'url', { view: SHARE_VIEW })
-          await this.graph.put(shares)
-    
-          debug(`created share to vertex ${vertex.getFeed()}/${vertex.getId()} at ${shareVertex.getFeed()}/${shareVertex.getId()}`)
-        }
-    
-        return shareVertex
-        */
     }
     async mountShare(target, label, url) {
         const { feed, id, key } = url_1.parseUrl(url);
         const vertex = await this.graph.get(id, feed, key);
-        target.addEdgeTo(vertex, label, { view: certacrypt_graph_2.SHARE_VIEW });
+        target.addEdgeTo(vertex, label, { view: certacrypt_graph_1.SHARE_VIEW });
         await this.graph.put(target);
         debug_1.debug(`mounted share from URL ${url} to ${target.getFeed()}/${target.getId()}->${label}`);
         debug_1.debug(await this.debugDrawGraph());
@@ -300,6 +259,12 @@ class CertaCrypt {
         }
         await this.graph.put(shares);
         return space;
+    }
+    async getSpaceForPath(path) {
+        const states = await this.graph.queryPathAtVertex(path, await this.sessionRoot).states();
+        if (states.length === 0 || !(states[0] instanceof Space.SpaceQueryState))
+            throw new Error('cannot find space for path ' + path);
+        return states[0].space;
     }
     async debugDrawGraph(root, currentDepth = 0, label = '/', visited = new Set(), view) {
         var _a, _b;

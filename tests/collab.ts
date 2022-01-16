@@ -1,12 +1,12 @@
 import simulator from 'hyperspace/simulator'
 import tape from 'tape'
-import { DefaultCrypto } from 'certacrypt-crypto'
+import { DefaultCrypto } from '@certacrypt/certacrypt-crypto'
 import { CertaCrypt } from '..'
 import { Directory } from '../lib/graphObjects'
 import { enableDebugLogging } from '../lib/debug'
 import { SpaceQueryState } from '../lib/space'
-import { ShareGraphObject, SHARE_VIEW } from 'certacrypt-graph'
-import { Vertex } from 'hyper-graphdb'
+import { ShareGraphObject, SHARE_VIEW } from '@certacrypt/certacrypt-graph'
+import { Vertex } from '@certacrypt/hyper-graphdb'
 import { readdirResult, spaceMetaData, Stat } from '../lib/types'
 
 //enableDebugLogging()

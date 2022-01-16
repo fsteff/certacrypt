@@ -3,7 +3,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-const certacrypt_crypto_1 = require("certacrypt-crypto");
+const certacrypt_crypto_1 = require("@certacrypt/certacrypt-crypto");
 const hyperspace_1 = require("hyperspace");
 const simulator_1 = __importDefault(require("hyperspace/simulator"));
 const __1 = require("..");

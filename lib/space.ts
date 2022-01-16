@@ -14,14 +14,14 @@ import {
   Generator,
   STATIC_VIEW,
   ValueGenerator
-} from 'hyper-graphdb'
-import { CertaCryptGraph } from 'certacrypt-graph'
+} from '@certacrypt/hyper-graphdb'
+import { CertaCryptGraph } from '@certacrypt/certacrypt-graph'
 import { Directory, DriveGraphObject, GraphObjectTypeNames, PreSharedGraphObject, SpaceGraphObject, UserRoot } from './graphObjects'
 import { User } from './user'
 import { ReferrerEdge, REFERRER_VIEW, ReferrerView } from './referrer'
 import { parseUrl } from './url'
 import { debug } from './debug'
-import { Primitives } from 'certacrypt-crypto'
+import { Primitives } from '@certacrypt/certacrypt-crypto'
 import { Space } from '..'
 import { VirtualDriveShareVertex } from './driveshares'
 
@@ -100,14 +100,14 @@ export class CollaborationSpace {
     }
 
     const refs = this.getUserReferrerEdges(user)
-    if(refs.find(e => !this.isUserReferrerPinned(e))) {
+    if (refs.find((e) => !this.isUserReferrerPinned(e))) {
       throw new Error('user already has write access to space')
     }
-    const pinned = refs.filter(e => this.isUserReferrerPinned(e))
-    if(pinned.length > 0) {
+    const pinned = refs.filter((e) => this.isUserReferrerPinned(e))
+    if (pinned.length > 0) {
       const edges = this.root.getEdges()
       for (const pinnedEdge of pinned) {
-        const idx = edges.findIndex(e => e.ref === pinnedEdge.ref && e.feed === pinnedEdge.feed)
+        const idx = edges.findIndex((e) => e.ref === pinnedEdge.ref && e.feed === pinnedEdge.feed)
         pinnedEdge.restrictions = pinnedEdge.restrictions.map(patchPinRule)
         edges[idx] = pinnedEdge
         debug('removed pinning rules for user ' + ((await user.getProfile())?.username || user.publicRoot.getFeed()))
@@ -115,7 +115,6 @@ export class CollaborationSpace {
       this.root.setEdges(edges)
       await this.graph.put(this.root)
     }
-
 
     restrictions = Array.isArray(restrictions)
       ? restrictions
@@ -132,7 +131,7 @@ export class CollaborationSpace {
   }
 
   async revokeWriter(user: User) {
-    if(!this.userHasWriteAccess(user)) throw new Error('user aready does not have write access')
+    if (!this.userHasWriteAccess(user)) throw new Error('user aready does not have write access')
 
     const version = user.publicRoot.getVersion() + 1 //+1 needed?
     const feed = user.publicRoot.getFeed()
@@ -165,17 +164,16 @@ export class CollaborationSpace {
     const publicRoot = user?.publicRoot || this.user.publicRoot
     if (this.root.getFeed() === publicRoot.getFeed()) return true
 
-    return this.getUserReferrerEdges(publicRoot).filter(e => !this.isUserReferrerPinned(e)).length > 0
+    return this.getUserReferrerEdges(publicRoot).filter((e) => !this.isUserReferrerPinned(e)).length > 0
   }
 
   private getUserReferrerEdges(user: User | Vertex<GraphObject>) {
     const publicRoot = user instanceof User ? user.publicRoot : user
     const feed = publicRoot.getFeed()
-    return <Array<Edge & {feed: Buffer}>> this.root.getEdges('.')
-        .filter((e) => e.view === REFERRER_VIEW && e.feed && e.feed.toString('hex') === feed)
+    return <Array<Edge & { feed: Buffer }>>this.root.getEdges('.').filter((e) => e.view === REFERRER_VIEW && e.feed && e.feed.toString('hex') === feed)
   }
 
-  private isUserReferrerPinned(edge: Edge & {feed: Buffer}) {
+  private isUserReferrerPinned(edge: Edge & { feed: Buffer }) {
     const feed = edge.feed.toString('hex')
     const pinningPattern = new RegExp(feed + '#[1-9].*')
     return edge.restrictions && !!edge.restrictions.find(restrictionIsPinned)
@@ -192,16 +190,18 @@ export class CollaborationSpace {
   async getWriterUrls() {
     const self = this
     const view = this.graph.factory.get(STATIC_VIEW)
-    const urls = await view
+    const states = await view
       .query(Generator.from([new QueryState(this.root, [], [], view)]))
       .out('.')
       .matches((v) => v.getContent()?.typeName === GraphObjectTypeNames.PRESHARED)
       .generator()
-      .values(onError)
-      .map((v) => (<IVertex<PreSharedGraphObject>>v).getContent().owner)
+      .rawQueryStates(onError)
+
+    const urls = states
+      .filter((s) => !s.restrictsVersion((<Vertex<PreSharedGraphObject>>s.value).getFeed()))
+      .map((s) => (<IVertex<PreSharedGraphObject>>s.value).getContent().owner)
       .filter((url) => url && url.trim().length > 0)
-      .destruct()
-    // TODO: check if pinned!
+
     return [this.getOwnerUrl()].concat(urls)
 
     function onError(err: Error) {

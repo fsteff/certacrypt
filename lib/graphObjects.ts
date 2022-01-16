@@ -1,4 +1,4 @@
-import { GraphObject } from 'hyper-graphdb'
+import { GraphObject } from '@certacrypt/hyper-graphdb'
 import { json } from 'codecs'
 
 export enum GraphObjectTypeNames {

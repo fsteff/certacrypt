@@ -1,6 +1,6 @@
-import { GraphObject, HyperGraphDB, Restriction, SimpleGraphObject, Vertex } from 'hyper-graphdb'
-import { Cipher, ICrypto, Primitives } from 'certacrypt-crypto'
-import { CertaCryptGraph, CryptoCore } from 'certacrypt-graph'
+import { GraphObject, Restriction, Vertex } from '@certacrypt/hyper-graphdb'
+import { Cipher, ICrypto, Primitives } from '@certacrypt/certacrypt-crypto'
+import { CertaCryptGraph, CryptoCore } from '@certacrypt/certacrypt-graph'
 import { GraphObjectTypeNames, PreSharedGraphObject, UserKey, UserProfile, UserRoot } from './graphObjects'
 import { ReferrerEdge, REFERRER_VIEW } from './referrer'
 import { Inbox } from './inbox'
@@ -84,7 +84,7 @@ export class User {
   async getInbox(update = false) {
     if (update) {
       const feed = await this.graph.core.getStore(this.publicRoot.getFeed())
-      await feed.feed.update(this.publicRoot.getVersion(), 500).catch((err: Error) => console.log(err.message))
+      await feed.feed.update(this.publicRoot.getVersion(), 100).catch((err: Error) => console.log(err.message))
     }
 
     const inboxVertex = await this.graph

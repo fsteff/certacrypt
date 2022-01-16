@@ -4,7 +4,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.cryptoDrive = void 0;
-const certacrypt_crypto_1 = require("certacrypt-crypto");
+const certacrypt_crypto_1 = require("@certacrypt/certacrypt-crypto");
 const crypto_1 = require("./crypto");
 const graphObjects_1 = require("./graphObjects");
 const meta_1 = require("./meta");

@@ -1,6 +1,6 @@
 {
-  "name": "certacrypt",
-  "version": "0.1.0",
+  "name": "@certacrypt/certacrypt",
+  "version": "1.0.0",
   "description": "",
   "main": "index.js",
   "scripts": {
@@ -26,14 +26,14 @@
   },
   "homepage": "https://github.com/fsteff/certacrypt#readme",
   "dependencies": {
+    "@certacrypt/certacrypt-crypto": "^1.0.0",
+    "@certacrypt/certacrypt-graph": "^1.0.0",
+    "@certacrypt/hyper-graphdb": "^1.0.1",
     "@types/codecs": "^2.2.3",
     "@types/tape": "^4.13.2",
     "@types/unixify": "^1.0.0",
     "bulk-write-stream": "^2.0.1",
-    "certacrypt-crypto": "git+https://github.com/fsteff/certacrypt-crypto.git",
-    "certacrypt-graph": "git+https://github.com/fsteff/certacrypt-graph.git",
     "codecs": "^2.2.0",
-    "hyper-graphdb": "git+https://github.com/fsteff/hyper-graphdb.git",
     "hyperdrive": "git+https://github.com/fsteff/hyperdrive.git",
     "hyperobjects": "^0.3.1",
     "hypertrie": "^5.1.2",

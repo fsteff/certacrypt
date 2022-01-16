@@ -1,11 +1,11 @@
-import { Edge, Generator, GraphObject, GRAPH_VIEW, IVertex, QueryPath, QueryResult, QueryState, STATIC_VIEW, Vertex, View } from 'hyper-graphdb'
-import { CertaCryptGraph, ShareGraphObject, SHARE_VIEW } from 'certacrypt-graph'
+import { Edge, Generator, GraphObject, GRAPH_VIEW, IVertex, QueryResult, QueryState, Vertex, View } from '@certacrypt/hyper-graphdb'
+import { CertaCryptGraph, ShareGraphObject, SHARE_VIEW } from '@certacrypt/certacrypt-graph'
 import { CacheDB } from './cacheDB'
 import { CommShare, COMM_PATHS, COMM_VIEW, VirtualCommShareVertex } from './communication'
 import { parseUrl } from './url'
 import { shareMetaData } from './types'
 import { createUrl, CryptoHyperdrive, Shares, URL_TYPES } from '..'
-import { Primitives } from 'certacrypt-crypto'
+import { Primitives } from '@certacrypt/certacrypt-crypto'
 import { SpaceQueryState, SPACE_VIEW } from './space'
 import { FileNotFound } from 'hyperdrive/lib/errors'
 import { debug } from './debug'
@@ -214,7 +214,7 @@ export class DriveShareView extends View<GraphObject> {
 type shareMeta = shareMetaData & { label: string }
 
 export class VirtualDriveShareVertex implements IVertex<GraphObject> {
-  constructor(private edges: Edge[], private realVertex: Vertex<GraphObject>, private meta: shareMeta[]) {}
+  constructor(private edges: Edge[], readonly realVertex: Vertex<GraphObject>, private meta: shareMeta[]) {}
 
   getContent(): GraphObject {
     return this.realVertex.getContent()

@@ -4,7 +4,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.wrapTrie = exports.cryptoTrie = exports.cryptoCorestore = exports.blobDecryptor = exports.blobEncryptor = exports.streamDecryptor = exports.streamEncryptor = void 0;
-const certacrypt_crypto_1 = require("certacrypt-crypto");
+const certacrypt_crypto_1 = require("@certacrypt/certacrypt-crypto");
 const CryptoCore_1 = __importDefault(require("./js/CryptoCore"));
 const mountable_hypertrie_1 = __importDefault(require("mountable-hypertrie"));
 function streamEncryptor(crypto, feedKeyId) {

@@ -1,5 +1,5 @@
-import { Generator, GraphObject, GRAPH_VIEW, QueryState, STATIC_VIEW, Vertex } from 'hyper-graphdb'
-import { CertaCryptGraph, ShareGraphObject, SHARE_VIEW } from 'certacrypt-graph'
+import { Generator, GraphObject, GRAPH_VIEW, QueryState, STATIC_VIEW, Vertex } from '@certacrypt/hyper-graphdb'
+import { CertaCryptGraph, ShareGraphObject, SHARE_VIEW } from '@certacrypt/certacrypt-graph'
 import { SPACE_VIEW } from './space'
 import { GraphObjectTypeNames } from './graphObjects'
 

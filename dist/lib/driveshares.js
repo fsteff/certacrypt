@@ -1,12 +1,12 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.VirtualDriveShareVertex = exports.DriveShareView = exports.DriveShares = exports.DRIVE_SHARE_VIEW = void 0;
-const hyper_graphdb_1 = require("hyper-graphdb");
-const certacrypt_graph_1 = require("certacrypt-graph");
+const hyper_graphdb_1 = require("@certacrypt/hyper-graphdb");
+const certacrypt_graph_1 = require("@certacrypt/certacrypt-graph");
 const communication_1 = require("./communication");
 const url_1 = require("./url");
 const __1 = require("..");
-const certacrypt_crypto_1 = require("certacrypt-crypto");
+const certacrypt_crypto_1 = require("@certacrypt/certacrypt-crypto");
 const space_1 = require("./space");
 const errors_1 = require("hyperdrive/lib/errors");
 const debug_1 = require("./debug");

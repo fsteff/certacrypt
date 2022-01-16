@@ -1,13 +1,13 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.CollaborationSpaceView = exports.CollaborationSpace = exports.SpaceQueryState = exports.SPACE_VIEW = void 0;
-const hyper_graphdb_1 = require("hyper-graphdb");
+const hyper_graphdb_1 = require("@certacrypt/hyper-graphdb");
 const graphObjects_1 = require("./graphObjects");
 const user_1 = require("./user");
 const referrer_1 = require("./referrer");
 const url_1 = require("./url");
 const debug_1 = require("./debug");
-const certacrypt_crypto_1 = require("certacrypt-crypto");
+const certacrypt_crypto_1 = require("@certacrypt/certacrypt-crypto");
 exports.SPACE_VIEW = 'SpaceView';
 class SpaceQueryState extends hyper_graphdb_1.QueryState {
     constructor(value, path, rules, view, space) {
@@ -59,14 +59,14 @@ class CollaborationSpace {
             throw new Error('insufficient permissions, user is not the owner of the space');
         }
         const refs = this.getUserReferrerEdges(user);
-        if (refs.find(e => !this.isUserReferrerPinned(e))) {
+        if (refs.find((e) => !this.isUserReferrerPinned(e))) {
             throw new Error('user already has write access to space');
         }
-        const pinned = refs.filter(e => this.isUserReferrerPinned(e));
+        const pinned = refs.filter((e) => this.isUserReferrerPinned(e));
         if (pinned.length > 0) {
             const edges = this.root.getEdges();
             for (const pinnedEdge of pinned) {
-                const idx = edges.findIndex(e => e.ref === pinnedEdge.ref && e.feed === pinnedEdge.feed);
+                const idx = edges.findIndex((e) => e.ref === pinnedEdge.ref && e.feed === pinnedEdge.feed);
                 pinnedEdge.restrictions = pinnedEdge.restrictions.map(patchPinRule);
                 edges[idx] = pinnedEdge;
                 debug_1.debug('removed pinning rules for user ' + (((_a = (await user.getProfile())) === null || _a === void 0 ? void 0 : _a.username) || user.publicRoot.getFeed()));
@@ -115,13 +115,12 @@ class CollaborationSpace {
         const publicRoot = (user === null || user === void 0 ? void 0 : user.publicRoot) || this.user.publicRoot;
         if (this.root.getFeed() === publicRoot.getFeed())
             return true;
-        return this.getUserReferrerEdges(publicRoot).filter(e => !this.isUserReferrerPinned(e)).length > 0;
+        return this.getUserReferrerEdges(publicRoot).filter((e) => !this.isUserReferrerPinned(e)).length > 0;
     }
     getUserReferrerEdges(user) {
         const publicRoot = user instanceof user_1.User ? user.publicRoot : user;
         const feed = publicRoot.getFeed();
-        return this.root.getEdges('.')
-            .filter((e) => e.view === referrer_1.REFERRER_VIEW && e.feed && e.feed.toString('hex') === feed);
+        return this.root.getEdges('.').filter((e) => e.view === referrer_1.REFERRER_VIEW && e.feed && e.feed.toString('hex') === feed);
     }
     isUserReferrerPinned(edge) {
         const feed = edge.feed.toString('hex');
@@ -137,16 +136,16 @@ class CollaborationSpace {
     async getWriterUrls() {
         const self = this;
         const view = this.graph.factory.get(hyper_graphdb_1.STATIC_VIEW);
-        const urls = await view
+        const states = await view
             .query(hyper_graphdb_1.Generator.from([new hyper_graphdb_1.QueryState(this.root, [], [], view)]))
             .out('.')
             .matches((v) => { var _a; return ((_a = v.getContent()) === null || _a === void 0 ? void 0 : _a.typeName) === graphObjects_1.GraphObjectTypeNames.PRESHARED; })
             .generator()
-            .values(onError)
-            .map((v) => v.getContent().owner)
-            .filter((url) => url && url.trim().length > 0)
-            .destruct();
-        // TODO: check if pinned!
+            .rawQueryStates(onError);
+        const urls = states
+            .filter((s) => !s.restrictsVersion(s.value.getFeed()))
+            .map((s) => s.value.getContent().owner)
+            .filter((url) => url && url.trim().length > 0);
         return [this.getOwnerUrl()].concat(urls);
         function onError(err) {
             console.error(`getWriterUrls: Failed to get Vertex for PreSharedGraphObject in Space ${self.root.getId()}@${self.root.getFeed()}: ${err}`);

@@ -4,8 +4,8 @@ import { Directory, File, Thombstone } from '../lib/graphObjects'
 import RAM from 'random-access-memory'
 import Corestore from 'corestore'
 import tape from 'tape'
-import { CertaCryptGraph } from 'certacrypt-graph'
-import { Cipher, DefaultCrypto } from 'certacrypt-crypto'
+import { CertaCryptGraph } from '@certacrypt/certacrypt-graph'
+import { Cipher, DefaultCrypto } from '@certacrypt/certacrypt-crypto'
 
 const encryptedOpts = { db: { encrypted: true }, encoding: 'utf-8' }
 

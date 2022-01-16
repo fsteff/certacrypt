@@ -1,5 +1,5 @@
-import { ICrypto, Cipher } from 'certacrypt-crypto'
-import { Core, Corestore } from 'hyper-graphdb'
+import { ICrypto, Cipher } from '@certacrypt/certacrypt-crypto'
+import { Core, Corestore } from '@certacrypt/hyper-graphdb'
 import { Feed } from 'hyperobjects'
 import { CB1, CBF } from './types'
 import wrapHypercore from './js/CryptoCore'

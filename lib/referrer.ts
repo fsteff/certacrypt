@@ -1,6 +1,6 @@
-import { Cipher, ICrypto } from 'certacrypt-crypto'
-import { CryptoCore } from 'certacrypt-graph'
-import { Edge, Generator, GraphObject, GRAPH_VIEW, IVertex, QueryResult, QueryState, Vertex, View } from 'hyper-graphdb'
+import { Cipher, ICrypto } from '@certacrypt/certacrypt-crypto'
+import { CryptoCore } from '@certacrypt/certacrypt-graph'
+import { Edge, Generator, GraphObject, GRAPH_VIEW, QueryResult, QueryState, Vertex, View } from '@certacrypt/hyper-graphdb'
 import { debug } from './debug'
 import { PreSharedGraphObject } from './graphObjects'
 

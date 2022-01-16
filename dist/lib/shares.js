@@ -1,8 +1,8 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.Shares = exports.SHARE_TYPE_USER = exports.SHARE_TYPE_URL = void 0;
-const hyper_graphdb_1 = require("hyper-graphdb");
-const certacrypt_graph_1 = require("certacrypt-graph");
+const hyper_graphdb_1 = require("@certacrypt/hyper-graphdb");
+const certacrypt_graph_1 = require("@certacrypt/certacrypt-graph");
 const space_1 = require("./space");
 const graphObjects_1 = require("./graphObjects");
 exports.SHARE_TYPE_URL = 'url';

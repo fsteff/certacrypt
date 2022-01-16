@@ -1,7 +1,7 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.Inbox = exports.ENVELOPE_EDGE = exports.ENVELOPE_VIEW = void 0;
-const certacrypt_crypto_1 = require("certacrypt-crypto");
+const certacrypt_crypto_1 = require("@certacrypt/certacrypt-crypto");
 exports.ENVELOPE_VIEW = 'EnvelopeView';
 exports.ENVELOPE_EDGE = 'mail';
 class Inbox {

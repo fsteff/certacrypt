@@ -1,7 +1,7 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.VirtualGraphObject = exports.JsonGraphObject = exports.SpaceGraphObject = exports.PreSharedGraphObject = exports.UserProfile = exports.UserKey = exports.UserRoot = exports.Thombstone = exports.Directory = exports.File = exports.DriveGraphObject = exports.GraphObjectTypeNames = void 0;
-const hyper_graphdb_1 = require("hyper-graphdb");
+const hyper_graphdb_1 = require("@certacrypt/hyper-graphdb");
 const codecs_1 = require("codecs");
 var GraphObjectTypeNames;
 (function (GraphObjectTypeNames) {

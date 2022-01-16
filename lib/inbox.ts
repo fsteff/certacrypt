@@ -1,6 +1,6 @@
-import { ICrypto, Cipher } from 'certacrypt-crypto'
-import { CertaCryptGraph } from 'certacrypt-graph'
-import { Edge, GraphObject, HyperGraphDB, IVertex, Vertex, VertexQueries, View } from 'hyper-graphdb'
+import { ICrypto, Cipher } from '@certacrypt/certacrypt-crypto'
+import { CertaCryptGraph } from '@certacrypt/certacrypt-graph'
+import { Edge, GraphObject, HyperGraphDB, IVertex, Vertex, VertexQueries, View } from '@certacrypt/hyper-graphdb'
 import { User } from './user'
 
 export const ENVELOPE_VIEW = 'EnvelopeView'

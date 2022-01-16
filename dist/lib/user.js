@@ -1,7 +1,7 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.User = exports.USER_PATHS = void 0;
-const certacrypt_crypto_1 = require("certacrypt-crypto");
+const certacrypt_crypto_1 = require("@certacrypt/certacrypt-crypto");
 const graphObjects_1 = require("./graphObjects");
 const referrer_1 = require("./referrer");
 const inbox_1 = require("./inbox");
@@ -73,7 +73,7 @@ class User {
     async getInbox(update = false) {
         if (update) {
             const feed = await this.graph.core.getStore(this.publicRoot.getFeed());
-            await feed.feed.update(this.publicRoot.getVersion(), 500).catch((err) => console.log(err.message));
+            await feed.feed.update(this.publicRoot.getVersion(), 100).catch((err) => console.log(err.message));
         }
         const inboxVertex = await this.graph
             .queryAtVertex(this.publicRoot)

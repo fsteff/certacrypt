@@ -1,12 +1,12 @@
 import simulator from 'hyperspace/simulator'
 import tape from 'tape'
-import { DefaultCrypto } from 'certacrypt-crypto'
+import { DefaultCrypto } from '@certacrypt/certacrypt-crypto'
 import { CertaCrypt, createUrl, URL_TYPES } from '..'
 import { Directory } from '../lib/graphObjects'
 import { enableDebugLogging } from '../lib/debug'
 import { SpaceQueryState } from '../lib/space'
 import { VertexLoadingError } from 'hyper-graphdb/lib/Errors'
-import { GraphObject, Vertex } from 'hyper-graphdb'
+import { GraphObject, Vertex } from '@certacrypt/hyper-graphdb'
 
 //enableDebugLogging()
 

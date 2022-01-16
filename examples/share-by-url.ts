@@ -1,5 +1,5 @@
-import { DefaultCrypto } from 'certacrypt-crypto'
-import { Corestore, Vertex } from 'hyper-graphdb'
+import { DefaultCrypto } from '@certacrypt/certacrypt-crypto'
+import { Corestore, Vertex } from '@certacrypt/hyper-graphdb'
 import { Client, Server } from 'hyperspace'
 import simulator from 'hyperspace/simulator'
 import { CertaCrypt } from '..'

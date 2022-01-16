@@ -1,5 +1,5 @@
-import { Edge, Generator, GraphObject, IVertex, QueryResult, QueryState, Vertex, VertexQueries, View, ValueGenerator } from 'hyper-graphdb'
-import { CertaCryptGraph, CryptoCore } from 'certacrypt-graph'
+import { Edge, Generator, GraphObject, IVertex, QueryResult, QueryState, Vertex, VertexQueries, View, ValueGenerator } from '@certacrypt/hyper-graphdb'
+import { CertaCryptGraph, CryptoCore } from '@certacrypt/certacrypt-graph'
 import { CacheDB } from './cacheDB'
 import { User, USER_PATHS } from './user'
 import { UserProfile, UserRoot } from './graphObjects'

@@ -1,5 +1,5 @@
 import { Feed } from 'hyperobjects'
-import { Corestore } from 'hyper-graphdb'
+import { Corestore } from '@certacrypt/hyper-graphdb'
 import codecs, { CodecInput as Codec } from 'codecs'
 import { EventEmitter } from 'events'
 import { ReadStream, WriteStream } from 'fs'

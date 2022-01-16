@@ -1,8 +1,8 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.ReferrerView = exports.REFERRER_VIEW = void 0;
-const certacrypt_crypto_1 = require("certacrypt-crypto");
-const hyper_graphdb_1 = require("hyper-graphdb");
+const certacrypt_crypto_1 = require("@certacrypt/certacrypt-crypto");
+const hyper_graphdb_1 = require("@certacrypt/hyper-graphdb");
 const debug_1 = require("./debug");
 exports.REFERRER_VIEW = 'ReferrerView';
 class ReferrerView extends hyper_graphdb_1.View {

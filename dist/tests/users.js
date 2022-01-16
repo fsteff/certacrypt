@@ -5,9 +5,9 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 const simulator_1 = __importDefault(require("hyperspace/simulator"));
 const tape_1 = __importDefault(require("tape"));
-const certacrypt_crypto_1 = require("certacrypt-crypto");
+const certacrypt_crypto_1 = require("@certacrypt/certacrypt-crypto");
 const __1 = require("..");
-const hyper_graphdb_1 = require("hyper-graphdb");
+const hyper_graphdb_1 = require("@certacrypt/hyper-graphdb");
 const communication_1 = require("../lib/communication");
 const contacts_1 = require("../lib/contacts");
 const graphObjects_1 = require("../lib/graphObjects");

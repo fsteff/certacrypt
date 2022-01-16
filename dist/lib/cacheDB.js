@@ -4,7 +4,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.CacheDB = void 0;
-const certacrypt_crypto_1 = require("certacrypt-crypto");
+const certacrypt_crypto_1 = require("@certacrypt/certacrypt-crypto");
 const cryptoCore_1 = __importDefault(require("./js/cryptoCore"));
 const hypertrie_1 = __importDefault(require("hypertrie"));
 class CacheDB {

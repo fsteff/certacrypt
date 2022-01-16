@@ -1,11 +1,11 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.MetaStorage = void 0;
-const hyper_graphdb_1 = require("hyper-graphdb");
+const hyper_graphdb_1 = require("@certacrypt/hyper-graphdb");
 const graphObjects_1 = require("./graphObjects");
 const errors_1 = require("hyperdrive/lib/errors");
 const crypto_1 = require("./crypto");
-const certacrypt_crypto_1 = require("certacrypt-crypto");
+const certacrypt_crypto_1 = require("@certacrypt/certacrypt-crypto");
 const hyperdrive_schemas_1 = require("hyperdrive-schemas");
 const url_1 = require("./url");
 const debug_1 = require("./debug");
@@ -268,6 +268,7 @@ class MetaStorage {
         });
     }
     async unlink(name) {
+        var _a;
         const path = name.split('/').filter((p) => p.length > 0);
         if (path.length === 0)
             throw new Error('cannot unlink root');
@@ -285,7 +286,13 @@ class MetaStorage {
         }
         if (writeable.remainingPath.length === 0) {
             const file = writeable.state.value;
-            const parent = writeable.state.path[writeable.state.path.length - 2].vertex;
+            let parent;
+            if (writeable.state.path.length >= 2) {
+                parent = (_a = writeable.state.path[writeable.state.path.length - 2]) === null || _a === void 0 ? void 0 : _a.vertex;
+            }
+            else {
+                parent = this.root;
+            }
             parent.replaceEdgeTo(file, (_edge) => {
                 return {
                     ref: thombstone.getId(),

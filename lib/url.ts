@@ -1,4 +1,4 @@
-import { GraphObject, Vertex } from 'hyper-graphdb'
+import { GraphObject, Vertex } from '@certacrypt/hyper-graphdb'
 import unixify from 'unixify'
 
 export const URL_TYPES = {

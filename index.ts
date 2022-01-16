@@ -1,14 +1,12 @@
-import { Cipher, ICrypto } from 'certacrypt-crypto'
-import { CertaCryptGraph } from 'certacrypt-graph'
-import { ShareGraphObject, SHARE_VIEW } from 'certacrypt-graph'
-import { Corestore, Generator, GraphObject, GRAPH_VIEW, QueryState, SimpleGraphObject, STATIC_VIEW, Vertex } from 'hyper-graphdb'
+import { Cipher, ICrypto } from '@certacrypt/certacrypt-crypto'
+import { ShareGraphObject, SHARE_VIEW, CertaCryptGraph, CryptoCore } from '@certacrypt/certacrypt-graph'
+import { Corestore, GraphObject, SimpleGraphObject, STATIC_VIEW, Vertex } from '@certacrypt/hyper-graphdb'
 import * as GraphObjects from './lib/graphObjects'
 import { parseUrl, createUrl, URL_TYPES } from './lib/url'
 import { cryptoDrive, CryptoHyperdrive } from './lib/drive'
 import { Hyperdrive } from './lib/types'
 import { enableDebugLogging, debug } from './lib/debug'
 import { REFERRER_VIEW, ReferrerView } from './lib/referrer'
-import { CryptoCore } from 'certacrypt-graph'
 import { User, USER_PATHS } from './lib/user'
 import { Inbox } from './lib/inbox'
 import { CacheDB } from './lib/cacheDB'
@@ -186,47 +184,6 @@ export class CertaCrypt {
   public async createShare(vertex: Vertex<GraphObject>, reuseIfExists = false) {
     const shares = await (await this.driveShares).shares
     return await shares.createShare(vertex, reuseIfExists)
-
-    /*
-    const shares = await this.path('/shares')
-
-    let shareVertex: Vertex<ShareGraphObject>
-    if (reuseIfExists) {
-      // checks if exists + loads the keys into the crypto key store
-      const view = this.graph.factory.get(STATIC_VIEW)
-      const matching = await view
-        .query(Generator.from([new QueryState(shares, [], [], view)]))
-        .out('url', view)
-        .generator()
-        .filter(async (share) => {
-          const target = await view
-            .query(Generator.from([new QueryState(share, [], [], view)]))
-            .out('share')
-            .matches((v) => v.equals(vertex))
-            .generator()
-            .destruct()
-          return target.length > 0
-        })
-        .destruct()
-      if (matching.length > 0) {
-        shareVertex = <Vertex<ShareGraphObject>>matching[0]
-      }
-    }
-
-    if (!shareVertex) {
-      let shareView = GRAPH_VIEW
-      if (vertex.getContent()?.typeName === GraphObjects.GraphObjectTypeNames.SPACE) {
-        shareView = Space.SPACE_VIEW
-      }
-      shareVertex = await this.graph.createShare(vertex, { info: 'share by URL', owner: (await this.user).getPublicUrl(), view: shareView })
-      shares.addEdgeTo(shareVertex, 'url', { view: SHARE_VIEW })
-      await this.graph.put(shares)
-
-      debug(`created share to vertex ${vertex.getFeed()}/${vertex.getId()} at ${shareVertex.getFeed()}/${shareVertex.getId()}`)
-    }
-
-    return shareVertex
-    */
   }
 
   public async mountShare(target: Vertex<GraphObject>, label: string, url: string) {
@@ -325,6 +282,12 @@ export class CertaCrypt {
     await this.graph.put(shares)
 
     return space
+  }
+
+  public async getSpaceForPath(path: string) {
+    const states = await this.graph.queryPathAtVertex(path, await this.sessionRoot).states()
+    if (states.length === 0 || !(states[0] instanceof Space.SpaceQueryState)) throw new Error('cannot find space for path ' + path)
+    return (<Space.SpaceQueryState>states[0]).space
   }
 
   public async debugDrawGraph(root?: Vertex<GraphObject>, currentDepth = 0, label = '/', visited = new Set<string>(), view?: string): Promise<string> {

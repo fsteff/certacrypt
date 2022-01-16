@@ -16,7 +16,7 @@ function wrapHypercore (feed, encrypt, decrypt) {
 
   if (feed.hasCertaCryptCoreWrapper) {
     // seems the corestore does some sort of deduplication, this is only a dirty fix
-    //console.warn('feed already has a wrapper: ' + feed.key.toString('hex'))
+    console.warn('feed already has a wrapper: ' + feed.key.toString('hex'))
     return feed
   }
   feed.hasCertaCryptCoreWrapper = true

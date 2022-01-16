@@ -1,7 +1,7 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.VirtualContactVertex = exports.ContactProfile = exports.ContactsView = exports.Contacts = exports.FriendState = exports.CONTACTS_PATHS = exports.CONTACTS_VIEW = void 0;
-const hyper_graphdb_1 = require("hyper-graphdb");
+const hyper_graphdb_1 = require("@certacrypt/hyper-graphdb");
 const user_1 = require("./user");
 const graphObjects_1 = require("./graphObjects");
 const communication_1 = require("./communication");
