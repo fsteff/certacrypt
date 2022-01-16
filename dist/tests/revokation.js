@@ -7,8 +7,7 @@ const simulator_1 = __importDefault(require("hyperspace/simulator"));
 const tape_1 = __importDefault(require("tape"));
 const certacrypt_crypto_1 = require("certacrypt-crypto");
 const __1 = require("..");
-const debug_1 = require("../lib/debug");
-debug_1.enableDebugLogging();
+//enableDebugLogging()
 const encryptedOpts = { db: { encrypted: true }, encoding: 'utf-8' };
 async function createCertaCrypt(client) {
     const store = client.corestore();
@@ -87,7 +86,8 @@ tape_1.default('key rotation', async (t) => {
         t.fail('supposed to fail');
     }
     catch (err) {
-        t.same((_b = err.cause) === null || _b === void 0 ? void 0 : _b.message, 'Share has been revoked');
+        const msg = (_b = err.cause) === null || _b === void 0 ? void 0 : _b.message;
+        t.ok(msg.includes('Share has been revoked'), 'Expected "Share has been revoked" in message ' + msg);
     }
     dirFiles = await bobDrive.promises.readdir('/space', encryptedOpts);
     t.same(dirFiles, []);
@@ -210,18 +210,14 @@ tape_1.default('write revocation', async (t) => {
     t.ok(refKey1);
     const fileVertexVersion = spaceStatesBob[0].value.getVersion();
     // revoke write access
-    const spaceStatesAlice = await alice.certacrypt.graph
-        .queryPathAtVertex('/apps/drive/space/test.txt', await alice.certacrypt.sessionRoot)
-        .states();
+    const spaceStatesAlice = await alice.certacrypt.graph.queryPathAtVertex('/apps/drive/space/test.txt', await alice.certacrypt.sessionRoot).states();
     spaceAlice = spaceStatesAlice[0].space;
     bobSeenFromAlice = await alice.certacrypt.getUserByUrl(bobUser.getPublicUrl());
     await spaceAlice.revokeWriter(bobSeenFromAlice);
     t.notOk(spaceAlice.userHasWriteAccess(bobSeenFromAlice));
     // try to write
     await bobDrive.promises.writeFile('/shares/' + sharePathBob + '/test.txt', 'Changed it!', encryptedOpts);
-    spaceStatesBob = await bob.certacrypt.graph
-        .queryPathAtVertex('/apps/drive/shares/' + sharePathBob + '/test.txt', await bob.certacrypt.sessionRoot)
-        .states();
+    spaceStatesBob = await bob.certacrypt.graph.queryPathAtVertex('/apps/drive/shares/' + sharePathBob + '/test.txt', await bob.certacrypt.sessionRoot).states();
     spaceSeenFromBob = spaceStatesBob[0].space;
     t.notOk(spaceSeenFromBob.userHasWriteAccess());
     t.same(spaceStatesBob[0].value.getVersion(), bobSeenFromAlice.publicRoot.getVersion());

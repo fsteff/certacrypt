@@ -87,7 +87,10 @@ async function cryptoDrive(corestore, graph, crypto, root) {
         const state = meta
             .writeableFile(name, encrypted)
             .then(prepareStream)
-            .catch((err) => input.destroy(err));
+            .catch((err) => {
+            input.destroy(err);
+            return Promise.reject(err);
+        });
         drive.once('appending', async (filename) => {
             const { path, fkey, stream } = await state;
             if (filename !== path)
@@ -110,13 +113,28 @@ async function cryptoDrive(corestore, graph, crypto, root) {
                 });
             });
         });
-        // TODO: delete graph vertex on error
+        input.on('error', (err) => {
+            // TODO: delete graph vertex on error
+            console.error(err);
+        });
         return input;
         function prepareStream(state) {
             const stream = oldCreateWriteStream.call(drive, state.path, opts);
             stream.on('error', (err) => input.destroy(err));
+            stream.on('end', onClose);
             input.on('error', (err) => stream.destroy(err));
             return Object.assign(Object.assign({}, state), { stream });
+        }
+        async function onClose() {
+            const { path, fkey, mkey, vertex, trie } = await state;
+            const version = trie.version + 1;
+            const file = vertex.getContent();
+            const feed = trie.getFeed().key.toString('hex');
+            file.filename = `hyper://${feed}+${version}${path}`;
+            if (encrypted)
+                file.filename += `?mkey=${mkey.toString('hex')}&fkey=${fkey.toString('hex')}`;
+            vertex.setContent(file);
+            await graph.put(vertex);
         }
     }
     function lstat(name, opts, cb) {
@@ -128,8 +146,8 @@ async function cryptoDrive(corestore, graph, crypto, root) {
         else {
             return meta
                 .find(name, false)
-                .then(async ({ path, feed, vertex }) => {
-                const feedTrie = await meta.getTrie(feed);
+                .then(async ({ path, feed, vertex, version }) => {
+                const feedTrie = await meta.getTrie(feed, version);
                 const { stat, trie } = await meta.lstat(vertex, path, !!opts.db.encrypted, feedTrie, !!opts.file);
                 cb(null, stat, trie);
                 return stat;

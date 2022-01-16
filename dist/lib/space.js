@@ -94,11 +94,10 @@ class CollaborationSpace {
             return true;
         const feed = publicRoot.getFeed();
         const pinningPattern = new RegExp(feed + '#[1-9].*');
-        return this.root
+        return (this.root
             .getEdges('.')
             .filter((e) => e.view === referrer_1.REFERRER_VIEW && e.feed && e.feed.toString('hex') === feed)
-            .filter((e) => !e.restrictions || !e.restrictions.find(restrictionIsPinned))
-            .length > 0;
+            .filter((e) => !e.restrictions || !e.restrictions.find(restrictionIsPinned)).length > 0);
         function restrictionIsPinned(restriction) {
             return pinningPattern.test(restriction.rule) || (restriction.except && restrictionIsPinned(restriction.except));
         }

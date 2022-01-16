@@ -72,8 +72,9 @@ function cryptoCorestore(corestore, crypto) {
     }
 }
 exports.cryptoCorestore = cryptoCorestore;
-async function cryptoTrie(corestore, crypto, feedKey) {
-    const trie = new mountable_hypertrie_1.default(corestore, feedKey);
+async function cryptoTrie(corestore, crypto, feedKey, version) {
+    const opts = !!version ? { version } : undefined;
+    const trie = new mountable_hypertrie_1.default(corestore, feedKey, opts);
     await new Promise((resolve, reject) => trie.ready((err) => (err ? reject(err) : resolve(null))));
     return wrapTrie(trie, crypto);
 }

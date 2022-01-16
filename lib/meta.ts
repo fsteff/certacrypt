@@ -11,7 +11,7 @@ import { Stat as TrieStat } from 'hyperdrive-schemas'
 import { parseUrl, parseUrlResults } from './url'
 import { debug } from './debug'
 import { CollaborationSpace, SpaceQueryState } from './space'
-import { createUrl, URL_TYPES } from '..'
+import { createUrl, CryptoHyperdrive, URL_TYPES } from '..'
 import { VirtualDriveShareVertex, DriveShares } from './driveshares'
 
 export class MetaStorage {
@@ -58,7 +58,7 @@ export class MetaStorage {
     const file = await this.find(filename, false)
     if (!file) throw new FileNotFound(filename)
 
-    const { vertex, feed, path, mkey, fkey, space, share } = file
+    const { vertex, feed, path, mkey, fkey, space, share, version } = file
     if (vertex.getContent()?.typeName === GraphObjectTypeNames.THOMBSTONE) {
       return { path: null, trie: null, stat: null, contentFeed: null }
     }
@@ -66,7 +66,7 @@ export class MetaStorage {
     if (encrypted) this.crypto.registerKey(mkey, { feed, index: path, type: Cipher.XChaCha20_Blob })
     else this.crypto.registerPublic(feed, path)
 
-    const trie = await this.getTrie(feed)
+    const trie = await this.getTrie(feed, version)
     const { stat, contentFeed } = await this.lstat(vertex, path, encrypted, trie, true)
 
     const dataFeed = contentFeed.key.toString('hex')
@@ -84,7 +84,10 @@ export class MetaStorage {
     return { path, trie, stat, contentFeed, spaceMeta, space, share }
   }
 
-  async writeableFile(filename: string, encrypted = true): Promise<{ path: string; fkey?: Buffer }> {
+  async writeableFile(
+    filename: string,
+    encrypted = true
+  ): Promise<{ path: string; fkey?: Buffer; mkey?: Buffer; vertex: Vertex<DriveGraphObject>; trie: MountableHypertrie }> {
     let parsedFile = await this.find(filename, true)
     let fileid: string
     let vertex: Vertex<DriveGraphObject> = parsedFile?.vertex
@@ -102,9 +105,9 @@ export class MetaStorage {
     }
 
     let url = 'hyper://' + feed + fileid
-    let fkey: Buffer
+    let fkey: Buffer, mkey: Buffer
     if (encrypted) {
-      const mkey = this.crypto.generateEncryptionKey(Cipher.XChaCha20_Blob)
+      mkey = this.crypto.generateEncryptionKey(Cipher.XChaCha20_Blob)
       fkey = this.crypto.generateEncryptionKey(Cipher.ChaCha20_Stream)
       this.crypto.registerKey(mkey, { feed, type: Cipher.XChaCha20_Blob, index: fileid })
       // fkey has to be passed out to make sure the feed length isn't changed (wait until lock is set up)
@@ -134,7 +137,7 @@ export class MetaStorage {
       }
     }
 
-    return { path: fileid, fkey }
+    return { path: fileid, fkey, mkey, vertex, trie: await this.getTrie(feed, undefined) }
   }
 
   public async createDirectory(name: string, makeStat: (name: string, cb: CB0) => void): Promise<Vertex<Directory>> {
@@ -326,11 +329,12 @@ export class MetaStorage {
     }
   }
 
-  public async getTrie(feedKey: string): Promise<MountableHypertrie> {
+  public async getTrie(feedKey: string, version: number): Promise<MountableHypertrie> {
+    const feedId = version ? feedKey + '#' + version : feedKey
     if (feedKey === this.drive.key.toString('hex')) return this.drive.db
-    if (this.tries.has(feedKey)) return <MountableHypertrie>this.tries.get(feedKey)
-    const trie = <MountableHypertrie>await cryptoTrie(this.drive.corestore, this.crypto, feedKey)
-    this.tries.set(feedKey, trie)
+    if (this.tries.has(feedId)) return <MountableHypertrie>this.tries.get(feedId)
+    const trie = <MountableHypertrie>await cryptoTrie(this.drive.corestore, this.crypto, feedKey, version)
+    this.tries.set(feedId, trie)
     return trie
   }
 

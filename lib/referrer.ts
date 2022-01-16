@@ -84,11 +84,11 @@ export class ReferrerView extends View<GraphObject> {
     const view = this.getView(ref.view)
     const version = this.pinnedVersion(edge)
     let intermediateState = state
-    if(version) {
+    if (version) {
       // TODO: more tests
-      intermediateState = state.addRestrictions(vertex, [{rule: feed + '#' + version}])      
+      intermediateState = state.addRestrictions(vertex, [{ rule: feed + '#' + version }])
     }
-  
+
     const nextStates = await view
       .query(Generator.from([state.mergeStates(vertex, state.path, intermediateState.rules, state.view)]))
       .out(ref.label)

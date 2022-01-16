@@ -45,7 +45,7 @@ class MetaStorage {
         const file = await this.find(filename, false);
         if (!file)
             throw new errors_1.FileNotFound(filename);
-        const { vertex, feed, path, mkey, fkey, space, share } = file;
+        const { vertex, feed, path, mkey, fkey, space, share, version } = file;
         if (((_a = vertex.getContent()) === null || _a === void 0 ? void 0 : _a.typeName) === graphObjects_1.GraphObjectTypeNames.THOMBSTONE) {
             return { path: null, trie: null, stat: null, contentFeed: null };
         }
@@ -53,7 +53,7 @@ class MetaStorage {
             this.crypto.registerKey(mkey, { feed, index: path, type: certacrypt_crypto_1.Cipher.XChaCha20_Blob });
         else
             this.crypto.registerPublic(feed, path);
-        const trie = await this.getTrie(feed);
+        const trie = await this.getTrie(feed, version);
         const { stat, contentFeed } = await this.lstat(vertex, path, encrypted, trie, true);
         const dataFeed = contentFeed.key.toString('hex');
         if (encrypted)
@@ -89,9 +89,9 @@ class MetaStorage {
                 fileid = filename;
         }
         let url = 'hyper://' + feed + fileid;
-        let fkey;
+        let fkey, mkey;
         if (encrypted) {
-            const mkey = this.crypto.generateEncryptionKey(certacrypt_crypto_1.Cipher.XChaCha20_Blob);
+            mkey = this.crypto.generateEncryptionKey(certacrypt_crypto_1.Cipher.XChaCha20_Blob);
             fkey = this.crypto.generateEncryptionKey(certacrypt_crypto_1.Cipher.ChaCha20_Stream);
             this.crypto.registerKey(mkey, { feed, type: certacrypt_crypto_1.Cipher.XChaCha20_Blob, index: fileid });
             // fkey has to be passed out to make sure the feed length isn't changed (wait until lock is set up)
@@ -118,7 +118,7 @@ class MetaStorage {
                 await this.drive.promises.mkdir(path, { db: { encrypted: true } });
             }
         }
-        return { path: fileid, fkey };
+        return { path: fileid, fkey, mkey, vertex, trie: await this.getTrie(feed, undefined) };
     }
     async createDirectory(name, makeStat) {
         let target;
@@ -301,13 +301,14 @@ class MetaStorage {
             debug_1.debug('placed thombstone to ' + name);
         }
     }
-    async getTrie(feedKey) {
+    async getTrie(feedKey, version) {
+        const feedId = version ? feedKey + '#' + version : feedKey;
         if (feedKey === this.drive.key.toString('hex'))
             return this.drive.db;
-        if (this.tries.has(feedKey))
-            return this.tries.get(feedKey);
-        const trie = await crypto_1.cryptoTrie(this.drive.corestore, this.crypto, feedKey);
-        this.tries.set(feedKey, trie);
+        if (this.tries.has(feedId))
+            return this.tries.get(feedId);
+        const trie = await crypto_1.cryptoTrie(this.drive.corestore, this.crypto, feedKey, version);
+        this.tries.set(feedId, trie);
         return trie;
     }
     async createPath(absolutePath, leaf) {

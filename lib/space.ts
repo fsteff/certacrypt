@@ -115,21 +115,25 @@ export class CollaborationSpace {
     const feedPattern = feed + '#0'
     const newPattern = feed + '#' + version
     const edges = this.root.getEdges()
-    
+
     for (const edge of edges) {
-      if(edge.feed?.toString('hex') === feed && edge.restrictions) {
-        for(const restriction of edge.restrictions) {
+      if (edge.feed?.toString('hex') === feed && edge.restrictions) {
+        for (const restriction of edge.restrictions) {
           patchRestriction(restriction)
         }
       }
     }
     this.root.setEdges(edges)
     await this.graph.put(this.root)
-    debug(`space ${this.root.getId()}@${this.root.getFeed()} pinned version of user ${(await user.getProfile())?.username || user.publicRoot.getFeed()} to version ${version}`)
-    
+    debug(
+      `space ${this.root.getId()}@${this.root.getFeed()} pinned version of user ${
+        (await user.getProfile())?.username || user.publicRoot.getFeed()
+      } to version ${version}`
+    )
+
     function patchRestriction(restriction: Restriction) {
       restriction.rule = restriction.rule.replace(feedPattern, newPattern)
-      if(restriction.except) patchRestriction(restriction.except)
+      if (restriction.except) patchRestriction(restriction.except)
     }
   }
 
@@ -140,16 +144,16 @@ export class CollaborationSpace {
     const feed = publicRoot.getFeed()
     const pinningPattern = new RegExp(feed + '#[1-9].*')
 
-    return this.root
-      .getEdges('.')
-      .filter((e) => e.view === REFERRER_VIEW && e.feed && e.feed.toString('hex') === feed)
-      .filter((e) => !e.restrictions || ! e.restrictions.find(restrictionIsPinned))
-      .length > 0
+    return (
+      this.root
+        .getEdges('.')
+        .filter((e) => e.view === REFERRER_VIEW && e.feed && e.feed.toString('hex') === feed)
+        .filter((e) => !e.restrictions || !e.restrictions.find(restrictionIsPinned)).length > 0
+    )
 
     function restrictionIsPinned(restriction: Restriction) {
       return pinningPattern.test(restriction.rule) || (restriction.except && restrictionIsPinned(restriction.except))
     }
-    
   }
 
   async getWriters() {
@@ -168,7 +172,7 @@ export class CollaborationSpace {
       .map((v) => (<IVertex<PreSharedGraphObject>>v).getContent().owner)
       .filter((url) => url && url.trim().length > 0)
       .destruct()
-      // TODO: check if pinned!
+    // TODO: check if pinned!
     return [this.getOwnerUrl()].concat(urls)
 
     function onError(err: Error) {

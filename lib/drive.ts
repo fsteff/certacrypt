@@ -15,6 +15,7 @@ import { debug } from './debug'
 import { createUrl, parseUrl, URL_TYPES } from '..'
 import { CollaborationSpace, SpaceQueryState } from './space'
 import { DriveShares } from './driveshares'
+import MountableHypertrie from 'mountable-hypertrie'
 
 export type CryptoHyperdrive = Hyperdrive & {
   updateRoot(vertex?: Vertex<Directory>): Promise<Vertex<Directory>>
@@ -113,7 +114,10 @@ export async function cryptoDrive(corestore: Corestore, graph: CertaCryptGraph, 
     const state = meta
       .writeableFile(name, encrypted)
       .then(prepareStream)
-      .catch((err) => input.destroy(err))
+      .catch((err) => {
+        input.destroy(err)
+        return Promise.reject(err)
+      })
 
     drive.once('appending', async (filename) => {
       const { path, fkey, stream } = await state
@@ -136,18 +140,33 @@ export async function cryptoDrive(corestore: Corestore, graph: CertaCryptGraph, 
       })
     })
 
-    // TODO: delete graph vertex on error
+    input.on('error', (err) => {
+      // TODO: delete graph vertex on error
+      console.error(err)
+    })
 
     return input
 
-    function prepareStream(state: { path: string; fkey?: Buffer }) {
+    function prepareStream(state: { path: string; fkey?: Buffer; mkey?: Buffer; trie: MountableHypertrie; vertex: Vertex<DriveGraphObject> }) {
       const stream = oldCreateWriteStream.call(drive, state.path, opts)
       stream.on('error', (err) => input.destroy(err))
+      stream.on('end', onClose)
       input.on('error', (err) => stream.destroy(err))
       return {
         ...state,
         stream
       }
+    }
+
+    async function onClose() {
+      const { path, fkey, mkey, vertex, trie } = await state
+      const version = trie.version + 1
+      const file = vertex.getContent()
+      const feed = trie.getFeed().key.toString('hex')
+      file.filename = `hyper://${feed}+${version}${path}`
+      if (encrypted) file.filename += `?mkey=${mkey.toString('hex')}&fkey=${fkey.toString('hex')}`
+      vertex.setContent(file)
+      await graph.put(vertex)
     }
   }
 
@@ -159,8 +178,8 @@ export async function cryptoDrive(corestore: Corestore, graph: CertaCryptGraph, 
     } else {
       return meta
         .find(name, false)
-        .then(async ({ path, feed, vertex }) => {
-          const feedTrie = await meta.getTrie(feed)
+        .then(async ({ path, feed, vertex, version }) => {
+          const feedTrie = await meta.getTrie(feed, version)
           const { stat, trie } = await meta.lstat(vertex, path, !!opts.db.encrypted, feedTrie, !!opts.file)
           cb(null, stat, trie)
           return stat

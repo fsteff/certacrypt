@@ -8,7 +8,7 @@ import { SpaceQueryState } from '../lib/space'
 import { VertexLoadingError } from 'hyper-graphdb/lib/Errors'
 import { GraphObject, Vertex } from 'hyper-graphdb'
 
-enableDebugLogging()
+//enableDebugLogging()
 
 const encryptedOpts = { db: { encrypted: true }, encoding: 'utf-8' }
 
@@ -101,7 +101,8 @@ tape('key rotation', async (t) => {
     await bob.certacrypt.path('/apps/drive/space')
     t.fail('supposed to fail')
   } catch (err) {
-    t.same((<VertexLoadingError>err).cause?.message, 'Share has been revoked')
+    const msg = (<VertexLoadingError>err).cause?.message
+    t.ok(msg.includes('Share has been revoked'), 'Expected "Share has been revoked" in message ' + msg)
   }
   dirFiles = await bobDrive.promises.readdir('/space', encryptedOpts)
   t.same(dirFiles, [])
@@ -241,9 +242,7 @@ tape('write revocation', async (t) => {
   const fileVertexVersion = (<Vertex<GraphObject>>spaceStatesBob[0].value).getVersion()
 
   // revoke write access
-  const spaceStatesAlice = await alice.certacrypt.graph
-    .queryPathAtVertex('/apps/drive/space/test.txt', await alice.certacrypt.sessionRoot)
-    .states()
+  const spaceStatesAlice = await alice.certacrypt.graph.queryPathAtVertex('/apps/drive/space/test.txt', await alice.certacrypt.sessionRoot).states()
   spaceAlice = (<SpaceQueryState>spaceStatesAlice[0]).space
   bobSeenFromAlice = await alice.certacrypt.getUserByUrl(bobUser.getPublicUrl())
   await spaceAlice.revokeWriter(bobSeenFromAlice)
@@ -252,14 +251,11 @@ tape('write revocation', async (t) => {
   // try to write
   await bobDrive.promises.writeFile('/shares/' + sharePathBob + '/test.txt', 'Changed it!', encryptedOpts)
 
-  spaceStatesBob = await bob.certacrypt.graph
-  .queryPathAtVertex('/apps/drive/shares/' + sharePathBob + '/test.txt', await bob.certacrypt.sessionRoot)
-  .states()
+  spaceStatesBob = await bob.certacrypt.graph.queryPathAtVertex('/apps/drive/shares/' + sharePathBob + '/test.txt', await bob.certacrypt.sessionRoot).states()
   spaceSeenFromBob = (<SpaceQueryState>spaceStatesBob[0]).space
   t.notOk(spaceSeenFromBob.userHasWriteAccess())
   t.same((<Vertex<GraphObject>>spaceStatesBob[0].value).getVersion(), bobSeenFromAlice.publicRoot.getVersion())
 
   fileContent = await aliceDrive.promises.readFile('/space/test.txt', encryptedOpts)
   t.same(fileContent, 'Hey I am Bob')
-
 })

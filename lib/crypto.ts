@@ -78,8 +78,9 @@ export function cryptoCorestore(corestore: Corestore, crypto: ICrypto) {
   }
 }
 
-export async function cryptoTrie(corestore: Corestore, crypto: ICrypto, feedKey: string) {
-  const trie: CryptoTrie = new MountableHypertrie(corestore, feedKey)
+export async function cryptoTrie(corestore: Corestore, crypto: ICrypto, feedKey: string, version: number) {
+  const opts = !!version ? { version } : undefined
+  const trie: CryptoTrie = new MountableHypertrie(corestore, feedKey, opts)
   await new Promise((resolve, reject) => trie.ready((err) => (err ? reject(err) : resolve(null))))
 
   return wrapTrie(trie, crypto)
