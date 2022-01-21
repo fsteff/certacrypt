@@ -184,3 +184,5 @@ Predicate Encryption (pretty new and mostly theoretical...)
 - Twitter's Project BlueSky
   - [Summary of the modern P2P Ecosystems](https://matrix.org/_matrix/media/r0/download/twitter.modular.im/981b258141aa0b197804127cd2f7d298757bad20)
 - [GUN P2P Graph DB](https://gun.eco/)
+- [PushPin](https://www.inkandswitch.com/pushpin/) [Paper](https://martin.kleppmann.com/papers/pushpin-papoc20.pdf)
+App developed as research for local-first software 
