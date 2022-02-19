@@ -1,7 +1,9 @@
 # CertaCrypt
 
 Effort to create an access-control-system for [Hyperdrive](https://hypercore-protocol.org/#hyperdrive) and the [Hypercore Protocol](hypercore-protocol.org/) in general. 
+
 It is designed with the [Local-First Software Principles](https://www.inkandswitch.com/local-first.html) in mind.
+
 At it's heart it is powered by a customly written graph DB that implements access control entirely using a cryptographic [capability access control model](https://en.wikipedia.org/wiki/Capability-based_security).
 
 ## Goals
@@ -43,6 +45,7 @@ In order to simplify the development of local-first software, this adds access c
 ## Context
 
 This has been developed as part of a master thesis (available soon), supervised by the [Institute of Networks and Security](https://www.ins.jku.at/), Johannes Kepler University Linz (Austria).
+
 (c) Stefan Fixl, 2022.
 
 ### Misc
