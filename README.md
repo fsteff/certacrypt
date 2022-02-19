@@ -14,6 +14,7 @@ In order to simplify the development of local-first software, this adds access c
 - sharing files either by URL or with known contacts in-app
 - ability to give replication- and verification-capabilities without giving read access
 - basic user and identity management
+- permissions can be revoked
 
 ## Demo
 
