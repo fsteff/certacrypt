@@ -210,7 +210,7 @@ export class MetaStorage {
         const prev = <VirtualDriveShareVertex>state.path[state.path.length - 2].vertex
         shareMeta = prev.getShareMetaData().find((s) => s.path === path)
         if (!shareMeta) {
-          console.warn('no share metadata found for ' + path)
+          // console.warn('no share metadata found for ' + path)
         }
       }
     }

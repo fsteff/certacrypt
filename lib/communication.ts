@@ -1,16 +1,5 @@
 import { CertaCryptGraph, ShareGraphObject, SHARE_GRAPHOBJECT, SHARE_VIEW } from '@certacrypt/certacrypt-graph'
-import {
-  Edge,
-  Generator,
-  GraphObject,
-  GRAPH_VIEW,
-  IVertex,
-  QueryResult,
-  QueryState,
-  ValueGenerator,
-  Vertex,
-  View
-} from '@certacrypt/hyper-graphdb'
+import { Edge, Generator, GraphObject, GRAPH_VIEW, IVertex, QueryResult, QueryState, ValueGenerator, Vertex, View } from '@certacrypt/hyper-graphdb'
 import { GraphMessage, JsonGraphObject, MessageType, VirtualGraphObject } from './graphObjects'
 import { User } from './user'
 import { createUrl, URL_TYPES, parseUrl } from './url'
