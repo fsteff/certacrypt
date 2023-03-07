@@ -93,7 +93,7 @@ async function benchmarkWriters(count: number) {
     const main = dbs[0]
     const writers = dbs.slice(1)
 
-    await main.drive.promises.writeFile('/data/first.txt', 'first!', encryptedOpts)
+    await main.drive.promises.writeFile('/data/readme.txt', 'first!', encryptedOpts)
     const mainUser = await main.certacrypt.user
     const mainContacts = await main.certacrypt.contacts
 
@@ -121,7 +121,7 @@ async function benchmarkWriters(count: number) {
         if(dirs.length !== 1) throw new Error('Expected one shared directory, got: ' + dirs)
 
         // write one file
-        const path = 'shares/' + dirs[0] + '/file' + index + '.txt'
+        const path = 'shares/' + dirs[0] + '/readme.txt'
         const text = 'writer ' + index
         await writer.drive.promises.writeFile(path, text, encryptedOpts)
     }
@@ -131,7 +131,7 @@ async function benchmarkWriters(count: number) {
     // start benchmark
     for(let i = 0; i < rounds; i++) {
         const dirs = await main.drive.promises.readdir('data', encryptedOpts)
-        if(dirs.length !== count + 1) throw new Error('wrong file count')
+        if(dirs.length !== 1) throw new Error('wrong file count')
     }
     // end benchmark
     const [seconds, nano] = process.hrtime(start)
@@ -175,7 +175,7 @@ async function run(benchmark: (count: number) => Promise<number>) {
     const results = new Map<number, number[]>()
 
     for(const count of iterations) {
-        console.log("start " + count + " " + name)
+        console.log("start " + count + "/" + iterations + " " + name)
         const milliseconds = (await benchmark(count)) / rounds * 1000 
         const prev = results.get(count) || []
         prev.push(milliseconds)
@@ -189,14 +189,19 @@ async function run(benchmark: (count: number) => Promise<number>) {
 
     for(const count of results.keys()) {
         const row = results.get(count)
-        rawData += '\n' + count + ', ' + row.join(', ')
-        stats += '\n' + count + ', ' + (median(row)).toFixed(3) + ', ' + (standardDeviation(row)).toFixed(3)
-        + ', ' +  quantile(row, 0.25).toFixed(3) + ', ' +  quantile(row, 0.75).toFixed(3) 
-        + ', ' +  min(row).toFixed(3)  + ', ' +  max(row).toFixed(3) 
+        rawData += '\n' + count + '; ' + row.map(v => excelNumber(v, 9)).join('; ')
+        stats += '\n' + count + '; ' + excelNumber(median(row)) + '; ' + excelNumber(standardDeviation(row))
+        + '; ' +  excelNumber(quantile(row, 0.25)) + '; ' +  excelNumber(quantile(row, 0.75)) 
+        + '; ' +  excelNumber(min(row))  + '; ' +  excelNumber(max(row)) 
     }
 
     console.log(name + ' result stats: \nN, median, std. dev., 1st q, 3rd q, min, max \n' + stats)
     console.log('raw data: \n' + rawData)
+}
+
+function excelNumber(n: number, exp = 3) {
+    // MS excel does not recognize numbers with points as number...
+    return n.toFixed(exp).replace('.', ',')
 }
 
 

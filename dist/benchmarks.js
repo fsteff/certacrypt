@@ -80,7 +80,7 @@ async function benchmarkWriters(count) {
     const dbs = await createDBs(count + 1);
     const main = dbs[0];
     const writers = dbs.slice(1);
-    await main.drive.promises.writeFile('/data/first.txt', 'first!', encryptedOpts);
+    await main.drive.promises.writeFile('/data/readme.txt', 'first!', encryptedOpts);
     const mainUser = await main.certacrypt.user;
     const mainContacts = await main.certacrypt.contacts;
     for (let index = 0; index < writers.length; index++) {
@@ -104,7 +104,7 @@ async function benchmarkWriters(count) {
         if (dirs.length !== 1)
             throw new Error('Expected one shared directory, got: ' + dirs);
         // write one file
-        const path = 'shares/' + dirs[0] + '/file' + index + '.txt';
+        const path = 'shares/' + dirs[0] + '/readme.txt';
         const text = 'writer ' + index;
         await writer.drive.promises.writeFile(path, text, encryptedOpts);
     }
@@ -113,7 +113,7 @@ async function benchmarkWriters(count) {
     // start benchmark
     for (let i = 0; i < rounds; i++) {
         const dirs = await main.drive.promises.readdir('data', encryptedOpts);
-        if (dirs.length !== count + 1)
+        if (dirs.length !== 1)
             throw new Error('wrong file count');
     }
     // end benchmark
@@ -151,7 +151,7 @@ async function run(benchmark) {
     await benchmark(10);
     const results = new Map();
     for (const count of iterations) {
-        console.log("start " + count + " " + name);
+        console.log("start " + count + "/" + iterations + " " + name);
         const milliseconds = (await benchmark(count)) / rounds * 1000;
         const prev = results.get(count) || [];
         prev.push(milliseconds);
@@ -162,13 +162,17 @@ async function run(benchmark) {
     let stats = '';
     for (const count of results.keys()) {
         const row = results.get(count);
-        rawData += '\n' + count + ', ' + row.join(', ');
-        stats += '\n' + count + ', ' + (simple_statistics_1.median(row)).toFixed(3) + ', ' + (simple_statistics_1.standardDeviation(row)).toFixed(3)
-            + ', ' + simple_statistics_1.quantile(row, 0.25).toFixed(3) + ', ' + simple_statistics_1.quantile(row, 0.75).toFixed(3)
-            + ', ' + simple_statistics_1.min(row).toFixed(3) + ', ' + simple_statistics_1.max(row).toFixed(3);
+        rawData += '\n' + count + '; ' + row.map(v => excelNumber(v, 9)).join('; ');
+        stats += '\n' + count + '; ' + excelNumber(simple_statistics_1.median(row)) + '; ' + excelNumber(simple_statistics_1.standardDeviation(row))
+            + '; ' + excelNumber(simple_statistics_1.quantile(row, 0.25)) + '; ' + excelNumber(simple_statistics_1.quantile(row, 0.75))
+            + '; ' + excelNumber(simple_statistics_1.min(row)) + '; ' + excelNumber(simple_statistics_1.max(row));
     }
     console.log(name + ' result stats: \nN, median, std. dev., 1st q, 3rd q, min, max \n' + stats);
     console.log('raw data: \n' + rawData);
+}
+function excelNumber(n, exp = 3) {
+    // MS excel does not recognize numbers with points as number...
+    return n.toFixed(exp).replace('.', ',');
 }
 run(benchmarkRestrictions)
     .then(() => run(benchmarkWriters))
