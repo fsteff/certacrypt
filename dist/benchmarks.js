@@ -189,7 +189,6 @@ async function mkdir(path) {
 }
 run(benchmarkRestrictions)
     .then(() => run(benchmarkWriters))
-    .then(() => run(benchmarkOutbox));
-run(benchmarkOutbox)
+    .then(() => run(benchmarkOutbox))
     .catch(console.error);
 //# sourceMappingURL=benchmarks.js.map

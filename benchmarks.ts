@@ -223,5 +223,4 @@ async function mkdir(path: string) {
 run(benchmarkRestrictions)
 .then(() => run(benchmarkWriters))
 .then(() => run(benchmarkOutbox))
-run(benchmarkOutbox)
 .catch(console.error)
