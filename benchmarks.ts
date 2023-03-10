@@ -2,9 +2,10 @@ import { CertaCrypt, GraphObjects, CryptoHyperdrive, Space } from '.'
 import RAM from 'random-access-memory'
 import Corestore from 'corestore'
 import { DefaultCrypto } from '@certacrypt/certacrypt-crypto'
-import { max, median, min, quantile, standardDeviation } from 'simple-statistics'
+import { average, max, median, min, quantile, standardDeviation } from 'simple-statistics'
 import { Vertex } from '@certacrypt/hyper-graphdb'
 import { UserProfile } from './lib/graphObjects'
+import fs from 'fs/promises'
 
 
 const encryptedOpts = { db: { encrypted: true }, encoding: 'utf-8' }
@@ -174,8 +175,9 @@ async function run(benchmark: (count: number) => Promise<number>) {
 
     const results = new Map<number, number[]>()
 
-    for(const count of iterations) {
-        console.log("start " + count + "/" + iterations + " " + name)
+    for(let i = 0; i < iterations.length; i++) {
+        const count = iterations[i]
+        console.log("start " + count + ' (' + i + "/" + iterations.length + ") " + name)
         const milliseconds = (await benchmark(count)) / rounds * 1000 
         const prev = results.get(count) || []
         prev.push(milliseconds)
@@ -185,18 +187,23 @@ async function run(benchmark: (count: number) => Promise<number>) {
     }
 
     let rawData = ''
-    let stats = ''
+    let stats = 'N; avg.; median; std. dev.; 1st q; 3rd q; min; max\n'
 
     for(const count of results.keys()) {
         const row = results.get(count)
-        rawData += '\n' + count + '; ' + row.map(v => excelNumber(v, 9)).join('; ')
-        stats += '\n' + count + '; ' + excelNumber(median(row)) + '; ' + excelNumber(standardDeviation(row))
+        rawData +=  count + '; ' + row.map(v => excelNumber(v, 6)).join('; ') + '\n'
+        stats +=  count + '; ' + excelNumber(average(row)) + '; ' + excelNumber(median(row)) + '; ' + excelNumber(standardDeviation(row))
         + '; ' +  excelNumber(quantile(row, 0.25)) + '; ' +  excelNumber(quantile(row, 0.75)) 
-        + '; ' +  excelNumber(min(row))  + '; ' +  excelNumber(max(row)) 
+        + '; ' +  excelNumber(min(row))  + '; ' +  excelNumber(max(row)) + '\n'
     }
 
-    console.log(name + ' result stats: \nN, median, std. dev., 1st q, 3rd q, min, max \n' + stats)
+    console.log(name + ' result stats: \n' + stats)
     console.log('raw data: \n' + rawData)
+
+    await mkdir('benchmark_results')
+    await fs.appendFile('benchmark_results/' + name + '_stats.csv', stats)
+    await fs.appendFile('benchmark_results/' + name + '_raw.csv', rawData)
+    
 }
 
 function excelNumber(n: number, exp = 3) {
@@ -204,8 +211,17 @@ function excelNumber(n: number, exp = 3) {
     return n.toFixed(exp).replace('.', ',')
 }
 
+async function mkdir(path: string) {
+    try {
+        await fs.access(path)
+    } catch {
+        await fs.mkdir(path)
+    }
+}
+
 
 run(benchmarkRestrictions)
 .then(() => run(benchmarkWriters))
 .then(() => run(benchmarkOutbox))
+run(benchmarkOutbox)
 .catch(console.error)

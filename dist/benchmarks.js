@@ -9,6 +9,7 @@ const corestore_1 = __importDefault(require("corestore"));
 const certacrypt_crypto_1 = require("@certacrypt/certacrypt-crypto");
 const simple_statistics_1 = require("simple-statistics");
 const graphObjects_1 = require("./lib/graphObjects");
+const promises_1 = __importDefault(require("fs/promises"));
 const encryptedOpts = { db: { encrypted: true }, encoding: 'utf-8' };
 const iterations = [
     0, 1, 5, 10, 20, 35, 50, 75, 100,
@@ -150,8 +151,9 @@ async function run(benchmark) {
     console.log('warmup for benchmark ' + name + '...');
     await benchmark(10);
     const results = new Map();
-    for (const count of iterations) {
-        console.log("start " + count + "/" + iterations + " " + name);
+    for (let i = 0; i < iterations.length; i++) {
+        const count = iterations[i];
+        console.log("start " + count + ' (' + i + "/" + iterations.length + ") " + name);
         const milliseconds = (await benchmark(count)) / rounds * 1000;
         const prev = results.get(count) || [];
         prev.push(milliseconds);
@@ -159,23 +161,35 @@ async function run(benchmark) {
         console.log("took " + count + " " + name + " in " + milliseconds + 'ms per execution');
     }
     let rawData = '';
-    let stats = '';
+    let stats = 'N; avg.; median; std. dev.; 1st q; 3rd q; min; max\n';
     for (const count of results.keys()) {
         const row = results.get(count);
-        rawData += '\n' + count + '; ' + row.map(v => excelNumber(v, 9)).join('; ');
-        stats += '\n' + count + '; ' + excelNumber(simple_statistics_1.median(row)) + '; ' + excelNumber(simple_statistics_1.standardDeviation(row))
+        rawData += count + '; ' + row.map(v => excelNumber(v, 6)).join('; ') + '\n';
+        stats += count + '; ' + excelNumber(simple_statistics_1.average(row)) + '; ' + excelNumber(simple_statistics_1.median(row)) + '; ' + excelNumber(simple_statistics_1.standardDeviation(row))
             + '; ' + excelNumber(simple_statistics_1.quantile(row, 0.25)) + '; ' + excelNumber(simple_statistics_1.quantile(row, 0.75))
-            + '; ' + excelNumber(simple_statistics_1.min(row)) + '; ' + excelNumber(simple_statistics_1.max(row));
+            + '; ' + excelNumber(simple_statistics_1.min(row)) + '; ' + excelNumber(simple_statistics_1.max(row)) + '\n';
     }
-    console.log(name + ' result stats: \nN, median, std. dev., 1st q, 3rd q, min, max \n' + stats);
+    console.log(name + ' result stats: \n' + stats);
     console.log('raw data: \n' + rawData);
+    await mkdir('benchmark_results');
+    await promises_1.default.appendFile('benchmark_results/' + name + '_stats.csv', stats);
+    await promises_1.default.appendFile('benchmark_results/' + name + '_raw.csv', rawData);
 }
 function excelNumber(n, exp = 3) {
     // MS excel does not recognize numbers with points as number...
     return n.toFixed(exp).replace('.', ',');
 }
+async function mkdir(path) {
+    try {
+        await promises_1.default.access(path);
+    }
+    catch (_a) {
+        await promises_1.default.mkdir(path);
+    }
+}
 run(benchmarkRestrictions)
     .then(() => run(benchmarkWriters))
-    .then(() => run(benchmarkOutbox))
+    .then(() => run(benchmarkOutbox));
+run(benchmarkOutbox)
     .catch(console.error);
 //# sourceMappingURL=benchmarks.js.map
