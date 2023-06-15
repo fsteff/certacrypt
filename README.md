@@ -45,9 +45,9 @@ In order to simplify the development of local-first software, this adds access c
 
 ## Context
 
-This has been developed as part of a master thesis (available soon), supervised by the [Institute of Networks and Security](https://www.ins.jku.at/), Johannes Kepler University Linz (Austria).
+This has been developed as part of a master thesis (available [here](https://permalink.obvsg.at/ULI/AC16862568)), supervised by the [Institute of Networks and Security](https://www.ins.jku.at/), Johannes Kepler University Linz (Austria).
 
-(c) Stefan Fixl, 2022.
+(c) Stefan Fixl, 2023.
 
 ### Misc
 
